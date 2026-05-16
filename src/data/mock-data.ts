@@ -7,6 +7,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  TimeEntry,
 } from "@/types";
 
 export const companySettings: CompanySettings = {
@@ -206,3 +207,22 @@ function buildSeedAllocations(): Allocation[] {
 }
 
 export const initialAllocations = buildSeedAllocations();
+
+function buildSeedTimeEntries(): TimeEntry[] {
+  return initialAllocations.map((a, index) => {
+    const variance = index % 3 === 0 ? 0.5 : index % 3 === 1 ? 0 : 1;
+    return {
+      id: `time-${a.id}`,
+      employee_id: a.employee_id,
+      project_id: a.project_id,
+      allocation_category_id: a.allocation_category_id,
+      entry_date: a.allocation_date,
+      hours: Math.max(0.25, Math.round((a.hours - variance) * 10) / 10),
+      is_billable: a.is_billable,
+      phase: a.phase,
+      task_name: a.task_name,
+    };
+  });
+}
+
+export const initialTimeEntries = buildSeedTimeEntries();

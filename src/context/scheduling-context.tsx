@@ -17,6 +17,7 @@ import {
   companySettings as seedSettings,
   employees as seedEmployees,
   initialAllocations,
+  initialTimeEntries,
   projects as seedProjects,
 } from "@/data/mock-data";
 import { createSupabaseRepository } from "@/lib/data/supabase-repository";
@@ -34,6 +35,8 @@ import type {
   EmployeeFormValues,
   ProjectFormValues,
   SchedulingFilters,
+  TimeEntry,
+  TimeEntryFormValues,
 } from "@/types";
 
 const STORAGE_KEY = "zen-scheduling-state";
@@ -44,6 +47,7 @@ interface PersistedState {
   employees: Employee[];
   projects: Project[];
   allocations: Allocation[];
+  timeEntries: TimeEntry[];
   settings: CompanySettings;
 }
 
@@ -55,6 +59,7 @@ interface SchedulingContextValue {
   projects: Project[];
   categories: AllocationCategory[];
   allocations: Allocation[];
+  timeEntries: TimeEntry[];
   settings: CompanySettings;
   selectedWeekStart: Date;
   filters: SchedulingFilters;
@@ -69,6 +74,9 @@ interface SchedulingContextValue {
   moveAllocation: (id: string, employeeId: string, allocationDate: string) => void;
   deleteAllocation: (id: string) => void;
   duplicateAllocation: (id: string) => Allocation;
+  addTimeEntry: (values: TimeEntryFormValues) => TimeEntry;
+  updateTimeEntry: (id: string, values: TimeEntryFormValues) => void;
+  deleteTimeEntry: (id: string) => void;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
@@ -113,6 +121,21 @@ function buildAllocation(values: AllocationFormValues, id?: string): Allocation 
   };
 }
 
+function buildTimeEntry(values: TimeEntryFormValues, id?: string): TimeEntry {
+  return {
+    id: id ?? generateId(),
+    employee_id: values.employee_id,
+    project_id: values.project_id,
+    allocation_category_id: values.allocation_category_id,
+    entry_date: values.entry_date,
+    hours: values.hours,
+    is_billable: values.is_billable,
+    phase: values.phase,
+    task_name: values.task_name || undefined,
+    notes: values.notes,
+  };
+}
+
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const useSupabase = isSupabaseConfigured();
   const repoRef = useRef<SchedulingRepository | null>(null);
@@ -127,6 +150,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<AllocationCategory[]>(seedCategories);
   const [allocations, setAllocations] = useState<Allocation[]>(
     persisted?.allocations ?? initialAllocations,
+  );
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(
+    persisted?.timeEntries ?? initialTimeEntries,
   );
   const [settings, setSettings] = useState<CompanySettings>(persisted?.settings ?? seedSettings);
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() =>
@@ -147,17 +173,19 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const supabase = createClient();
       repoRef.current = createSupabaseRepository(supabase);
       const repo = repoRef.current;
-      const [emp, proj, cats, alloc, sett] = await Promise.all([
+      const [emp, proj, cats, alloc, times, sett] = await Promise.all([
         repo.listEmployees(),
         repo.listProjects(),
         repo.listCategories(),
         repo.listAllocations(),
+        repo.listTimeEntries(),
         repo.getSettings(),
       ]);
       setEmployees(emp);
       setProjects(proj);
       setCategories(cats.length > 0 ? cats : seedCategories);
       setAllocations(alloc);
+      setTimeEntries(times);
       setSettings(sett);
       setSelectedWeekStart(getWeekStart(new Date(), sett));
     } catch (err) {
@@ -175,9 +203,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (useSupabase) return;
-    const payload: PersistedState = { employees, projects, allocations, settings };
+    const payload: PersistedState = { employees, projects, allocations, timeEntries, settings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [useSupabase, employees, projects, allocations, settings]);
+  }, [useSupabase, employees, projects, allocations, timeEntries, settings]);
 
   const persistAsync = useCallback(
     async <T,>(action: () => Promise<T>, rollback: () => void): Promise<T | undefined> => {
@@ -342,6 +370,63 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       return copy;
     },
     [allocations, persistAsync],
+  );
+
+  const addTimeEntry = useCallback(
+    (values: TimeEntryFormValues): TimeEntry => {
+      const entry = buildTimeEntry(values);
+      setTimeEntries((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertTimeEntry(entry),
+            () => setTimeEntries(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setTimeEntries((current) =>
+                current.map((e) => (e.id === entry.id ? saved : e)),
+              );
+            }
+          });
+        }
+        return [...prev, entry];
+      });
+      return entry;
+    },
+    [persistAsync],
+  );
+
+  const updateTimeEntry = useCallback(
+    (id: string, values: TimeEntryFormValues) => {
+      const updated = buildTimeEntry(values, id);
+      setTimeEntries((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertTimeEntry(updated),
+            () => setTimeEntries(snapshot),
+          );
+        }
+        return prev.map((e) => (e.id === id ? updated : e));
+      });
+    },
+    [persistAsync],
+  );
+
+  const deleteTimeEntry = useCallback(
+    (id: string) => {
+      setTimeEntries((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteTimeEntry(id),
+            () => setTimeEntries(snapshot),
+          );
+        }
+        return prev.filter((e) => e.id !== id);
+      });
+    },
+    [persistAsync],
   );
 
   const addProject = useCallback(
@@ -513,6 +598,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projects,
       categories,
       allocations,
+      timeEntries,
       settings,
       selectedWeekStart,
       filters,
@@ -527,6 +613,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       moveAllocation,
       deleteAllocation,
       duplicateAllocation,
+      addTimeEntry,
+      updateTimeEntry,
+      deleteTimeEntry,
       addProject,
       updateProject,
       updateSettings,
@@ -546,6 +635,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projects,
       categories,
       allocations,
+      timeEntries,
       settings,
       selectedWeekStart,
       filters,
@@ -560,6 +650,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       moveAllocation,
       deleteAllocation,
       duplicateAllocation,
+      addTimeEntry,
+      updateTimeEntry,
+      deleteTimeEntry,
       addProject,
       updateProject,
       updateSettings,

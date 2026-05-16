@@ -4,6 +4,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  TimeEntry,
 } from "@/types";
 
 type EmployeeRow = {
@@ -50,6 +51,19 @@ type AllocationRow = {
   project_id: string | null;
   allocation_category_id: string;
   allocation_date: string;
+  hours: number;
+  is_billable: boolean;
+  phase: string | null;
+  task_name: string | null;
+  notes: string | null;
+};
+
+type TimeEntryRow = {
+  id: string;
+  employee_id: string;
+  project_id: string | null;
+  allocation_category_id: string;
+  entry_date: string;
   hours: number;
   is_billable: boolean;
   phase: string | null;
@@ -124,6 +138,21 @@ export function mapAllocation(row: AllocationRow): Allocation {
   };
 }
 
+export function mapTimeEntry(row: TimeEntryRow): TimeEntry {
+  return {
+    id: row.id,
+    employee_id: row.employee_id,
+    project_id: row.project_id,
+    allocation_category_id: row.allocation_category_id,
+    entry_date: row.entry_date,
+    hours: Number(row.hours),
+    is_billable: row.is_billable,
+    phase: row.phase ?? undefined,
+    task_name: row.task_name ?? undefined,
+    notes: row.notes ?? undefined,
+  };
+}
+
 export function mapSettings(row: SettingsRow): CompanySettings {
   return {
     id: row.id,
@@ -180,6 +209,21 @@ export function allocationToRow(allocation: Allocation) {
     phase: allocation.phase ?? null,
     task_name: allocation.task_name ?? null,
     notes: allocation.notes ?? null,
+  };
+}
+
+export function timeEntryToRow(entry: TimeEntry) {
+  return {
+    id: entry.id,
+    employee_id: entry.employee_id,
+    project_id: entry.project_id,
+    allocation_category_id: entry.allocation_category_id,
+    entry_date: entry.entry_date,
+    hours: entry.hours,
+    is_billable: entry.is_billable,
+    phase: entry.phase ?? null,
+    task_name: entry.task_name ?? null,
+    notes: entry.notes ?? null,
   };
 }
 

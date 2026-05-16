@@ -8,8 +8,10 @@ import {
   mapEmployee,
   mapProject,
   mapSettings,
+  mapTimeEntry,
   projectToRow,
   settingsToRow,
+  timeEntryToRow,
 } from "@/lib/data/mappers";
 import type { SchedulingRepository } from "@/lib/repository";
 import type {
@@ -18,6 +20,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  TimeEntry,
 } from "@/types";
 
 export function createSupabaseRepository(
@@ -60,6 +63,15 @@ export function createSupabaseRepository(
       return (data ?? []).map(mapAllocation);
     },
 
+    async listTimeEntries() {
+      const { data, error } = await supabase
+        .from("time_entries")
+        .select("*")
+        .order("entry_date");
+      if (error) throw error;
+      return (data ?? []).map(mapTimeEntry);
+    },
+
     async getSettings() {
       const { data, error } = await supabase
         .from("company_settings")
@@ -85,6 +97,21 @@ export function createSupabaseRepository(
 
     async deleteAllocation(id: string) {
       const { error } = await supabase.from("allocations").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async upsertTimeEntry(entry: TimeEntry) {
+      const { data, error } = await supabase
+        .from("time_entries")
+        .upsert(timeEntryToRow(entry))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapTimeEntry(data);
+    },
+
+    async deleteTimeEntry(id: string) {
+      const { error } = await supabase.from("time_entries").delete().eq("id", id);
       if (error) throw error;
     },
 

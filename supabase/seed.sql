@@ -98,3 +98,64 @@ on conflict (id) do update set
   is_billable = excluded.is_billable,
   phase = excluded.phase,
   task_name = excluded.task_name;
+
+-- Time entries (actual hours) — mirror current-week allocations with slight variance
+with week as (
+  select date_trunc('week', current_date::timestamp)::date as mon
+)
+insert into public.time_entries (
+  id, employee_id, project_id, allocation_category_id, entry_date, hours, is_billable, phase, task_name
+)
+select
+  v.id::uuid,
+  v.employee_id::uuid,
+  v.project_id::uuid,
+  v.category_id::uuid,
+  w.mon + v.day_offset,
+  greatest(0.25::numeric, v.hours - v.variance),
+  v.is_billable,
+  v.phase,
+  v.task_name
+from week w
+cross join (
+  values
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01'::text, '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', 0, 6::numeric, 0.5::numeric, true, 'Design Development', null::text),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222206', '33333333-3333-3333-3333-333333333301', 1, 4, 0, true, 'Estimating', null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333304', 2, 2, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb04', '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333301', 3, 8, 1, true, 'Construction Documents', null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb05', '11111111-1111-1111-1111-111111111101', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', 4, 6, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb06', '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222204', '33333333-3333-3333-3333-333333333302', 0, 4, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb07', '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222204', '33333333-3333-3333-3333-333333333304', 1, 3, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb08', '11111111-1111-1111-1111-111111111102', null, '33333333-3333-3333-3333-333333333307', 2, 2, 0, false, null, 'Team Standup / Admin'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb09', '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222205', '33333333-3333-3333-3333-333333333302', 3, 5, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb10', '11111111-1111-1111-1111-111111111102', '22222222-2222-2222-2222-222222222204', '33333333-3333-3333-3333-333333333301', 4, 6, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb11', '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333301', 0, 8, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb12', '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333301', 1, 8, 1, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb13', '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222205', '33333333-3333-3333-3333-333333333301', 2, 4, 0, true, 'Concept', null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb14', '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333305', 3, 6, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb15', '11111111-1111-1111-1111-111111111103', '22222222-2222-2222-2222-222222222205', '33333333-3333-3333-3333-333333333304', 4, 4, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb16', '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222203', '33333333-3333-3333-3333-333333333305', 0, 6, 0.5, true, 'Revisions', null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb17', '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222203', '33333333-3333-3333-3333-333333333305', 1, 6, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb18', '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', 2, 4, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb19', '11111111-1111-1111-1111-111111111104', null, '33333333-3333-3333-3333-333333333308', 3, 4, 0, false, null, 'Software Training'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb20', '11111111-1111-1111-1111-111111111104', '22222222-2222-2222-2222-222222222203', '33333333-3333-3333-3333-333333333301', 4, 5, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb21', '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333303', 0, 6, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb22', '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222202', '33333333-3333-3333-3333-333333333303', 1, 6, 1, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb23', '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', 2, 4, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb24', '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222206', '33333333-3333-3333-3333-333333333306', 3, 4, 0, false, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb25', '11111111-1111-1111-1111-111111111105', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', 4, 6, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb26', '11111111-1111-1111-1111-111111111106', '22222222-2222-2222-2222-222222222201', '33333333-3333-3333-3333-333333333301', 0, 4, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb27', '11111111-1111-1111-1111-111111111106', '22222222-2222-2222-2222-222222222204', '33333333-3333-3333-3333-333333333301', 1, 4, 0.5, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb28', '11111111-1111-1111-1111-111111111106', null, '33333333-3333-3333-3333-333333333308', 2, 4, 0, false, null, 'Lunch & Learn'),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb29', '11111111-1111-1111-1111-111111111106', '22222222-2222-2222-2222-222222222203', '33333333-3333-3333-3333-333333333301', 3, 4, 0, true, null, null),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb30', '11111111-1111-1111-1111-111111111106', '22222222-2222-2222-2222-222222222204', '33333333-3333-3333-3333-333333333301', 4, 4, 0, true, null, null)
+) as v(id, employee_id, project_id, category_id, day_offset, hours, variance, is_billable, phase, task_name)
+on conflict (id) do update set
+  employee_id = excluded.employee_id,
+  project_id = excluded.project_id,
+  allocation_category_id = excluded.allocation_category_id,
+  entry_date = excluded.entry_date,
+  hours = excluded.hours,
+  is_billable = excluded.is_billable,
+  phase = excluded.phase,
+  task_name = excluded.task_name;

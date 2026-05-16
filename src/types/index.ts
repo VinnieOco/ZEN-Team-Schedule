@@ -88,6 +88,19 @@ export interface Allocation {
   notes?: string;
 }
 
+export interface TimeEntry {
+  id: string;
+  employee_id: string;
+  project_id: string | null;
+  allocation_category_id: string;
+  entry_date: string;
+  hours: number;
+  is_billable: boolean;
+  phase?: string;
+  task_name?: string;
+  notes?: string;
+}
+
 export interface CompanySettings {
   id: string;
   default_daily_capacity: number;
@@ -132,6 +145,32 @@ export interface AllocationFormValues {
   is_billable: boolean;
   phase?: string;
   notes?: string;
+}
+
+export interface TimeEntryFormValues {
+  employee_id: string;
+  project_id: string | null;
+  task_name: string;
+  entry_date: string;
+  hours: number;
+  allocation_category_id: string;
+  is_billable: boolean;
+  phase?: string;
+  notes?: string;
+}
+
+export interface EmployeeWeekTimeStats {
+  employeeId: string;
+  scheduledHours: number;
+  actualHours: number;
+  varianceHours: number;
+}
+
+export interface TeamTimeSummary {
+  scheduledHours: number;
+  actualHours: number;
+  varianceHours: number;
+  matchPercent: number;
 }
 
 export interface ProjectFormValues {
