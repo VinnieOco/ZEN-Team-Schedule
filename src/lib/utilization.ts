@@ -72,6 +72,17 @@ export function dayWorkloadCellClass(scheduled: number, dailyCapacity: number): 
   return "bg-blue-50 text-blue-700";
 }
 
+/** Cell styling for daily availability (remaining hours = capacity − scheduled). */
+export function dayAvailabilityCellClass(remaining: number, dailyCapacity: number): string {
+  if (remaining < 0) return "bg-red-100 text-red-800 font-semibold";
+  if (dailyCapacity <= 0) return "bg-slate-50 text-slate-400";
+  if (remaining <= 0) return "bg-orange-50 text-orange-800 font-medium";
+  const pctAvailable = (remaining / dailyCapacity) * 100;
+  if (pctAvailable >= 50) return "bg-emerald-100 text-emerald-800 font-medium";
+  if (pctAvailable >= 25) return "bg-emerald-50 text-emerald-700";
+  return "bg-blue-50 text-blue-700";
+}
+
 export function getEmployeeWeekStats(
   employee: Employee,
   allocations: Allocation[],
