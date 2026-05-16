@@ -8,10 +8,12 @@ import { ReportsPeriodNavigator } from "@/components/reports/reports-period-navi
 import { ReportsSummaryCards } from "@/components/reports/reports-summary-cards";
 import { ScheduledVsActualReport } from "@/components/reports/scheduled-vs-actual-report";
 import { TeamUtilizationReport } from "@/components/reports/team-utilization-report";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { ReportsPeriod } from "@/lib/reports-export";
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportsPeriod>("week");
+  const { permissions } = usePermissions();
 
   return (
     <div className="space-y-5 p-4 md:space-y-6 md:p-6">
@@ -19,13 +21,16 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Team utilization, scheduled vs actual, and project budgets. Export any report as CSV.
+            Team utilization, scheduled vs actual, and project budgets.
+            {permissions.exportReports
+              ? " Export any report as CSV."
+              : " View-only for members; CSV export requires an admin."}{" "}
             Uses the same period as Team Scheduling.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <ReportsPeriodNavigator period={period} onPeriodChange={setPeriod} />
-          <ReportsExportMenu period={period} />
+          {permissions.exportReports && <ReportsExportMenu period={period} />}
         </div>
       </div>
 

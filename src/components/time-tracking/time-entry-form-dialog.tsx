@@ -26,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getEmployeeFullName } from "@/lib/week";
 import type { TimeEntry, TimeEntryFormValues } from "@/types";
 
@@ -64,6 +65,8 @@ export function TimeEntryFormDialog({
     updateTimeEntry,
     getCategoryById,
   } = useScheduling();
+  const { permissions, linkedEmployeeId } = usePermissions();
+  const lockEmployee = !permissions.logTimeForAnyone && linkedEmployeeId != null;
 
   const [useTaskName, setUseTaskName] = useState(false);
 
@@ -100,7 +103,7 @@ export function TimeEntryFormDialog({
     } else {
       setUseTaskName(false);
       form.reset({
-        employee_id: defaultEmployeeId ?? employees[0]?.id ?? "",
+        employee_id: defaultEmployeeId ?? linkedEmployeeId ?? employees[0]?.id ?? "",
         project_id: null,
         task_name: "",
         entry_date: defaultDate ?? format(new Date(), "yyyy-MM-dd"),
@@ -111,7 +114,7 @@ export function TimeEntryFormDialog({
         notes: "",
       });
     }
-  }, [open, entry, defaultEmployeeId, defaultDate, employees, categories, form]);
+  }, [open, entry, defaultEmployeeId, defaultDate, employees, categories, linkedEmployeeId, form]);
 
   const watchCategory = form.watch("allocation_category_id");
 
@@ -123,6 +126,14 @@ export function TimeEntryFormDialog({
   }, [watchCategory, getCategoryById, form, entry]);
 
   const onSubmit = form.handleSubmit((values) => {
+    if (
+      !permissions.logTimeForAnyone &&
+      linkedEmployeeId &&
+      values.employee_id !== linkedEmployeeId
+    ) {
+      form.setError("employee_id", { message: "You can only log time for your own schedule profile" });
+      return;
+    }
     if (useTaskName && !values.task_name.trim()) {
       form.setError("task_name", { message: "Task name is required when no project is selected" });
       return;
@@ -159,6 +170,7 @@ export function TimeEntryFormDialog({
             <Select
               value={form.watch("employee_id")}
               onValueChange={(v) => form.setValue("employee_id", v)}
+              disabled={lockEmployee}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select employee" />

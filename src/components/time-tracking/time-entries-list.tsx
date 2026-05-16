@@ -10,11 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getEmployeeFullName } from "@/lib/week";
 import type { TimeEntry } from "@/types";
 
 export function TimeEntriesList() {
   const { getProjectById, getCategoryById, getEmployeeById, deleteTimeEntry } = useScheduling();
+  const { canEditEntry, canLogTime } = usePermissions();
   const { weekTimeEntries, clearFilters } = useFilteredTimeTrackingRows();
   const [editing, setEditing] = useState<TimeEntry | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -67,7 +69,7 @@ export function TimeEntriesList() {
               <th className="hidden px-4 py-3 font-medium sm:table-cell">Project / task</th>
               <th className="hidden px-4 py-3 font-medium md:table-cell">Category</th>
               <th className="px-4 py-3 font-medium text-right">Hours</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
+              {canLogTime && <th className="px-4 py-3 font-medium text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -98,28 +100,32 @@ export function TimeEntriesList() {
                   <td className="px-4 py-3 text-right font-semibold tabular-nums">
                     {entry.hours}h
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(entry)}
-                        aria-label="Edit entry"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-700"
-                        onClick={() => deleteTimeEntry(entry.id)}
-                        aria-label="Delete entry"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
+                  {canLogTime && (
+                    <td className="px-4 py-3">
+                      {canEditEntry(entry.employee_id) ? (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openEdit(entry)}
+                            aria-label="Edit entry"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={() => deleteTimeEntry(entry.id)}
+                            aria-label="Delete entry"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : null}
+                    </td>
+                  )}
                 </tr>
               );
             })}

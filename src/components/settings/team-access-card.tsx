@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Link2, Mail, Shield } from "lucide-react";
+import { Mail, Shield } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmployeeLinkSelect } from "@/components/settings/employee-link-select";
 import { InviteEmailButton } from "@/components/settings/invite-email-button";
 import { UserAccessActions } from "@/components/settings/user-access-actions";
 import { useAuth } from "@/context/auth-context";
@@ -129,8 +130,8 @@ export function TeamAccessCard() {
           Team access
         </CardTitle>
         <CardDescription>
-          Send email invites for app access. Use the actions menu on each user to resend an invite
-          email or set their password directly. Signed in as {userEmail}.
+          Send email invites for app access. Link each login to a schedule team member so they can log
+          time. Use the actions menu to resend invites or set passwords. Signed in as {userEmail}.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -257,14 +258,17 @@ export function TeamAccessCard() {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    {linkedEmployee ? (
-                      <Badge variant="outline" className="gap-1 text-emerald-700">
-                        <Link2 className="h-3 w-3" />
-                        {getEmployeeFullName(linkedEmployee)}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No match</span>
-                    )}
+                    <EmployeeLinkSelect
+                      profileId={p.id}
+                      employees={employees}
+                      linkedEmployeeId={linkedEmployee?.id ?? null}
+                      disabled={roleSavingId === p.id}
+                      onLinked={() => {
+                        void loadProfiles();
+                        void refreshData();
+                      }}
+                      onError={setMessage}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     {p.email ? (

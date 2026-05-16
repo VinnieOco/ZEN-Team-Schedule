@@ -8,12 +8,14 @@ import { formatWeekRange } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
 interface TimeTrackingHeaderProps {
+  canLogTime?: boolean;
   onLogTime: () => void;
   onToggleFilters?: () => void;
   filtersVisible?: boolean;
 }
 
 export function TimeTrackingHeader({
+  canLogTime = true,
   onLogTime,
   onToggleFilters,
   filtersVisible,
@@ -51,10 +53,12 @@ export function TimeTrackingHeader({
             Filters
           </Button>
         )}
-        <Button onClick={onLogTime} className="shadow-sm">
-          <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Log time</span>
-        </Button>
+        {canLogTime && (
+          <Button onClick={onLogTime} className="shadow-sm">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Log time</span>
+          </Button>
+        )}
       </div>
     </div>
   );

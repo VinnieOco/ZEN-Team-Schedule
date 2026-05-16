@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -36,6 +37,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const pathname = usePathname();
+  const { profile } = useAuth();
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
@@ -47,6 +49,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           <div>
             <p className="text-sm font-semibold tracking-wide">ZEN</p>
             <p className="text-xs text-slate-400">Team Scheduling</p>
+            {isSupabaseConfigured() && profile && (
+              <p className="mt-0.5 text-[10px] capitalize text-slate-500">{profile.app_role}</p>
+            )}
           </div>
         </div>
       </div>

@@ -73,8 +73,8 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
           <div>
             <CardTitle>Schedule team</CardTitle>
             <CardDescription>
-              People on the weekly grid. Rows with the same email as an app login are linked
-              automatically.
+              People on the weekly grid. Matching emails link to app logins automatically; admins can
+              also link manually under Team access.
             </CardDescription>
           </div>
           {canEdit && (

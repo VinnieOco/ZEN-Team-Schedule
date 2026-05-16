@@ -10,16 +10,19 @@ import { TimeEntryFormDialog } from "@/components/time-tracking/time-entry-form-
 import { TimeTrackingHeader } from "@/components/time-tracking/time-tracking-header";
 import { TimeTrackingSummary } from "@/components/time-tracking/time-tracking-summary";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function TimeTrackingPageClient() {
   const { isLoading } = useScheduling();
+  const { canLogTime } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
 
   return (
     <div className="space-y-5 p-4 md:space-y-6 md:p-6">
       <TimeTrackingHeader
+        canLogTime={canLogTime}
         onLogTime={() => setDialogOpen(true)}
         onToggleFilters={() => setShowFilters((v) => !v)}
         filtersVisible={showFilters}

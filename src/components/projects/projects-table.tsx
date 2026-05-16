@@ -16,23 +16,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getProjectScheduledHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Project } from "@/types";
 
 export function ProjectsTable() {
   const { projects, allocations, getEmployeeById } = useScheduling();
+  const { permissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={() => { setEditingProject(null); setDialogOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Project
-        </Button>
-      </div>
+      {permissions.editProjects && (
+        <div className="flex justify-end">
+          <Button onClick={() => { setEditingProject(null); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Project
+          </Button>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
         <Table>
           <TableHeader>
@@ -46,7 +50,7 @@ export function ProjectsTable() {
               <TableHead className="text-right">Scheduled Hrs</TableHead>
               <TableHead className="text-right">Remaining Hrs</TableHead>
               <TableHead>Target Date</TableHead>
-              <TableHead />
+              {permissions.editProjects && <TableHead />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -82,15 +86,17 @@ export function ProjectsTable() {
                       ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
                       : "—"}
                   </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => { setEditingProject(project); setDialogOpen(true); }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+                  {permissions.editProjects && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setEditingProject(project); setDialogOpen(true); }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
@@ -100,11 +106,13 @@ export function ProjectsTable() {
       <p className="text-xs text-muted-foreground">
         Scheduled hours reflect all-time allocations across the team.
       </p>
-      <ProjectFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        project={editingProject}
-      />
+      {permissions.editProjects && (
+        <ProjectFormDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          project={editingProject}
+        />
+      )}
     </div>
   );
 }
