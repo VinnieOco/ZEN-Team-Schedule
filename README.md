@@ -1,36 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ZEN Team Scheduling
 
-## Getting Started
+Resource planning and weekly team scheduling for landscape design departments.
 
-First, run the development server:
+## Quick start (local demo — no Supabase)
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) — data saves in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This app uses the **Next.js** preset on Vercel (no custom `vercel.json` required).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 1. Repository
+
+Push the project to GitHub, GitLab, or Bitbucket, then import it in the [Vercel dashboard](https://vercel.com/new).
+
+### 2. Environment variables (Production)
+
+In the Vercel project → **Settings** → **Environment Variables**, add:
+
+| Name | Value | Notes |
+|------|--------|--------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Same as local **Project URL** | Required for auth + live data |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as local `anon public` key | Must be the real JWT (`eyJ...`) or `sb_publishable_...` |
+
+You do **not** need `DATABASE_URL` on Vercel for the running site — it is only used by `npm run db:setup` and `npm run supabase:check` on your machine.
+
+If these variables are missing or invalid, the app still deploys and runs in **browser demo** mode (no login).
+
+### 3. Supabase redirects
+
+After the first deploy, copy your production URL (e.g. `https://your-app.vercel.app`).
+
+1. Supabase → **Authentication** → **URL configuration**
+2. Set **Site URL** to that origin (`https://your-app.vercel.app`)
+3. Under **Redirect URLs**, add:
+   - `https://your-app.vercel.app/**`
+   - `https://your-app.vercel.app/auth/callback`
+
+For a custom domain, add the same patterns with your domain and set **Site URL** to the primary URL.
+
+### 4. Build
+
+The default **Build Command** is `next build` and **Install Command** is `npm install`. Node **20.9+** is declared in `package.json` `engines`.
+
+Redeploy after changing environment variables.
+
+---
+
+## Supabase setup (Priority A)
+
+Your `.env.local` must contain **real** values from your Supabase project (not the template placeholders).
+
+### Step 1 — Create a Supabase project
+
+1. Go to [supabase.com/dashboard](https://supabase.com/dashboard)
+2. **New project** → choose a name and region
+3. **Save the database password** — you need it for `DATABASE_URL`
+
+### Step 2 — Copy credentials into `.env.local`
+
+```bash
+cp .env.example .env.local
+```
+
+Open `.env.local` in Cursor (**Cmd + P** → type `.env.local`).
+
+| Variable | Where in Supabase |
+|----------|-------------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | **Project Settings → API** → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Project Settings → API** → `anon` `public` key |
+| `DATABASE_URL` | **Project Settings → Database** → Connection string → **URI** |
+
+**DATABASE_URL tips:**
+
+- Replace `[YOUR-PASSWORD]` with the password you set when creating the project.
+- The username must look like `postgres.abcdefghijklmnop` where `abcdefghijklmnop` is your **project ref** (the subdomain in `https://abcdefghijklmnop.supabase.co`).
+- If you get **"Tenant or user not found"**, use the **Direct connection** string instead:
+
+```
+postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
+```
+
+- If your password has special characters (`@`, `#`, `%`), [URL-encode](https://www.urlencoder.org/) them.
+
+### Step 3 — Validate configuration
+
+```bash
+npm run supabase:check
+```
+
+You should see green checkmarks for URL, anon key, database, and API. If anything fails, the script prints specific fix instructions.
+
+### Step 4 — Run migration + seed
+
+```bash
+npm run db:setup
+```
+
+Creates tables and loads 6 employees, 6 projects, and sample allocations for **this week**.
+
+### Step 5 — Enable email login
+
+1. Supabase → **Authentication** → **Providers** → enable **Email**
+2. For faster dev testing: **Authentication** → **Email** → turn off **Confirm email**
+
+### Step 6 — Run the app and sign up
+
+```bash
+npm run dev
+```
+
+1. Open [http://localhost:3000/login](http://localhost:3000/login)
+2. **Sign up** with your email and a password (min 6 characters)
+3. You should land on Team Scheduling with a green **Connected to Supabase** banner
+
+---
+
+## Troubleshooting
+
+| Error | Fix |
+|-------|-----|
+| `Tenant or user not found` | Wrong project ref or password in `DATABASE_URL`. Use Direct connection string. Run `npm run supabase:check`. |
+| `password authentication failed` | Reset password: Project Settings → Database → Reset database password |
+| Redirected to `/login` in demo mode | `.env.local` has placeholder URLs — fix or remove invalid `NEXT_PUBLIC_SUPABASE_*` vars |
+| `Another next dev server is already running` | Run `kill 76009` (use PID from terminal) or close the other terminal |
+| Empty schedule after login | Run `npm run db:setup` again |
+
+---
+
+## Features
+
+| Screen | Description |
+|--------|-------------|
+| **Team Scheduling** | Weekly grid, drag-and-drop, utilization |
+| **Projects** | Budget vs scheduled; click name for detail page |
+| **Settings** | Company defaults and employee capacity |
+| **Dashboard** | Team utilization overview |
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server |
+| `npm run supabase:check` | Validate `.env.local` and test connections |
+| `npm run db:setup` | Apply migration + seed data |
+| `npm run build` | Production build |
