@@ -1,13 +1,40 @@
 -- ZEN Team Scheduling — seed data (re-runnable)
 -- Allocations target the current ISO week (Monday–Friday)
 
-insert into public.company_settings (id, default_daily_capacity, default_weekly_capacity, workweek_start_day, include_weekends)
-values ('00000000-0000-0000-0000-000000000001', 8, 40, 'Monday', false)
+insert into public.company_settings (
+  id,
+  default_daily_capacity,
+  default_weekly_capacity,
+  workweek_start_day,
+  include_weekends,
+  job_roles,
+  departments
+)
+values (
+  '00000000-0000-0000-0000-000000000001',
+  8,
+  40,
+  'Monday',
+  false,
+  '[
+    "Design Department Manager",
+    "Senior Landscape Designer",
+    "Landscape Architect",
+    "Junior Landscape Designer",
+    "Design Technician",
+    "Intern",
+    "Estimator",
+    "Construction PM"
+  ]'::jsonb,
+  '["Design", "Estimating"]'::jsonb
+)
 on conflict (id) do update set
   default_daily_capacity = excluded.default_daily_capacity,
   default_weekly_capacity = excluded.default_weekly_capacity,
   workweek_start_day = excluded.workweek_start_day,
-  include_weekends = excluded.include_weekends;
+  include_weekends = excluded.include_weekends,
+  job_roles = excluded.job_roles,
+  departments = excluded.departments;
 
 insert into public.employees (id, first_name, last_name, role, email, weekly_capacity_hours, daily_capacity_hours, department, active) values
   ('11111111-1111-1111-1111-111111111101', 'Haipeng', 'Zhu', 'Senior Landscape Designer', 'haipeng@zenlandscape.com', 40, 8, 'Design', true),

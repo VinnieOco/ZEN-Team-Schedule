@@ -9,6 +9,7 @@ import type {
   Project,
   TimeEntry,
 } from "@/types";
+import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES } from "@/types";
 
 export const companySettings: CompanySettings = {
   id: "settings-1",
@@ -16,6 +17,8 @@ export const companySettings: CompanySettings = {
   default_weekly_capacity: 40,
   workweek_start_day: "Monday",
   include_weekends: false,
+  job_roles: [...DEFAULT_JOB_ROLES],
+  departments: [...DEFAULT_DEPARTMENTS],
 };
 
 export const employees: Employee[] = [

@@ -107,6 +107,10 @@ export interface CompanySettings {
   default_weekly_capacity: number;
   workweek_start_day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
   include_weekends: boolean;
+  /** Configurable job titles for schedule team members. */
+  job_roles: string[];
+  /** Configurable departments for schedule team members. */
+  departments: string[];
 }
 
 export interface EmployeeWeekStats {
@@ -198,7 +202,7 @@ export interface EmployeeFormValues {
   active: boolean;
 }
 
-export const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = [
+export const DEFAULT_JOB_ROLES: string[] = [
   "Design Department Manager",
   "Senior Landscape Designer",
   "Landscape Architect",
@@ -208,3 +212,8 @@ export const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = [
   "Estimator",
   "Construction PM",
 ];
+
+export const DEFAULT_DEPARTMENTS: string[] = ["Design", "Estimating"];
+
+/** @deprecated Use settings.job_roles or DEFAULT_JOB_ROLES */
+export const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = DEFAULT_JOB_ROLES as EmployeeRole[];

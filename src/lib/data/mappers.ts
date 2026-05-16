@@ -1,3 +1,4 @@
+import { normalizeCompanySettings } from "@/lib/team-options";
 import type {
   Allocation,
   AllocationCategory,
@@ -77,6 +78,8 @@ type SettingsRow = {
   default_weekly_capacity: number;
   workweek_start_day: string;
   include_weekends: boolean;
+  job_roles?: string[] | null;
+  departments?: string[] | null;
 };
 
 export function mapEmployee(row: EmployeeRow): Employee {
@@ -154,13 +157,15 @@ export function mapTimeEntry(row: TimeEntryRow): TimeEntry {
 }
 
 export function mapSettings(row: SettingsRow): CompanySettings {
-  return {
+  return normalizeCompanySettings({
     id: row.id,
     default_daily_capacity: Number(row.default_daily_capacity),
     default_weekly_capacity: Number(row.default_weekly_capacity),
     workweek_start_day: row.workweek_start_day as CompanySettings["workweek_start_day"],
     include_weekends: row.include_weekends,
-  };
+    job_roles: Array.isArray(row.job_roles) ? row.job_roles.map(String) : [],
+    departments: Array.isArray(row.departments) ? row.departments.map(String) : [],
+  });
 }
 
 export function employeeToRow(employee: Employee) {
@@ -228,11 +233,14 @@ export function timeEntryToRow(entry: TimeEntry) {
 }
 
 export function settingsToRow(settings: CompanySettings) {
+  const normalized = normalizeCompanySettings(settings);
   return {
-    id: settings.id,
-    default_daily_capacity: settings.default_daily_capacity,
-    default_weekly_capacity: settings.default_weekly_capacity,
-    workweek_start_day: settings.workweek_start_day,
-    include_weekends: settings.include_weekends,
+    id: normalized.id,
+    default_daily_capacity: normalized.default_daily_capacity,
+    default_weekly_capacity: normalized.default_weekly_capacity,
+    workweek_start_day: normalized.workweek_start_day,
+    include_weekends: normalized.include_weekends,
+    job_roles: normalized.job_roles,
+    departments: normalized.departments,
   };
 }

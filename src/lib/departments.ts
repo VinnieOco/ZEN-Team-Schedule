@@ -12,8 +12,15 @@ export function departmentFilterLabel(departmentKey: string): string {
   return departmentKey === UNASSIGNED_DEPARTMENT ? "Unassigned" : departmentKey;
 }
 
-export function listDepartmentsFromEmployees(employees: Employee[]): string[] {
+export function listDepartmentsFromEmployees(
+  employees: Employee[],
+  configuredDepartments: string[] = [],
+): string[] {
   const keys = new Set<string>();
+  for (const name of configuredDepartments) {
+    const trimmed = name.trim();
+    if (trimmed) keys.add(trimmed);
+  }
   for (const employee of employees) {
     if (!employee.active) continue;
     keys.add(getEmployeeDepartmentKey(employee));

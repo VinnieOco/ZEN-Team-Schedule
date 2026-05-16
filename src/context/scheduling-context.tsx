@@ -24,6 +24,11 @@ import { createSupabaseRepository } from "@/lib/data/supabase-repository";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { SchedulingRepository } from "@/lib/repository";
+import {
+  appendDepartment,
+  appendJobRole,
+  normalizeCompanySettings,
+} from "@/lib/team-options";
 import { getMonthStart, getWeekStart } from "@/lib/week";
 import type {
   Allocation,
@@ -157,7 +162,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(
     persisted?.timeEntries ?? initialTimeEntries,
   );
-  const [settings, setSettings] = useState<CompanySettings>(persisted?.settings ?? seedSettings);
+  const [settings, setSettings] = useState<CompanySettings>(() =>
+    normalizeCompanySettings(persisted?.settings ?? seedSettings),
+  );
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(() =>
     getWeekStart(new Date(), seedSettings),
   );
@@ -510,7 +517,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     (partial: Partial<CompanySettings>) => {
       const snapshot = settings;
-      const next = { ...settings, ...partial };
+      const next = normalizeCompanySettings({ ...settings, ...partial });
       setSettings(next);
       if (repoRef.current) {
         persistAsync(
@@ -520,6 +527,22 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
     },
     [settings, persistAsync],
+  );
+
+  const ensureTeamMemberOptions = useCallback(
+    (values: EmployeeFormValues) => {
+      const roleNext = appendJobRole(settings, values.role);
+      const deptNext = values.department?.trim()
+        ? appendDepartment(settings, values.department)
+        : null;
+      if (roleNext || deptNext) {
+        updateSettings({
+          ...(roleNext ? { job_roles: roleNext } : {}),
+          ...(deptNext ? { departments: deptNext } : {}),
+        });
+      }
+    },
+    [settings, updateSettings],
   );
 
   const updateEmployee = useCallback(
@@ -579,14 +602,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      ensureTeamMemberOptions(values);
       return employee;
     },
-    [employeeFromForm, persistAsync],
+    [employeeFromForm, persistAsync, ensureTeamMemberOptions],
   );
 
   const updateEmployeeFromForm = useCallback(
     (id: string, values: EmployeeFormValues) => {
       const employee = employeeFromForm(id, values);
+      ensureTeamMemberOptions(values);
       setEmployees((prev) => {
         const snapshot = prev;
         const next = prev.map((e) => (e.id === id ? employee : e));
@@ -603,7 +628,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [employeeFromForm, persistAsync],
+    [employeeFromForm, persistAsync, ensureTeamMemberOptions],
   );
 
   const value = useMemo(

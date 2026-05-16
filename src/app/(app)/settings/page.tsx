@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TeamAccessCard } from "@/components/settings/team-access-card";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
+import { TeamOptionsCard } from "@/components/settings/team-options-card";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -74,6 +75,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <TeamOptionsCard canEdit={canEdit} />
       <TeamMembersCard canEdit={canEdit} />
     </div>
   );

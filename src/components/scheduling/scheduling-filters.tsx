@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
-import { departmentFilterLabel, listDepartmentsFromEmployees } from "@/lib/departments";
+import { departmentFilterLabel } from "@/lib/departments";
+import { getDepartmentOptions } from "@/lib/team-options";
 
 export function SchedulingFilters() {
-  const { employees, projects, categories, filters, setFilters, clearFilters } = useScheduling();
+  const { employees, projects, categories, filters, settings, setFilters, clearFilters } =
+    useScheduling();
 
-  const departments = listDepartmentsFromEmployees(employees);
+  const departments = getDepartmentOptions(settings, employees);
 
   const hasActiveFilters =
     Boolean(filters.search) ||

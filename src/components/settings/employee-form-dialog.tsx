@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 
+import { CreatableOptionField } from "@/components/settings/creatable-option-field";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,17 +13,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
+import {
+  appendDepartment,
+  appendJobRole,
+  getDepartmentOptions,
+  getJobRoleOptions,
+} from "@/lib/team-options";
 import type { Employee, EmployeeFormValues } from "@/types";
-import { EMPLOYEE_ROLE_OPTIONS } from "@/types";
+import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES } from "@/types";
 
 interface EmployeeFormDialogProps {
   open: boolean;
@@ -33,17 +33,21 @@ interface EmployeeFormDialogProps {
 const defaultValues: EmployeeFormValues = {
   first_name: "",
   last_name: "",
-  role: "Junior Landscape Designer",
+  role: DEFAULT_JOB_ROLES[3] ?? "Junior Landscape Designer",
   email: "",
-  department: "Design",
+  department: DEFAULT_DEPARTMENTS[0] ?? "Design",
   daily_capacity_hours: 8,
   weekly_capacity_hours: 40,
   active: true,
 };
 
 export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFormDialogProps) {
-  const { settings, addEmployee, updateEmployeeFromForm } = useScheduling();
+  const { employees, settings, addEmployee, updateEmployeeFromForm, updateSettings } =
+    useScheduling();
   const form = useForm<EmployeeFormValues>({ defaultValues });
+
+  const jobRoleOptions = getJobRoleOptions(settings, employees);
+  const departmentOptions = getDepartmentOptions(settings, employees);
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +57,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
         last_name: employee.last_name,
         role: employee.role,
         email: employee.email ?? "",
-        department: employee.department ?? "Design",
+        department: employee.department ?? "",
         daily_capacity_hours: employee.daily_capacity_hours,
         weekly_capacity_hours: employee.weekly_capacity_hours,
         active: employee.active,
@@ -61,11 +65,23 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
     } else {
       form.reset({
         ...defaultValues,
+        role: jobRoleOptions[0] ?? defaultValues.role,
+        department: departmentOptions[0] ?? defaultValues.department,
         daily_capacity_hours: settings.default_daily_capacity,
         weekly_capacity_hours: settings.default_weekly_capacity,
       });
     }
-  }, [open, employee, form, settings]);
+  }, [open, employee, form, settings, jobRoleOptions, departmentOptions]);
+
+  const addJobRoleOption = (role: string) => {
+    const next = appendJobRole(settings, role);
+    if (next) updateSettings({ job_roles: next });
+  };
+
+  const addDepartmentOption = (department: string) => {
+    const next = appendDepartment(settings, department);
+    if (next) updateSettings({ departments: next });
+  };
 
   const onSubmit = form.handleSubmit((values) => {
     if (employee) {
@@ -93,21 +109,15 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
               <Input id="last_name" required {...form.register("last_name")} />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label>Job role</Label>
-            <Select value={form.watch("role")} onValueChange={(v) => form.setValue("role", v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EMPLOYEE_ROLE_OPTIONS.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <CreatableOptionField
+            label="Job role"
+            value={form.watch("role")}
+            options={jobRoleOptions}
+            onChange={(v) => form.setValue("role", v)}
+            onAddOption={addJobRoleOption}
+            addPrompt="Add new job role…"
+            placeholder="Select job role"
+          />
           <div className="space-y-2">
             <Label htmlFor="email">Email (optional)</Label>
             <Input id="email" type="email" {...form.register("email")} />
@@ -115,10 +125,15 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
               Use the same email as their app login to link schedule and account automatically.
             </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="department">Department</Label>
-            <Input id="department" {...form.register("department")} />
-          </div>
+          <CreatableOptionField
+            label="Department"
+            value={form.watch("department") ?? ""}
+            options={departmentOptions}
+            onChange={(v) => form.setValue("department", v)}
+            onAddOption={addDepartmentOption}
+            addPrompt="Add new department…"
+            placeholder="Select department"
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="daily_capacity_hours">Daily capacity (hrs)</Label>
