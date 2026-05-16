@@ -1,12 +1,26 @@
 "use client";
 
+import type { ScheduleCalendarView } from "@/components/scheduling/scheduling-header";
 import { useScheduling } from "@/context/scheduling-context";
-import { getTeamSummary } from "@/lib/utilization";
+import { getTeamMonthSummary, getTeamSummary } from "@/lib/utilization";
+import { getMonthStart } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
-export function TeamSummaryBar() {
+interface TeamSummaryBarProps {
+  calendarView?: ScheduleCalendarView;
+}
+
+export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
   const { allocations, employees, selectedWeekStart, settings } = useScheduling();
-  const summary = getTeamSummary(allocations, employees, selectedWeekStart, settings);
+  const summary =
+    calendarView === "month"
+      ? getTeamMonthSummary(
+          allocations,
+          employees,
+          getMonthStart(selectedWeekStart),
+          settings,
+        )
+      : getTeamSummary(allocations, employees, selectedWeekStart, settings);
 
   const items = [
     {

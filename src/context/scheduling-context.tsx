@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { addWeeks, subWeeks } from "date-fns";
+import { addMonths, addWeeks, subMonths, subWeeks } from "date-fns";
 
 import {
   categories as seedCategories,
@@ -24,7 +24,7 @@ import { createSupabaseRepository } from "@/lib/data/supabase-repository";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { SchedulingRepository } from "@/lib/repository";
-import { getWeekStart } from "@/lib/week";
+import { getMonthStart, getWeekStart } from "@/lib/week";
 import type {
   Allocation,
   AllocationCategory,
@@ -64,8 +64,11 @@ interface SchedulingContextValue {
   selectedWeekStart: Date;
   filters: SchedulingFilters;
   setWeek: (date: Date) => void;
+  setMonth: (date: Date) => void;
   goToPreviousWeek: () => void;
   goToNextWeek: () => void;
+  goToPreviousMonth: () => void;
+  goToNextMonth: () => void;
   goToToday: () => void;
   setFilters: (filters: Partial<SchedulingFilters>) => void;
   clearFilters: () => void;
@@ -228,6 +231,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [settings],
   );
 
+  const setMonth = useCallback((date: Date) => {
+    setSelectedWeekStart(getMonthStart(date));
+  }, []);
+
   const goToPreviousWeek = useCallback(() => {
     setSelectedWeekStart((prev) => getWeekStart(subWeeks(prev, 1), settings));
   }, [settings]);
@@ -235,6 +242,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const goToNextWeek = useCallback(() => {
     setSelectedWeekStart((prev) => getWeekStart(addWeeks(prev, 1), settings));
   }, [settings]);
+
+  const goToPreviousMonth = useCallback(() => {
+    setSelectedWeekStart((prev) => getMonthStart(subMonths(prev, 1)));
+  }, []);
+
+  const goToNextMonth = useCallback(() => {
+    setSelectedWeekStart((prev) => getMonthStart(addMonths(prev, 1)));
+  }, []);
 
   const goToToday = useCallback(() => {
     setSelectedWeekStart(getWeekStart(new Date(), settings));
@@ -603,8 +618,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       selectedWeekStart,
       filters,
       setWeek,
+      setMonth,
       goToPreviousWeek,
       goToNextWeek,
+      goToPreviousMonth,
+      goToNextMonth,
       goToToday,
       setFilters,
       clearFilters,
@@ -640,8 +658,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       selectedWeekStart,
       filters,
       setWeek,
+      setMonth,
       goToPreviousWeek,
       goToNextWeek,
+      goToPreviousMonth,
+      goToNextMonth,
       goToToday,
       setFilters,
       clearFilters,

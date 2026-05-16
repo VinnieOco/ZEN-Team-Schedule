@@ -1,6 +1,12 @@
 import { parseISO } from "date-fns";
 
-import { formatDateKey, getWeekDays, isDateInWeek } from "@/lib/week";
+import {
+  formatDateKey,
+  getMonthDays,
+  getWeekDays,
+  isDateInMonth,
+  isDateInWeek,
+} from "@/lib/week";
 import type {
   Allocation,
   CompanySettings,
@@ -51,6 +57,14 @@ export function filterAllocationsForWeek(
   return allocations.filter((a) => isDateInWeek(a.allocation_date, weekStart, settings));
 }
 
+export function filterAllocationsForMonth(
+  allocations: Allocation[],
+  monthStart: Date,
+  settings: CompanySettings,
+): Allocation[] {
+  return allocations.filter((a) => isDateInMonth(a.allocation_date, monthStart, settings));
+}
+
 export function getEmployeeDayHours(
   allocations: Allocation[],
   employeeId: string,
@@ -81,6 +95,79 @@ export function dayAvailabilityCellClass(remaining: number, dailyCapacity: numbe
   if (pctAvailable >= 50) return "bg-emerald-100 text-emerald-800 font-medium";
   if (pctAvailable >= 25) return "bg-emerald-50 text-emerald-700";
   return "bg-blue-50 text-blue-700";
+}
+
+export interface EmployeeMonthStats {
+  employeeId: string;
+  scheduledHours: number;
+  monthlyCapacity: number;
+  utilizationPercent: number;
+  status: UtilizationStatus;
+}
+
+export function getEmployeeMonthStats(
+  employee: Employee,
+  allocations: Allocation[],
+  monthStart: Date,
+  settings: CompanySettings,
+): EmployeeMonthStats {
+  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings).filter(
+    (a) => a.employee_id === employee.id,
+  );
+  const scheduledHours = monthAllocations.reduce((sum, a) => sum + a.hours, 0);
+  const workDays = getMonthDays(monthStart, settings).length;
+  const workDaysPerWeek = settings.include_weekends ? 7 : 5;
+  const monthlyCapacity =
+    workDaysPerWeek > 0
+      ? Math.round((employee.weekly_capacity_hours / workDaysPerWeek) * workDays * 10) / 10
+      : 0;
+  const utilizationPercent =
+    monthlyCapacity > 0 ? Math.round((scheduledHours / monthlyCapacity) * 100) : 0;
+
+  return {
+    employeeId: employee.id,
+    scheduledHours: Math.round(scheduledHours * 10) / 10,
+    monthlyCapacity,
+    utilizationPercent,
+    status: getUtilizationStatus(utilizationPercent),
+  };
+}
+
+export function getTeamMonthSummary(
+  allocations: Allocation[],
+  employees: Employee[],
+  monthStart: Date,
+  settings: CompanySettings,
+): TeamSummaryStats {
+  const activeEmployees = employees.filter((e) => e.active);
+  const workDays = getMonthDays(monthStart, settings).length;
+  const workDaysPerWeek = settings.include_weekends ? 7 : 5;
+  const totalCapacity = activeEmployees.reduce((sum, e) => {
+    const monthly =
+      workDaysPerWeek > 0 ? (e.weekly_capacity_hours / workDaysPerWeek) * workDays : 0;
+    return sum + monthly;
+  }, 0);
+  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
+  const totalScheduled = monthAllocations.reduce((sum, a) => sum + a.hours, 0);
+  const billableScheduled = monthAllocations
+    .filter((a) => a.is_billable)
+    .reduce((sum, a) => sum + a.hours, 0);
+  const nonBillableScheduled = totalScheduled - billableScheduled;
+
+  const totalUtilizationPercent =
+    totalCapacity > 0 ? Math.round((totalScheduled / totalCapacity) * 100) : 0;
+  const billablePercent =
+    totalCapacity > 0 ? Math.round((billableScheduled / totalCapacity) * 100) : 0;
+  const nonBillablePercent =
+    totalCapacity > 0 ? Math.round((nonBillableScheduled / totalCapacity) * 100) : 0;
+  const availablePercent = Math.max(0, 100 - totalUtilizationPercent);
+
+  return {
+    totalUtilizationPercent,
+    billablePercent,
+    nonBillablePercent,
+    availablePercent,
+  };
 }
 
 export function getEmployeeWeekStats(

@@ -1,8 +1,12 @@
 import {
   addDays,
+  eachDayOfInterval,
+  endOfMonth,
   format,
   isSameDay,
+  isWeekend,
   parseISO,
+  startOfMonth,
   startOfWeek,
   type Day,
 } from "date-fns";
@@ -44,6 +48,36 @@ export function formatWeekRange(weekStart: Date, settings: CompanySettings): str
   const start = days[0];
   const end = days[days.length - 1];
   return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
+}
+
+export function getMonthStart(date: Date): Date {
+  return startOfMonth(date);
+}
+
+export function getMonthDays(monthStart: Date, settings: CompanySettings): Date[] {
+  const end = endOfMonth(monthStart);
+  return eachDayOfInterval({ start: monthStart, end }).filter((day) => {
+    if (settings.include_weekends) return true;
+    return !isWeekend(day);
+  });
+}
+
+export function formatMonthRange(monthStart: Date): string {
+  return format(monthStart, "MMMM yyyy");
+}
+
+export function formatMonthDayHeader(date: Date): { weekday: string; day: string } {
+  return { weekday: format(date, "EEE"), day: format(date, "d") };
+}
+
+export function isDateInMonth(
+  dateStr: string,
+  monthStart: Date,
+  settings: CompanySettings,
+): boolean {
+  const date = parseISO(dateStr);
+  const days = getMonthDays(monthStart, settings);
+  return days.some((d) => isSameDay(d, date));
 }
 
 export function formatDayHeader(date: Date): string {
