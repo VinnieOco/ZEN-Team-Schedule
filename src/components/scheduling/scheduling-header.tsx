@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Plus, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
@@ -77,7 +77,7 @@ export function SchedulingHeader({
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">{periodLabel}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex items-center rounded-lg border bg-white p-0.5 shadow-sm">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevious}>
             <ChevronLeft className="h-4 w-4" />
@@ -118,6 +118,10 @@ export function SchedulingHeader({
             Filters
           </Button>
         )}
+        <Button variant="outline" size="sm" onClick={() => window.print()}>
+          <Printer className="mr-2 h-4 w-4" />
+          Print
+        </Button>
         <Button onClick={onAddAllocation} className="shadow-sm">
           <Plus className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Add Allocation</span>

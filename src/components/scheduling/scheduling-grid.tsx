@@ -126,16 +126,16 @@ export function SchedulingGrid() {
 
   return (
     <>
-      <p className="mb-2 text-xs text-muted-foreground">
+      <p className="mb-2 text-xs text-muted-foreground print:hidden">
         <span className="hidden sm:inline">Drag cards by the grip handle to move work between days or team members. </span>
         <span className="lg:hidden">Swipe horizontally to view the full week →</span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm">
-          <table className="w-full min-w-[960px] border-collapse text-sm">
+        <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
+          <table className="w-full min-w-[960px] border-collapse text-sm print:min-w-0 print:text-xs">
             <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="sticky left-0 z-20 min-w-[220px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+              <tr className="border-b bg-slate-50 print:bg-white">
+                <th className="sticky left-0 z-20 min-w-[220px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
                   Team Member
                 </th>
                 {weekDays.map((day) => (
@@ -166,10 +166,10 @@ export function SchedulingGrid() {
                   );
 
                 return (
-                  <tr key={employee.id} className="group border-b align-top hover:bg-slate-50/40">
-                    <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50/40">
+                  <tr key={employee.id} className="group border-b align-top hover:bg-slate-50/40 print:hover:bg-transparent">
+                    <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50/40 print:static print:shadow-none">
                       <div className="flex items-start gap-3">
-                        <Avatar className="h-9 w-9 shrink-0">
+                        <Avatar className="h-9 w-9 shrink-0 print:hidden">
                           <AvatarFallback className="bg-emerald-100 text-xs font-medium text-emerald-800">
                             {getEmployeeInitials(employee)}
                           </AvatarFallback>
@@ -232,7 +232,7 @@ export function SchedulingGrid() {
 
         <DragOverlay dropAnimation={null}>
           {activeAllocation ? (
-            <div className="w-[140px] rotate-1 shadow-lg">
+            <div className="w-[140px] rotate-1 shadow-lg print:hidden">
               <AllocationCard allocation={activeAllocation} onEdit={() => {}} />
             </div>
           ) : null}
@@ -240,7 +240,7 @@ export function SchedulingGrid() {
       </DndContext>
 
       {weekAllocations.length === 0 && (
-        <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
           <CalendarOff className="h-4 w-4 shrink-0" />
           No allocations scheduled for this week yet. Click a cell or Add Allocation to get started.
         </div>

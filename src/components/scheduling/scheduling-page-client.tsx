@@ -24,7 +24,7 @@ export function SchedulingPageClient() {
   const [calendarView, setCalendarView] = useState<ScheduleCalendarView>("week");
 
   return (
-    <div className="space-y-5 p-4 md:space-y-6 md:p-6">
+    <div className="schedule-print-root space-y-5 p-4 md:space-y-6 md:p-6 print:space-y-3 print:p-0">
       <SchedulingHeader
         calendarView={calendarView}
         onCalendarViewChange={setCalendarView}
@@ -32,15 +32,21 @@ export function SchedulingPageClient() {
         onToggleFilters={() => setShowFilters((v) => !v)}
         filtersVisible={showFilters}
       />
-      <TeamSummaryBar calendarView={calendarView} />
-      <Tabs defaultValue="schedule">
-        <TabsList className="w-full justify-start sm:w-auto">
+      <div className="print:hidden">
+        <TeamSummaryBar calendarView={calendarView} />
+      </div>
+      <Tabs defaultValue="schedule" className="print:block">
+        <TabsList className="w-full justify-start sm:w-auto print:hidden">
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="workload">Workload</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
         </TabsList>
-        <TabsContent value="schedule" className="mt-4 space-y-4">
-          {showFilters && <SchedulingFilters />}
+        <TabsContent value="schedule" className="mt-4 space-y-4 print:mt-0 print:block">
+          {showFilters && (
+            <div className="print:hidden">
+              <SchedulingFilters />
+            </div>
+          )}
           {isLoading ? (
             <SchedulingGridSkeleton />
           ) : calendarView === "month" ? (
@@ -49,12 +55,20 @@ export function SchedulingPageClient() {
             <SchedulingGrid />
           )}
         </TabsContent>
-        <TabsContent value="workload" className="mt-4 space-y-4">
-          {showFilters && <SchedulingFilters />}
+        <TabsContent value="workload" className="mt-4 space-y-4 print:hidden">
+          {showFilters && (
+            <div className="print:hidden">
+              <SchedulingFilters />
+            </div>
+          )}
           {isLoading ? <SchedulingGridSkeleton /> : <WorkloadView />}
         </TabsContent>
-        <TabsContent value="availability" className="mt-4 space-y-4">
-          {showFilters && <SchedulingFilters />}
+        <TabsContent value="availability" className="mt-4 space-y-4 print:hidden">
+          {showFilters && (
+            <div className="print:hidden">
+              <SchedulingFilters />
+            </div>
+          )}
           {isLoading ? <SchedulingGridSkeleton /> : <AvailabilityView />}
         </TabsContent>
       </Tabs>

@@ -1,17 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import { CalendarOff, Users } from "lucide-react";
 
+import { AllocationCard } from "@/components/scheduling/allocation-card";
 import { AllocationFormDialog } from "@/components/scheduling/allocation-form-dialog";
+import { parseCellDropId } from "@/components/scheduling/schedule-drop-cell";
 import { ScheduleMonthCell } from "@/components/scheduling/schedule-month-cell";
+import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
 import {
   filterAllocationsForMonth,
   getEmployeeDayHours,
-  getEmployeeMonthStats,
   utilizationStatusBg,
   utilizationStatusColor,
 } from "@/lib/utilization";
@@ -20,44 +31,28 @@ import {
   formatMonthDayHeader,
   getEmployeeFullName,
   getEmployeeInitials,
-  getMonthDays,
   getMonthStart,
 } from "@/lib/week";
 import type { Allocation } from "@/types";
+import type { EmployeeMonthStats } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
 
 export function SchedulingMonthGrid() {
-  const { employees, allocations, settings, selectedWeekStart, filters, clearFilters } =
-    useScheduling();
+  const { allocations, settings, selectedWeekStart, filters, moveAllocation } = useScheduling();
+  const { rows, monthDays, clearFilters } = useFilteredEmployeeRows({ period: "month" });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
   const [defaultEmployeeId, setDefaultEmployeeId] = useState<string>();
   const [defaultDate, setDefaultDate] = useState<string>();
+  const [activeAllocation, setActiveAllocation] = useState<Allocation | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+  );
 
   const monthStart = getMonthStart(selectedWeekStart);
-  const monthDays = getMonthDays(monthStart, settings);
   const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
-
-  const filteredEmployees = useMemo(() => {
-    return employees
-      .filter((e) => e.active)
-      .filter((e) => {
-        if (!filters.search) return true;
-        const q = filters.search.toLowerCase();
-        const name = getEmployeeFullName(e).toLowerCase();
-        return name.includes(q) || e.role.toLowerCase().includes(q);
-      })
-      .filter((e) => {
-        if (!filters.projectId && !filters.categoryId) return true;
-        return monthAllocations.some((a) => {
-          if (a.employee_id !== e.id) return false;
-          if (filters.projectId && a.project_id !== filters.projectId) return false;
-          if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
-          return true;
-        });
-      });
-  }, [employees, filters, monthAllocations]);
 
   const openAdd = (employeeId: string, date: string) => {
     setEditingAllocation(null);
@@ -73,7 +68,21 @@ export function SchedulingMonthGrid() {
     setDialogOpen(true);
   };
 
-  if (filteredEmployees.length === 0) {
+  const handleDragStart = (event: DragStartEvent) => {
+    const alloc = allocations.find((a) => a.id === event.active.id);
+    if (alloc) setActiveAllocation(alloc);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveAllocation(null);
+    const { active, over } = event;
+    if (!over) return;
+    const target = parseCellDropId(String(over.id));
+    if (!target) return;
+    moveAllocation(String(active.id), target.employeeId, target.dateKey);
+  };
+
+  if (rows.length === 0) {
     return (
       <EmptyState
         icon={Users}
@@ -87,111 +96,118 @@ export function SchedulingMonthGrid() {
 
   return (
     <>
-      <p className="mb-2 text-xs text-muted-foreground">
-        Month overview — click a project chip to edit. Switch to <strong>Week</strong> for drag-and-drop.
+      <p className="mb-2 text-xs text-muted-foreground print:hidden">
+        Drag chips by the grip to move work between days. Click a chip to edit.
         <span className="lg:hidden"> Swipe horizontally to see all days →</span>
       </p>
-      <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="w-full min-w-[1100px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b bg-slate-50">
-              <th className="sticky left-0 z-20 min-w-[200px] border-r bg-slate-50 px-4 py-2 text-left text-xs font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
-                Team member
-              </th>
-              {monthDays.map((day) => {
-                const { weekday, day: dayNum } = formatMonthDayHeader(day);
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
+          <table className="w-full min-w-[1100px] border-collapse text-sm print:min-w-0 print:text-xs">
+            <thead>
+              <tr className="border-b bg-slate-50 print:bg-white">
+                <th className="sticky left-0 z-20 min-w-[200px] border-r bg-slate-50 px-4 py-2 text-left text-xs font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
+                  Team member
+                </th>
+                {monthDays.map((day) => {
+                  const { weekday, day: dayNum } = formatMonthDayHeader(day);
+                  return (
+                    <th
+                      key={day.toISOString()}
+                      className="min-w-[64px] border-r px-0.5 py-2 text-center text-[10px] font-medium last:border-r-0"
+                    >
+                      <div className="text-muted-foreground">{weekday}</div>
+                      <div>{dayNum}</div>
+                    </th>
+                  );
+                })}
+                <th className="min-w-[64px] bg-slate-50 px-2 py-2 text-center text-xs font-medium text-muted-foreground print:bg-white">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ employee, stats }) => {
+                const monthStats = stats as EmployeeMonthStats;
+                const dayAllocs = (dateKey: string) =>
+                  monthAllocations.filter(
+                    (a) => a.employee_id === employee.id && a.allocation_date === dateKey,
+                  );
+
                 return (
-                  <th
-                    key={day.toISOString()}
-                    className="min-w-[64px] border-r px-0.5 py-2 text-center text-[10px] font-medium last:border-r-0"
-                  >
-                    <div className="text-muted-foreground">{weekday}</div>
-                    <div>{dayNum}</div>
-                  </th>
+                  <tr key={employee.id} className="border-b align-top hover:bg-slate-50/40 print:hover:bg-transparent">
+                    <td className="sticky left-0 z-10 border-r bg-white px-3 py-2 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
+                      <div className="flex items-start gap-2">
+                        <Avatar className="h-8 w-8 shrink-0 print:hidden">
+                          <AvatarFallback className="bg-emerald-100 text-[10px] font-medium text-emerald-800">
+                            {getEmployeeInitials(employee)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-slate-900">
+                            {getEmployeeFullName(employee)}
+                          </p>
+                          <span
+                            className={cn(
+                              "mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+                              utilizationStatusBg(monthStats.status),
+                              utilizationStatusColor(monthStats.status),
+                            )}
+                          >
+                            {monthStats.utilizationPercent}%
+                          </span>
+                          <p className="text-[10px] text-muted-foreground tabular-nums">
+                            {monthStats.scheduledHours}/{monthStats.monthlyCapacity}h
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    {monthDays.map((day) => {
+                      const dateKey = formatDateKey(day);
+                      const dayHours = getEmployeeDayHours(allocations, employee.id, day);
+                      return (
+                        <ScheduleMonthCell
+                          key={dateKey}
+                          employeeId={employee.id}
+                          dateKey={dateKey}
+                          date={day}
+                          allocations={dayAllocs(dateKey)}
+                          dayHours={dayHours}
+                          dailyCapacity={employee.daily_capacity_hours}
+                          showHours={filters.showHours}
+                          isOverDay={dayHours > employee.daily_capacity_hours}
+                          onAdd={() => openAdd(employee.id, dateKey)}
+                          onEdit={openEdit}
+                        />
+                      );
+                    })}
+                    <td className="bg-slate-50/30 px-2 py-2 text-center print:bg-white">
+                      <span
+                        className={cn(
+                          "text-xs font-semibold tabular-nums",
+                          monthStats.status === "over" ? "text-red-600" : "text-slate-700",
+                        )}
+                      >
+                        {monthStats.scheduledHours}h
+                      </span>
+                    </td>
+                  </tr>
                 );
               })}
-              <th className="min-w-[64px] bg-slate-50 px-2 py-2 text-center text-xs font-medium text-muted-foreground">
-                Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEmployees.map((employee) => {
-              const stats = getEmployeeMonthStats(
-                employee,
-                allocations,
-                monthStart,
-                settings,
-              );
-              const dayAllocs = (dateKey: string) =>
-                monthAllocations.filter(
-                  (a) => a.employee_id === employee.id && a.allocation_date === dateKey,
-                );
+            </tbody>
+          </table>
+        </div>
 
-              return (
-                <tr key={employee.id} className="border-b align-top hover:bg-slate-50/40">
-                  <td className="sticky left-0 z-10 border-r bg-white px-3 py-2 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
-                    <div className="flex items-start gap-2">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className="bg-emerald-100 text-[10px] font-medium text-emerald-800">
-                          {getEmployeeInitials(employee)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-slate-900">
-                          {getEmployeeFullName(employee)}
-                        </p>
-                        <span
-                          className={cn(
-                            "mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-                            utilizationStatusBg(stats.status),
-                            utilizationStatusColor(stats.status),
-                          )}
-                        >
-                          {stats.utilizationPercent}%
-                        </span>
-                        <p className="text-[10px] text-muted-foreground tabular-nums">
-                          {stats.scheduledHours}/{stats.monthlyCapacity}h
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  {monthDays.map((day) => {
-                    const dateKey = formatDateKey(day);
-                    const dayHours = getEmployeeDayHours(allocations, employee.id, day);
-                    return (
-                      <ScheduleMonthCell
-                        key={dateKey}
-                        date={day}
-                        allocations={dayAllocs(dateKey)}
-                        dayHours={dayHours}
-                        dailyCapacity={employee.daily_capacity_hours}
-                        showHours={filters.showHours}
-                        isOverDay={dayHours > employee.daily_capacity_hours}
-                        onAdd={() => openAdd(employee.id, dateKey)}
-                        onEdit={openEdit}
-                      />
-                    );
-                  })}
-                  <td className="bg-slate-50/30 px-2 py-2 text-center">
-                    <span
-                      className={cn(
-                        "text-xs font-semibold tabular-nums",
-                        stats.status === "over" ? "text-red-600" : "text-slate-700",
-                      )}
-                    >
-                      {stats.scheduledHours}h
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+        <DragOverlay dropAnimation={null}>
+          {activeAllocation ? (
+            <div className="w-[120px] rotate-1 shadow-lg print:hidden">
+              <AllocationCard allocation={activeAllocation} onEdit={() => {}} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {monthAllocations.length === 0 && (
-        <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
           <CalendarOff className="h-4 w-4 shrink-0" />
           No allocations scheduled for this month yet. Click a day or Add Allocation to get started.
         </div>

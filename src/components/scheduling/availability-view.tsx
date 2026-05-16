@@ -16,14 +16,13 @@ import {
 import { cn } from "@/lib/utils";
 
 export function AvailabilityView() {
-  const { rows, weekDays, allocations, clearFilters } = useFilteredEmployeeRows();
+  const { rows, weekDays, allocations, clearFilters } = useFilteredEmployeeRows({ period: "week" });
 
   const sortedRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
-      const remainA = a.stats.weeklyCapacity - a.stats.scheduledHours;
-      const remainB = b.stats.weeklyCapacity - b.stats.scheduledHours;
-      return remainB - remainA;
-    });
+    const remainingHours = (stats: (typeof rows)[number]["stats"]) =>
+      ("weeklyCapacity" in stats ? stats.weeklyCapacity : stats.monthlyCapacity) -
+      stats.scheduledHours;
+    return [...rows].sort((a, b) => remainingHours(b.stats) - remainingHours(a.stats));
   }, [rows]);
 
   if (sortedRows.length === 0) {
@@ -82,8 +81,10 @@ export function AvailabilityView() {
           </thead>
           <tbody>
             {sortedRows.map(({ employee, stats }) => {
+              const capacity =
+                "weeklyCapacity" in stats ? stats.weeklyCapacity : stats.monthlyCapacity;
               const weekRemaining =
-                Math.round((stats.weeklyCapacity - stats.scheduledHours) * 10) / 10;
+                Math.round((capacity - stats.scheduledHours) * 10) / 10;
               return (
                 <tr key={employee.id} className="border-b align-middle hover:bg-slate-50/40">
                   <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
@@ -139,7 +140,7 @@ export function AvailabilityView() {
                       >
                         {weekRemaining}h
                       </p>
-                      <p className="text-[10px] text-muted-foreground">of {stats.weeklyCapacity}h</p>
+                      <p className="text-[10px] text-muted-foreground">of {capacity}h</p>
                     </div>
                   </td>
                 </tr>

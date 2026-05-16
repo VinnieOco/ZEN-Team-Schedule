@@ -1,15 +1,19 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/core";
 import { isToday } from "date-fns";
 import { Plus } from "lucide-react";
 
-import { useScheduling } from "@/context/scheduling-context";
+import { DraggableMonthAllocationChip } from "@/components/scheduling/draggable-month-allocation-chip";
+import { cellDropId } from "@/components/scheduling/schedule-drop-cell";
 import { cn } from "@/lib/utils";
 import type { Allocation } from "@/types";
 
 const MAX_VISIBLE = 2;
 
 interface ScheduleMonthCellProps {
+  employeeId: string;
+  dateKey: string;
   date: Date;
   allocations: Allocation[];
   dayHours: number;
@@ -21,6 +25,8 @@ interface ScheduleMonthCellProps {
 }
 
 export function ScheduleMonthCell({
+  employeeId,
+  dateKey,
   date,
   allocations,
   dayHours,
@@ -30,7 +36,11 @@ export function ScheduleMonthCell({
   onAdd,
   onEdit,
 }: ScheduleMonthCellProps) {
-  const { getCategoryById, getProjectById } = useScheduling();
+  const { setNodeRef, isOver } = useDroppable({
+    id: cellDropId(employeeId, dateKey),
+    data: { type: "cell", employeeId, dateKey },
+  });
+
   const today = isToday(date);
   const overflow = allocations.length - MAX_VISIBLE;
 
@@ -52,41 +62,32 @@ export function ScheduleMonthCell({
           {dayHours}/{dailyCapacity}
         </p>
       )}
-      <div className="flex min-h-[52px] flex-col gap-0.5">
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex min-h-[52px] flex-col gap-0.5 rounded-md transition-colors",
+          isOver && "bg-emerald-50 ring-2 ring-inset ring-emerald-400",
+        )}
+      >
         {allocations.length === 0 ? (
           <button
             type="button"
             onClick={onAdd}
-            className="flex min-h-[48px] w-full items-center justify-center rounded border border-dashed border-slate-200 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-600"
+            className="flex min-h-[48px] w-full items-center justify-center rounded border border-dashed border-slate-200 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-600 print:border-slate-300"
             aria-label="Add allocation"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3.5 w-3.5 print:hidden" />
           </button>
         ) : (
           <>
-            {allocations.slice(0, MAX_VISIBLE).map((alloc) => {
-              const project = alloc.project_id ? getProjectById(alloc.project_id) : null;
-              const category = getCategoryById(alloc.allocation_category_id);
-              const title = project?.project_name ?? alloc.task_name ?? "Task";
-              return (
-                <button
-                  key={alloc.id}
-                  type="button"
-                  onClick={() => onEdit(alloc)}
-                  className="w-full truncate rounded px-1 py-0.5 text-left text-[9px] font-medium leading-tight text-slate-800 ring-1 ring-slate-200/80 hover:ring-emerald-300"
-                  style={{ backgroundColor: category?.color ?? "#f1f5f9" }}
-                  title={`${title} · ${alloc.hours}h`}
-                >
-                  <span className="block truncate">{title}</span>
-                  <span className="text-[8px] opacity-80">{alloc.hours}h</span>
-                </button>
-              );
-            })}
+            {allocations.slice(0, MAX_VISIBLE).map((alloc) => (
+              <DraggableMonthAllocationChip key={alloc.id} allocation={alloc} onEdit={onEdit} />
+            ))}
             {overflow > 0 && (
               <button
                 type="button"
                 onClick={onAdd}
-                className="text-center text-[9px] font-medium text-muted-foreground hover:text-emerald-700"
+                className="text-center text-[9px] font-medium text-muted-foreground hover:text-emerald-700 print:text-slate-600"
               >
                 +{overflow} more
               </button>
@@ -94,7 +95,7 @@ export function ScheduleMonthCell({
             <button
               type="button"
               onClick={onAdd}
-              className="flex h-4 w-full items-center justify-center text-slate-400 hover:text-emerald-600"
+              className="flex h-4 w-full items-center justify-center text-slate-400 hover:text-emerald-600 print:hidden"
               aria-label="Add allocation"
             >
               <Plus className="h-3 w-3" />

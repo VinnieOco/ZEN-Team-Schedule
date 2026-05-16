@@ -1,16 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
 import { Users } from "lucide-react";
 
+import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useScheduling } from "@/context/scheduling-context";
 import {
   dayWorkloadCellClass,
-  filterAllocationsForWeek,
   getEmployeeDayHours,
-  getEmployeeWeekStats,
   utilizationStatusBg,
   utilizationStatusColor,
 } from "@/lib/utilization";
@@ -19,43 +16,16 @@ import {
   formatDayHeader,
   getEmployeeFullName,
   getEmployeeInitials,
-  getWeekDays,
 } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
 export function WorkloadView() {
-  const { employees, allocations, settings, selectedWeekStart, filters, clearFilters } =
-    useScheduling();
+  const { rows, weekDays, allocations, clearFilters } = useFilteredEmployeeRows({
+    period: "week",
+    sortByUtilization: true,
+  });
 
-  const weekDays = getWeekDays(selectedWeekStart, settings);
-  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
-
-  const filteredEmployees = useMemo(() => {
-    return employees
-      .filter((e) => e.active)
-      .filter((e) => {
-        if (!filters.search) return true;
-        const q = filters.search.toLowerCase();
-        const name = getEmployeeFullName(e).toLowerCase();
-        return name.includes(q) || e.role.toLowerCase().includes(q);
-      })
-      .filter((e) => {
-        if (!filters.projectId && !filters.categoryId) return true;
-        return weekAllocations.some((a) => {
-          if (a.employee_id !== e.id) return false;
-          if (filters.projectId && a.project_id !== filters.projectId) return false;
-          if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
-          return true;
-        });
-      })
-      .map((employee) => ({
-        employee,
-        stats: getEmployeeWeekStats(employee, allocations, selectedWeekStart, settings),
-      }))
-      .sort((a, b) => b.stats.utilizationPercent - a.stats.utilizationPercent);
-  }, [employees, filters, weekAllocations, allocations, selectedWeekStart, settings]);
-
-  if (filteredEmployees.length === 0) {
+  if (rows.length === 0) {
     return (
       <EmptyState
         icon={Users}
@@ -113,7 +83,7 @@ export function WorkloadView() {
             </tr>
           </thead>
           <tbody>
-            {filteredEmployees.map(({ employee, stats }) => (
+            {rows.map(({ employee, stats }) => (
               <tr key={employee.id} className="border-b align-middle hover:bg-slate-50/40">
                 <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center gap-3">
@@ -162,7 +132,9 @@ export function WorkloadView() {
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-muted-foreground">
                       <span>{stats.scheduledHours}h</span>
-                      <span>{stats.weeklyCapacity}h</span>
+                      <span>
+                        {"weeklyCapacity" in stats ? stats.weeklyCapacity : stats.monthlyCapacity}h
+                      </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-slate-200">
                       <div

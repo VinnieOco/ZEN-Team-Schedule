@@ -76,3 +76,24 @@ body {
   background: #cbd5e1;
   border-radius: 3px;
 }
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 0.4in;
+  }
+
+  body {
+    background: white !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .schedule-print-root {
+    padding: 0 !important;
+  }
+
+  main {
+    overflow: visible !important;
+  }
+}

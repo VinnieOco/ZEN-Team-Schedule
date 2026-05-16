@@ -9,7 +9,7 @@ export function DataSourceBanner() {
 
   if (isLoading) {
     return (
-      <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm text-emerald-800">
+      <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-center text-sm text-emerald-800 print:hidden">
         Loading schedule data…
       </div>
     );
@@ -17,7 +17,7 @@ export function DataSourceBanner() {
 
   if (error) {
     return (
-      <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-center text-sm text-red-800">
+      <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-center text-sm text-red-800 print:hidden">
         {error}
       </div>
     );
@@ -25,7 +25,7 @@ export function DataSourceBanner() {
 
   if (dataSource === "local") {
     return (
-      <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-xs text-slate-600">
+      <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-xs text-slate-600 print:hidden">
         <Database className="h-3.5 w-3.5" />
         Local demo mode — data saved in your browser. Add Supabase env vars to sync to the cloud.
       </div>
@@ -33,7 +33,7 @@ export function DataSourceBanner() {
   }
 
   return (
-    <div className="flex items-center justify-center gap-2 border-b border-emerald-200 bg-emerald-50/80 px-4 py-1.5 text-xs text-emerald-800">
+    <div className="flex items-center justify-center gap-2 border-b border-emerald-200 bg-emerald-50/80 px-4 py-1.5 text-xs text-emerald-800 print:hidden">
       <Cloud className="h-3.5 w-3.5" />
       Connected to Supabase
     </div>

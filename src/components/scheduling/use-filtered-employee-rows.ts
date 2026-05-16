@@ -4,27 +4,44 @@ import { useMemo } from "react";
 
 import { useScheduling } from "@/context/scheduling-context";
 import {
+  filterAllocationsForMonth,
   filterAllocationsForWeek,
+  getEmployeeMonthStats,
   getEmployeeWeekStats,
 } from "@/lib/utilization";
 import type { EmployeeWeekStats } from "@/types";
-import { getEmployeeFullName, getWeekDays } from "@/lib/week";
+import type { EmployeeMonthStats } from "@/lib/utilization";
+import { getEmployeeFullName, getMonthDays, getMonthStart, getWeekDays } from "@/lib/week";
 import type { Employee } from "@/types";
+
+export type FilteredRowsPeriod = "week" | "month";
 
 export interface EmployeeWeekRow {
   employee: Employee;
-  stats: EmployeeWeekStats;
+  stats: EmployeeWeekStats | EmployeeMonthStats;
 }
 
-export function useFilteredEmployeeRows() {
+interface UseFilteredEmployeeRowsOptions {
+  period?: FilteredRowsPeriod;
+  sortByUtilization?: boolean;
+}
+
+export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions = {}) {
+  const { period = "week", sortByUtilization = false } = options;
   const { employees, allocations, settings, selectedWeekStart, filters, clearFilters } =
     useScheduling();
 
+  const monthStart = getMonthStart(selectedWeekStart);
   const weekDays = getWeekDays(selectedWeekStart, settings);
+  const monthDays = getMonthDays(monthStart, settings);
+  const periodDays = period === "month" ? monthDays : weekDays;
+
   const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
+  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
+  const periodAllocations = period === "month" ? monthAllocations : weekAllocations;
 
   const rows: EmployeeWeekRow[] = useMemo(() => {
-    return employees
+    const mapped = employees
       .filter((e) => e.active)
       .filter((e) => {
         if (!filters.search) return true;
@@ -34,7 +51,7 @@ export function useFilteredEmployeeRows() {
       })
       .filter((e) => {
         if (!filters.projectId && !filters.categoryId) return true;
-        return weekAllocations.some((a) => {
+        return periodAllocations.some((a) => {
           if (a.employee_id !== e.id) return false;
           if (filters.projectId && a.project_id !== filters.projectId) return false;
           if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
@@ -43,14 +60,36 @@ export function useFilteredEmployeeRows() {
       })
       .map((employee) => ({
         employee,
-        stats: getEmployeeWeekStats(employee, allocations, selectedWeekStart, settings),
+        stats:
+          period === "month"
+            ? getEmployeeMonthStats(employee, allocations, monthStart, settings)
+            : getEmployeeWeekStats(employee, allocations, selectedWeekStart, settings),
       }));
-  }, [employees, filters, weekAllocations, allocations, selectedWeekStart, settings]);
+
+    if (sortByUtilization) {
+      return [...mapped].sort((a, b) => b.stats.utilizationPercent - a.stats.utilizationPercent);
+    }
+    return mapped;
+  }, [
+    employees,
+    filters,
+    periodAllocations,
+    allocations,
+    selectedWeekStart,
+    settings,
+    period,
+    monthStart,
+    sortByUtilization,
+  ]);
 
   return {
     rows,
     weekDays,
+    monthDays,
+    periodDays,
     weekAllocations,
+    monthAllocations,
+    periodAllocations,
     allocations,
     clearFilters,
   };

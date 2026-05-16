@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-white">
-      <div className="hidden lg:flex">
+      <div className="hidden lg:flex print:hidden">
         <AppSidebar />
       </div>
 
@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-white px-4 lg:hidden">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-white px-4 lg:hidden print:hidden">
           <Button
             variant="outline"
             size="icon"
