@@ -39,6 +39,8 @@ export interface Employee {
   last_name: string;
   role: EmployeeRole | string;
   email?: string;
+  /** Set when email matches an app login (profiles). */
+  profile_id?: string;
   avatar_url?: string;
   weekly_capacity_hours: number;
   daily_capacity_hours: number;

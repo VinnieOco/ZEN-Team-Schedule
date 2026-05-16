@@ -12,6 +12,7 @@ type EmployeeRow = {
   last_name: string;
   role: string;
   email: string | null;
+  profile_id: string | null;
   avatar_url: string | null;
   weekly_capacity_hours: number;
   daily_capacity_hours: number;
@@ -71,6 +72,7 @@ export function mapEmployee(row: EmployeeRow): Employee {
     last_name: row.last_name,
     role: row.role,
     email: row.email ?? undefined,
+    profile_id: row.profile_id ?? undefined,
     avatar_url: row.avatar_url ?? undefined,
     weekly_capacity_hours: Number(row.weekly_capacity_hours),
     daily_capacity_hours: Number(row.daily_capacity_hours),
@@ -139,6 +141,7 @@ export function employeeToRow(employee: Employee) {
     last_name: employee.last_name,
     role: employee.role,
     email: employee.email ?? null,
+    profile_id: employee.profile_id ?? null,
     avatar_url: employee.avatar_url ?? null,
     weekly_capacity_hours: employee.weekly_capacity_hours,
     daily_capacity_hours: employee.daily_capacity_hours,

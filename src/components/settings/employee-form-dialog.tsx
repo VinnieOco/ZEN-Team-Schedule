@@ -111,6 +111,9 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
           <div className="space-y-2">
             <Label htmlFor="email">Email (optional)</Label>
             <Input id="email" type="email" {...form.register("email")} />
+            <p className="text-xs text-muted-foreground">
+              Use the same email as their app login to link schedule and account automatically.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>

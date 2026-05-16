@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Mail, Shield } from "lucide-react";
+import { Link2, Mail, Shield } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/context/auth-context";
+import { useScheduling } from "@/context/scheduling-context";
+import { getEmployeeFullName } from "@/lib/week";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { AppRole } from "@/lib/auth/roles";
@@ -36,6 +38,7 @@ interface ProfileRow {
 
 export function TeamAccessCard() {
   const { isAdmin, userEmail, profile: currentProfile, refreshProfile } = useAuth();
+  const { employees, refreshData } = useScheduling();
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AppRole>("member");
@@ -84,6 +87,7 @@ export function TeamAccessCard() {
       setMessage(`Invite sent to ${inviteEmail}. They can set a password from the email link.`);
       setInviteEmail("");
       void loadProfiles();
+      void refreshData();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Invite failed");
     } finally {
@@ -127,8 +131,8 @@ export function TeamAccessCard() {
           Team access
         </CardTitle>
         <CardDescription>
-          App logins and permissions. Invite teammates by email; change roles anytime. Signed in as{" "}
-          {userEmail}.
+          App logins and permissions. Matching emails link to a schedule team row automatically.
+          Signed in as {userEmail}.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -173,10 +177,13 @@ export function TeamAccessCard() {
               <TableRow>
                 <TableHead>Email</TableHead>
                 <TableHead>App role</TableHead>
+                <TableHead>Schedule team</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {profiles.map((p) => (
+              {profiles.map((p) => {
+                const linkedEmployee = employees.find((e) => e.profile_id === p.id);
+                return (
                 <TableRow key={p.id}>
                   <TableCell>
                     <span className="flex items-center gap-2">
@@ -203,11 +210,22 @@ export function TeamAccessCard() {
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  <TableCell>
+                    {linkedEmployee ? (
+                      <Badge variant="outline" className="gap-1 text-emerald-700">
+                        <Link2 className="h-3 w-3" />
+                        {getEmployeeFullName(linkedEmployee)}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No match</span>
+                    )}
+                  </TableCell>
                 </TableRow>
-              ))}
+              );
+              })}
               {profiles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-muted-foreground">
+                  <TableCell colSpan={3} className="text-muted-foreground">
                     No app users yet.
                   </TableCell>
                 </TableRow>

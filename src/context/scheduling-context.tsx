@@ -430,7 +430,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           void persistAsync(
             () => repoRef.current!.upsertEmployee(merged),
             () => setEmployees(snapshot),
-          );
+          ).then((saved) => {
+            if (saved) {
+              setEmployees((current) => current.map((e) => (e.id === id ? saved : e)));
+            }
+          });
         }
         return next;
       });
@@ -460,10 +464,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         const snapshot = prev;
         const next = [...prev, employee];
         if (repoRef.current) {
-          persistAsync(
+          void persistAsync(
             () => repoRef.current!.upsertEmployee(employee),
             () => setEmployees(snapshot),
-          );
+          ).then((saved) => {
+            if (saved) {
+              setEmployees((current) =>
+                current.map((e) => (e.id === employee.id ? saved : e)),
+              );
+            }
+          });
         }
         return next;
       });
@@ -482,7 +492,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           void persistAsync(
             () => repoRef.current!.upsertEmployee(employee),
             () => setEmployees(snapshot),
-          );
+          ).then((saved) => {
+            if (saved) {
+              setEmployees((current) => current.map((e) => (e.id === id ? saved : e)));
+            }
+          });
         }
         return next;
       });

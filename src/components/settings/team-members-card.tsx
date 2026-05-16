@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, UserPlus } from "lucide-react";
+import { Link2, Pencil, Plus, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,8 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
           <div>
             <CardTitle>Schedule team</CardTitle>
             <CardDescription>
-              People who appear on the weekly scheduling grid (separate from app login accounts).
+              People on the weekly grid. Rows with the same email as an app login are linked
+              automatically.
             </CardDescription>
           </div>
           {canEdit && (
@@ -64,6 +65,7 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
                 <TableHead>Email</TableHead>
                 <TableHead>Capacity</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>App login</TableHead>
                 {canEdit && <TableHead className="w-[80px]" />}
               </TableRow>
             </TableHeader>
@@ -83,6 +85,18 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
                       {employee.active ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {employee.profile_id ? (
+                      <Badge variant="outline" className="gap-1 text-emerald-700">
+                        <Link2 className="h-3 w-3" />
+                        Linked
+                      </Badge>
+                    ) : employee.email ? (
+                      <span className="text-xs text-muted-foreground">No match</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   {canEdit && (
                     <TableCell>
                       <Button
@@ -101,7 +115,7 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
               {employees.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={canEdit ? 6 : 5}
+                    colSpan={canEdit ? 7 : 6}
                     className="py-8 text-center text-muted-foreground"
                   >
                     <UserPlus className="mx-auto mb-2 h-8 w-8 opacity-40" />

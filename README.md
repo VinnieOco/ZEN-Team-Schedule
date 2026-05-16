@@ -74,6 +74,8 @@ After `npm run db:setup` (includes the profiles migration):
 
 5. **Settings** → **Schedule team** → add/edit designers on the weekly grid (name, role, capacity).
 
+**Email linking:** If a schedule team member and an app user share the same email (case-insensitive), they link automatically. Set the email on the team row, invite/login with that email, or update either side later — the link syncs in the database.
+
 The first user in the database becomes **admin** automatically. Existing users are backfilled when you run the migration.
 
 Apply new migrations anytime:
