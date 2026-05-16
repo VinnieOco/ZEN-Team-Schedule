@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
-  Target,
   Timer,
 } from "lucide-react";
 
@@ -18,17 +17,15 @@ import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, functional: true },
-  { href: "/projects", label: "Projects", icon: FolderKanban, functional: true },
-  { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays, functional: true },
-  { href: "/time-tracking", label: "Time Tracking", icon: Timer, functional: true },
-  { href: "/reports", label: "Reports", icon: BarChart3, functional: true },
-  { href: "/eos", label: "EOS Scorecard", icon: Target, functional: false },
-  { href: "/settings", label: "Settings", icon: Settings, functional: true },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays },
+  { href: "/time-tracking", label: "Time Tracking", icon: Timer },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 interface AppSidebarProps {
@@ -65,21 +62,14 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active
                   ? "bg-emerald-600 text-white"
                   : "text-slate-300 hover:bg-slate-800 hover:text-white",
               )}
             >
-              <span className="flex items-center gap-3">
-                <Icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </span>
-              {!item.functional && (
-                <Badge variant="muted" className="text-[10px]">
-                  Soon
-                </Badge>
-              )}
+              <Icon className="h-4 w-4 shrink-0" />
+              {item.label}
             </Link>
           );
         })}
