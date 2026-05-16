@@ -138,6 +138,77 @@ export function getProjectScheduledHours(
     .reduce((sum, a) => sum + a.hours, 0);
 }
 
+export function getProjectWeekScheduledHours(
+  allocations: Allocation[],
+  projectId: string,
+  weekStart: Date,
+  settings: CompanySettings,
+): number {
+  return filterAllocationsForWeek(allocations, weekStart, settings)
+    .filter((a) => a.project_id === projectId)
+    .reduce((sum, a) => sum + a.hours, 0);
+}
+
+export type ProjectBudgetStatus = "no-budget" | "under" | "on-track" | "near" | "over";
+
+export interface ProjectBudgetStats {
+  scheduledAllTime: number;
+  scheduledThisWeek: number;
+  remaining: number;
+  percentUsed: number;
+  status: ProjectBudgetStatus;
+}
+
+export function getProjectBudgetStats(
+  allocations: Allocation[],
+  projectId: string,
+  budgetedHours: number,
+  weekStart: Date,
+  settings: CompanySettings,
+): ProjectBudgetStats {
+  const scheduledAllTime = getProjectScheduledHours(allocations, projectId);
+  const scheduledThisWeek = getProjectWeekScheduledHours(
+    allocations,
+    projectId,
+    weekStart,
+    settings,
+  );
+  const remaining = budgetedHours - scheduledAllTime;
+  const percentUsed =
+    budgetedHours > 0 ? Math.round((scheduledAllTime / budgetedHours) * 100) : 0;
+
+  let status: ProjectBudgetStatus = "no-budget";
+  if (budgetedHours > 0) {
+    if (remaining < 0) status = "over";
+    else if (percentUsed >= 90) status = "near";
+    else if (percentUsed >= 60) status = "on-track";
+    else status = "under";
+  }
+
+  return {
+    scheduledAllTime,
+    scheduledThisWeek,
+    remaining,
+    percentUsed,
+    status,
+  };
+}
+
+export function projectBudgetStatusColor(status: ProjectBudgetStatus): string {
+  switch (status) {
+    case "over":
+      return "text-red-600";
+    case "near":
+      return "text-orange-600";
+    case "on-track":
+      return "text-emerald-600";
+    case "under":
+      return "text-blue-600";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
 export interface AllocationValidationResult {
   warnings: string[];
 }

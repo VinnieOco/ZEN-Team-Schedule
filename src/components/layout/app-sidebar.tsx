@@ -25,7 +25,7 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: FolderKanban, functional: true },
   { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays, functional: true },
   { href: "/time-tracking", label: "Time Tracking", icon: Timer, functional: false },
-  { href: "/reports", label: "Reports", icon: BarChart3, functional: false },
+  { href: "/reports", label: "Reports", icon: BarChart3, functional: true },
   { href: "/eos", label: "EOS Scorecard", icon: Target, functional: false },
   { href: "/settings", label: "Settings", icon: Settings, functional: true },
 ];
