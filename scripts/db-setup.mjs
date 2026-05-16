@@ -5,7 +5,7 @@
  * First run: npm run supabase:check
  */
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -43,7 +43,7 @@ Run the checker first for step-by-step help:
   process.exit(1);
 }
 
-const migrationPath = join(root, "supabase/migrations/20250515000000_initial_schema.sql");
+const migrationsDir = join(root, "supabase/migrations");
 const seedPath = join(root, "supabase/seed.sql");
 
 async function run() {
@@ -57,10 +57,16 @@ async function run() {
   await client.connect();
 
   try {
-    console.log("Running migration…");
-    const migration = readFileSync(migrationPath, "utf8");
-    await client.query(migration);
-    console.log("✓ Migration applied");
+    const migrationFiles = readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
+
+    for (const file of migrationFiles) {
+      console.log(`Running migration ${file}…`);
+      const migration = readFileSync(join(migrationsDir, file), "utf8");
+      await client.query(migration);
+      console.log(`✓ ${file}`);
+    }
 
     console.log("Running seed…");
     const seed = readFileSync(seedPath, "utf8");

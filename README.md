@@ -29,6 +29,8 @@ In the Vercel project → **Settings** → **Environment Variables**, add:
 |------|--------|--------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Same as local **Project URL** | Required for auth + live data |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as local `anon public` key | Must be the real JWT (`eyJ...`) or `sb_publishable_...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → `service_role` | **Server only** — admin email invites |
+| `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP` | `false` (recommended) | Omit or set `true` to allow open sign-up on `/login` |
 
 You do **not** need `DATABASE_URL` on Vercel for the running site — it is only used by `npm run db:setup` and `npm run supabase:check` on your machine.
 
@@ -51,6 +53,32 @@ For a custom domain, add the same patterns with your domain and set **Site URL**
 The default **Build Command** is `next build` and **Install Command** is `npm install`. Node **20.9+** is declared in `package.json` `engines`.
 
 Redeploy after changing environment variables.
+
+---
+
+## Team access & roles
+
+After `npm run db:setup` (includes the profiles migration):
+
+| Role | Can do |
+|------|--------|
+| **Admin** | Everything + invite users (Settings → Team access) |
+| **Member** | Scheduling, projects, dashboard; **read-only** Settings |
+
+**Invite-only (recommended):**
+
+1. Do **not** set `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP=true` (default is invite-only in the UI).
+2. Supabase → **Authentication** → **Providers** → **Email** → disable **Allow new users to sign up** (or restrict sign-ups in Supabase Auth settings).
+3. Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` and Vercel (never use `NEXT_PUBLIC_` for this key).
+4. Sign in as an admin → **Settings** → **Team access** → **Send invite**.
+
+The first user in the database becomes **admin** automatically. Existing users are backfilled when you run the migration.
+
+Apply new migrations anytime:
+
+```bash
+npm run db:setup
+```
 
 ---
 

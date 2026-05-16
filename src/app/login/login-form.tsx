@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isPublicSignupAllowed } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -17,6 +18,7 @@ export function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const allowSignup = isPublicSignupAllowed();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -49,6 +51,9 @@ export function LoginForm() {
 
     try {
       if (mode === "signup") {
+        if (!allowSignup) {
+          throw new Error("Sign-up is invite-only. Ask an admin for an invite email.");
+        }
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setMessage("Check your email to confirm your account, then sign in.");
@@ -75,8 +80,15 @@ export function LoginForm() {
           </div>
           <CardTitle>ZEN Team Scheduling</CardTitle>
           <CardDescription>
-            {mode === "signin" ? "Sign in to your design team workspace" : "Create an account"}
+            {mode === "signin"
+              ? "Sign in to your design team workspace"
+              : "Create an account"}
           </CardDescription>
+          {!allowSignup && mode === "signin" && (
+            <p className="text-center text-xs text-muted-foreground">
+              Access is invite-only. Use the link from your invite email, or ask an admin.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,14 +122,18 @@ export function LoginForm() {
               {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Sign up"}
             </Button>
           </form>
-          <Button
-            variant="ghost"
-            className="mt-3 w-full text-sm"
-            type="button"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
-          </Button>
+          {allowSignup && (
+            <Button
+              variant="ghost"
+              className="mt-3 w-full text-sm"
+              type="button"
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            >
+              {mode === "signin"
+                ? "Need an account? Sign up"
+                : "Already have an account? Sign in"}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>
