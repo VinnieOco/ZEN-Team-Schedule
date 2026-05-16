@@ -11,8 +11,9 @@
     "start": "next start",
     "lint": "eslint",
     "supabase:check": "node scripts/supabase-check.mjs",
+    "db:migrate": "node scripts/db-setup.mjs --migrate-only",
     "db:setup": "node scripts/db-setup.mjs",
-    "db:seed": "node scripts/db-setup.mjs"
+    "db:seed": "node scripts/db-setup.mjs --seed-only"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

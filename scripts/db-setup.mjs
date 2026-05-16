@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
- * Applies supabase/migrations + supabase/seed.sql to your Supabase Postgres database.
- * Run: npm run db:setup
- * First run: npm run supabase:check
+ * Database migrations and optional seed.
+ *
+ *   npm run db:migrate  — pending migrations only (safe for production)
+ *   npm run db:setup    — migrate + seed (fresh local dev)
+ *   npm run db:seed     — seed only
  */
 
 import { readFileSync, existsSync, readdirSync } from "fs";
@@ -15,6 +17,10 @@ import pg from "pg";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const envPath = join(root, ".env.local");
+
+const args = new Set(process.argv.slice(2));
+const migrateOnly = args.has("--migrate-only") || args.has("--no-seed");
+const seedOnly = args.has("--seed-only");
 
 dotenv.config({ path: envPath });
 
@@ -46,6 +52,68 @@ Run the checker first for step-by-step help:
 const migrationsDir = join(root, "supabase/migrations");
 const seedPath = join(root, "supabase/seed.sql");
 
+async function ensureMigrationsTable(client) {
+  await client.query(`
+    create table if not exists public._schema_migrations (
+      id text primary key,
+      applied_at timestamptz not null default now()
+    );
+  `);
+}
+
+async function runMigrations(client) {
+  await ensureMigrationsTable(client);
+
+  const migrationFiles = readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  let applied = 0;
+
+  for (const file of migrationFiles) {
+    const { rows } = await client.query(
+      "select 1 from public._schema_migrations where id = $1",
+      [file],
+    );
+    if (rows.length > 0) {
+      console.log(`Skipping ${file} (already applied)`);
+      continue;
+    }
+
+    console.log(`Running migration ${file}…`);
+    const migration = readFileSync(join(migrationsDir, file), "utf8");
+    await client.query(migration);
+    await client.query("insert into public._schema_migrations (id) values ($1)", [file]);
+    console.log(`✓ ${file}`);
+    applied += 1;
+  }
+
+  return applied;
+}
+
+async function runSeed(client) {
+  console.log("Running seed…");
+  const seed = readFileSync(seedPath, "utf8");
+  await client.query(seed);
+  console.log("✓ Seed applied");
+}
+
+async function printCounts(client) {
+  const counts = await client.query(`
+    select
+      (select count(*)::int from public.employees) as employees,
+      (select count(*)::int from public.projects) as projects,
+      (select count(*)::int from public.allocation_categories) as categories,
+      (select count(*)::int from public.allocations) as allocations
+  `);
+  const row = counts.rows[0];
+  console.log(`
+  employees:   ${row.employees}
+  projects:    ${row.projects}
+  categories:  ${row.categories}
+  allocations: ${row.allocations}`);
+}
+
 async function run() {
   const client = new pg.Client({
     connectionString: databaseUrl,
@@ -57,67 +125,40 @@ async function run() {
   await client.connect();
 
   try {
-    await client.query(`
-      create table if not exists public._schema_migrations (
-        id text primary key,
-        applied_at timestamptz not null default now()
-      );
-    `);
-
-    const migrationFiles = readdirSync(migrationsDir)
-      .filter((f) => f.endsWith(".sql"))
-      .sort();
-
-    for (const file of migrationFiles) {
-      const { rows } = await client.query(
-        "select 1 from public._schema_migrations where id = $1",
-        [file],
-      );
-      if (rows.length > 0) {
-        console.log(`Skipping ${file} (already applied)`);
-        continue;
-      }
-
-      console.log(`Running migration ${file}…`);
-      const migration = readFileSync(join(migrationsDir, file), "utf8");
-      await client.query(migration);
-      await client.query("insert into public._schema_migrations (id) values ($1)", [file]);
-      console.log(`✓ ${file}`);
+    if (seedOnly) {
+      await runSeed(client);
+      console.log("\n✅ Seed complete!");
+      await printCounts(client);
+      return;
     }
 
-    console.log("Running seed…");
-    const seed = readFileSync(seedPath, "utf8");
-    await client.query(seed);
-    console.log("✓ Seed applied");
+    const applied = await runMigrations(client);
 
-    const counts = await client.query(`
-      select
-        (select count(*)::int from public.employees) as employees,
-        (select count(*)::int from public.projects) as projects,
-        (select count(*)::int from public.allocation_categories) as categories,
-        (select count(*)::int from public.allocations) as allocations
-    `);
-    const row = counts.rows[0];
-    console.log(`
-✅ Database ready!
-
-  employees:   ${row.employees}
-  projects:    ${row.projects}
-  categories:  ${row.categories}
-  allocations: ${row.allocations}
-
+    if (!migrateOnly) {
+      await runSeed(client);
+      console.log("\n✅ Database ready! (migrations + seed)");
+      await printCounts(client);
+      console.log(`
 Next steps:
   1. npm run dev
   2. http://localhost:3000/login → Sign up
-  3. You should see "Connected to Supabase" on the scheduling board
 `);
+      return;
+    }
+
+    if (applied === 0) {
+      console.log("\n✅ No pending migrations.");
+    } else {
+      console.log(`\n✅ Applied ${applied} migration(s).`);
+    }
+    console.log("   (Seed skipped — use npm run db:seed or npm run db:setup to load sample data.)");
   } finally {
     await client.end();
   }
 }
 
 run().catch((err) => {
-  console.error("\n❌ Setup failed:", err.message);
+  console.error("\n❌ Database command failed:", err.message);
 
   if (err.message.includes("Tenant or user not found")) {
     console.error(`

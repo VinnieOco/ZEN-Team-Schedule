@@ -59,12 +59,15 @@ Redeploy after changing environment variables.
 
 ## Team access & roles
 
-After `npm run db:setup` (includes the profiles migration):
+After `npm run db:setup` (includes profiles, permissions, and manager migrations):
 
-| Role | Can do |
-|------|--------|
-| **Admin** | Everything + invite users (Settings → Team access) |
-| **Member** | Scheduling, projects, dashboard; **read-only** Settings |
+| Role | App access |
+|------|------------|
+| **Admin** | Full access — scheduling, projects, time tracking, reports (export), all Settings including **Team access** (invites, roles, login links) |
+| **Manager** | Same as admin for day-to-day work; **cannot** invite users or change app roles (no Team access section) |
+| **Member** | View/edit **team schedule**; view projects and reports; log **own** time only; Settings is read-only (company defaults) |
+
+See **Settings → App roles** (admins only) for the full matrix.
 
 **Invite-only (recommended):**
 
@@ -77,15 +80,27 @@ After `npm run db:setup` (includes the profiles migration):
 
 **Invite email (Supabase):** Authentication → [Email Templates](https://supabase.com/dashboard/project/_/auth/templates) → **Invite user** — customize subject/body (mention ZEN Team Scheduling and that the link sets their password). Ensure **Redirect URLs** include `https://your-domain.com/**` and `https://your-domain.com/auth/callback`.
 
-**Email linking:** If a schedule team member and an app user share the same email (case-insensitive), they link automatically. Set the email on the team row, invite/login with that email, or update either side later — the link syncs in the database.
+**Login ↔ schedule team:** Members need their app login linked to a row on **Schedule team** to log time.
 
-The first user in the database becomes **admin** automatically. Existing users are backfilled when you run the migration.
+- **Automatic:** Matching emails link when you save the team row or profile.
+- **Self-service:** **Settings → Schedule profile link** → **Link my account**.
+- **Admin:** **Settings → Team access** → choose a person in the **Schedule team** column.
 
-Apply new migrations anytime:
+The first user in the database becomes **admin** automatically.
+
+**Apply new migrations** (skips files already recorded in `_schema_migrations`):
 
 ```bash
-npm run db:setup
+npm run db:migrate
 ```
+
+Use this on production or any database that already has real data. It does **not** run the seed.
+
+| Command | What it does |
+|---------|----------------|
+| `npm run db:migrate` | Pending migrations only |
+| `npm run db:setup` | Migrations + sample seed (fresh local dev) |
+| `npm run db:seed` | Seed only (can duplicate sample rows) |
 
 ---
 
@@ -167,6 +182,8 @@ npm run dev
 | Redirected to `/login` in demo mode | `.env.local` has placeholder URLs — fix or remove invalid `NEXT_PUBLIC_SUPABASE_*` vars |
 | `Another next dev server is already running` | Run `kill 76009` (use PID from terminal) or close the other terminal |
 | Empty schedule after login | Run `npm run db:setup` again |
+| Supabase API returned **401** on `npm run supabase:check` | Re-copy the **anon public** key from Project Settings → API (not `service_role`). URL and key must be from the same project. Older checker versions probed `/rest/v1/` which returns 401 even with a valid key — update the repo and re-run the check. |
+| `policy … already exists` on `db:setup` | Migration partially applied; pull latest repo (migrations use `DROP POLICY IF EXISTS`) and run `npm run db:setup` again |
 
 ---
 
@@ -174,10 +191,12 @@ npm run dev
 
 | Screen | Description |
 |--------|-------------|
-| **Team Scheduling** | Weekly grid, drag-and-drop, utilization |
-| **Projects** | Budget vs scheduled; click name for detail page |
-| **Settings** | Company defaults and employee capacity |
 | **Dashboard** | Team utilization overview |
+| **Team Scheduling** | Week/month grid, drag-and-drop, filters, print |
+| **Projects** | Budget vs scheduled; detail page per project |
+| **Time tracking** | Scheduled vs actual hours; log time (role-based) |
+| **Reports** | Utilization, scheduled vs actual, project budgets; CSV export (admin/manager) |
+| **Settings** | Company defaults, schedule team, job roles/departments, app access (admin) |
 
 ## Scripts
 
@@ -185,5 +204,7 @@ npm run dev
 |---------|-------------|
 | `npm run dev` | Development server |
 | `npm run supabase:check` | Validate `.env.local` and test connections |
-| `npm run db:setup` | Apply migration + seed data |
+| `npm run db:migrate` | Apply pending migrations only (no seed) |
+| `npm run db:setup` | Migrations + sample seed (local / fresh DB) |
+| `npm run db:seed` | Sample seed only |
 | `npm run build` | Production build |

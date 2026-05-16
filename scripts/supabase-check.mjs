@@ -188,15 +188,28 @@ async function testSupabaseApi() {
 
   console.log("\n🌐 Testing Supabase API…\n");
 
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+
   try {
-    const res = await fetch(`${url}/rest/v1/`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-    });
-    if (res.ok || res.status === 404 || res.status === 406) {
-      console.log("  ✓ Supabase API reachable");
+    // /rest/v1/ alone often returns 401 even with a valid anon key; probe a real table instead.
+    const res = await fetch(`${url}/rest/v1/employees?select=id&limit=1`, { headers });
+    if (res.ok) {
+      console.log("  ✓ Supabase API reachable (anon key accepted)");
       return true;
     }
+
+    const authHealth = await fetch(`${url}/auth/v1/health`, { headers: { apikey: key } });
+    if (authHealth.ok) {
+      console.log("  ⚠ REST query failed but Auth API responded — check RLS or table name");
+      console.log(`      REST status: ${res.status}`);
+      return false;
+    }
+
     console.log(`  ❌ Supabase API returned ${res.status}`);
+    if (res.status === 401) {
+      console.log("      Re-copy the anon public key from Project Settings → API (same project as the URL).");
+      console.log("      Do not use service_role. If you rotated JWT secrets, paste the new anon key.");
+    }
     return false;
   } catch (err) {
     console.log(`  ❌ Supabase API failed: ${err.message}`);
