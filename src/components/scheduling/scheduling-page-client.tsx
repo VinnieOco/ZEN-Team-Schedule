@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { AllocationFormDialog } from "@/components/scheduling/allocation-form-dialog";
+import { CapacityAlerts } from "@/components/scheduling/capacity-alerts";
 import { SchedulingFilters } from "@/components/scheduling/scheduling-filters";
 import { SchedulingGrid } from "@/components/scheduling/scheduling-grid";
 import { SchedulingGridSkeleton } from "@/components/scheduling/scheduling-grid-skeleton";
@@ -25,15 +26,17 @@ export function SchedulingPageClient() {
 
   return (
     <div className="schedule-print-root space-y-5 p-4 md:space-y-6 md:p-6 print:space-y-3 print:p-0">
-      <SchedulingHeader
-        calendarView={calendarView}
-        onCalendarViewChange={setCalendarView}
-        onAddAllocation={() => setAddDialogOpen(true)}
-        onToggleFilters={() => setShowFilters((v) => !v)}
-        filtersVisible={showFilters}
-      />
-      <div className="print:hidden">
-        <TeamSummaryBar calendarView={calendarView} />
+      <div className="sticky top-0 z-20 -mx-4 space-y-4 border-b border-slate-200/80 bg-white/95 px-4 pb-4 backdrop-blur-md md:-mx-6 md:space-y-5 md:px-6 md:pb-5 print:static print:border-0 print:bg-white print:backdrop-blur-none">
+        <SchedulingHeader
+          calendarView={calendarView}
+          onCalendarViewChange={setCalendarView}
+          onAddAllocation={() => setAddDialogOpen(true)}
+          onToggleFilters={() => setShowFilters((v) => !v)}
+          filtersVisible={showFilters}
+        />
+        <div className="print:hidden">
+          <TeamSummaryBar calendarView={calendarView} />
+        </div>
       </div>
       <Tabs defaultValue="schedule" className="print:block">
         <TabsList className="w-full justify-start sm:w-auto print:hidden">
@@ -52,7 +55,7 @@ export function SchedulingPageClient() {
           ) : calendarView === "month" ? (
             <SchedulingMonthGrid />
           ) : (
-            <SchedulingGrid />
+            <SchedulingGrid onAddAllocation={() => setAddDialogOpen(true)} />
           )}
         </TabsContent>
         <TabsContent value="workload" className="mt-4 space-y-4 print:hidden">
@@ -72,6 +75,7 @@ export function SchedulingPageClient() {
           {isLoading ? <SchedulingGridSkeleton /> : <AvailabilityView />}
         </TabsContent>
       </Tabs>
+      <CapacityAlerts calendarView={calendarView} />
       <AllocationFormDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
     </div>
   );

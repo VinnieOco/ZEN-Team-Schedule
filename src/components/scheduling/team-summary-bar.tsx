@@ -1,6 +1,9 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
+
 import type { ScheduleCalendarView } from "@/components/scheduling/scheduling-header";
+import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { useScheduling } from "@/context/scheduling-context";
 import { filterEmployeesByDepartment } from "@/lib/departments";
 import { getTeamMonthSummary, getTeamSummary } from "@/lib/utilization";
@@ -13,6 +16,10 @@ interface TeamSummaryBarProps {
 
 export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
   const { allocations, employees, selectedWeekStart, settings, filters } = useScheduling();
+  const period = calendarView === "month" ? "month" : "week";
+  const { rows } = useFilteredEmployeeRows({ period });
+  const overCount = rows.filter((r) => r.stats.status === "over").length;
+
   const scopedEmployees = filterEmployeesByDepartment(
     employees.filter((e) => e.active),
     filters.department,
@@ -56,20 +63,29 @@ export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm sm:grid-cols-4">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-md border border-slate-100 bg-white/80 px-3 py-2 text-center sm:text-left"
-        >
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {item.label}
-          </p>
-          <p className={cn("mt-0.5 text-2xl font-bold tabular-nums", item.valueClass)}>
-            {item.value}
-          </p>
-        </div>
-      ))}
+    <div className="space-y-2">
+      {overCount > 0 && (
+        <p className="flex items-center gap-1.5 text-xs font-medium text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          {overCount} {overCount === 1 ? "person" : "people"} over{" "}
+          {calendarView === "month" ? "monthly" : "weekly"} capacity
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm sm:grid-cols-4">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-md border border-slate-100 bg-white/80 px-3 py-2 text-center sm:text-left"
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {item.label}
+            </p>
+            <p className={cn("mt-0.5 text-2xl font-bold tabular-nums", item.valueClass)}>
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

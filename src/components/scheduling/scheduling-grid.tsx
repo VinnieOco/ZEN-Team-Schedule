@@ -19,6 +19,7 @@ import {
   ScheduleDropCell,
 } from "@/components/scheduling/schedule-drop-cell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
@@ -33,8 +34,12 @@ import {
 import type { Allocation } from "@/types";
 import { cn } from "@/lib/utils";
 
-export function SchedulingGrid() {
-  const { allocations, filters, moveAllocation } = useScheduling();
+interface SchedulingGridProps {
+  onAddAllocation?: () => void;
+}
+
+export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
+  const { allocations, filters, moveAllocation, settings } = useScheduling();
   const { rows, weekDays, weekAllocations, clearFilters } = useFilteredEmployeeRows({
     period: "week",
   });
@@ -102,8 +107,8 @@ export function SchedulingGrid() {
         <span className="lg:hidden">Swipe horizontally to view the full week →</span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
-          <table className="w-full min-w-[960px] border-collapse text-sm print:min-w-0 print:text-xs">
+        <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
+          <table className="w-full min-w-[680px] border-collapse text-sm sm:min-w-[880px] lg:min-w-[960px] print:min-w-0 print:text-xs">
             <thead>
               <tr className="border-b bg-slate-50 print:bg-white">
                 <th className="sticky left-0 z-20 min-w-[220px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
@@ -115,7 +120,9 @@ export function SchedulingGrid() {
                     className="min-w-[148px] border-r px-2 py-3 text-center font-medium last:border-r-0"
                   >
                     <div>{formatDayHeader(day)}</div>
-                    <div className="text-xs font-normal text-muted-foreground">8 hrs cap</div>
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {settings.default_daily_capacity}h cap
+                    </div>
                   </th>
                 ))}
                 <th className="min-w-[72px] bg-slate-50 px-3 py-3 text-center font-medium text-muted-foreground">
@@ -210,9 +217,16 @@ export function SchedulingGrid() {
       </DndContext>
 
       {weekAllocations.length === 0 && (
-        <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
-          <CalendarOff className="h-4 w-4 shrink-0" />
-          No allocations scheduled for this week yet. Click a cell or Add Allocation to get started.
+        <div className="mt-4 flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between print:hidden">
+          <div className="flex items-start gap-2">
+            <CalendarOff className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>No allocations scheduled for this week yet. Tap a cell or add your first assignment.</p>
+          </div>
+          {onAddAllocation && (
+            <Button type="button" size="sm" variant="outline" className="shrink-0 border-amber-300 bg-white" onClick={onAddAllocation}>
+              Add allocation
+            </Button>
+          )}
         </div>
       )}
 

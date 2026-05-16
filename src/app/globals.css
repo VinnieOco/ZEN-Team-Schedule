@@ -77,6 +77,20 @@ body {
   border-radius: 3px;
 }
 
+/* Fade hint on narrow screens when the schedule grid scrolls horizontally */
+@media (max-width: 1023px) {
+  .schedule-scroll-fade::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 6px;
+    width: 28px;
+    pointer-events: none;
+    background: linear-gradient(to left, rgb(255 255 255 / 0.95), transparent);
+  }
+}
+
 @media print {
   @page {
     size: landscape;
