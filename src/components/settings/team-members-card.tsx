@@ -17,8 +17,8 @@ import {
 import { EmployeeFormDialog } from "@/components/settings/employee-form-dialog";
 import { InviteEmailButton } from "@/components/settings/invite-email-button";
 import { UserAccessActions } from "@/components/settings/user-access-actions";
-import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { AppRole } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -37,12 +37,12 @@ interface TeamMembersCardProps {
 
 export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
   const { employees } = useScheduling();
-  const { isAdmin } = useAuth();
+  const { permissions: userPermissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
 
-  const showInviteActions = canEdit && isSupabaseConfigured() && isAdmin;
+  const showInviteActions = canEdit && isSupabaseConfigured() && userPermissions.manageAppAccess;
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
 
   const loadProfiles = useCallback(async () => {

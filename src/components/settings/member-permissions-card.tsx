@@ -15,10 +15,10 @@ export function MemberPermissionsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Member access</CardTitle>
+        <CardTitle>App roles</CardTitle>
         <CardDescription>
-          What people with the Member app role can do. Admins have full access. Link a schedule team
-          member to a login (email match or profile link) so members can log their own time.
+          What each app role can do. Link schedule team members to logins so members can log their own
+          time.
         </CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
@@ -27,6 +27,7 @@ export function MemberPermissionsCard() {
             <TableRow>
               <TableHead>Area</TableHead>
               <TableHead>Admin</TableHead>
+              <TableHead>Manager</TableHead>
               <TableHead>Member</TableHead>
             </TableRow>
           </TableHeader>
@@ -35,6 +36,7 @@ export function MemberPermissionsCard() {
               <TableRow key={row.label}>
                 <TableCell className="font-medium">{row.label}</TableCell>
                 <TableCell className="text-muted-foreground">{row.admin}</TableCell>
+                <TableCell className="text-muted-foreground">{row.manager}</TableCell>
                 <TableCell className="text-muted-foreground">{row.member}</TableCell>
               </TableRow>
             ))}

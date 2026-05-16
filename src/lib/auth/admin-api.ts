@@ -26,6 +26,31 @@ export async function requireAdmin() {
   return { supabase, user, profile };
 }
 
+export async function requireManagerOrAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: NextResponse.json({ error: "Not signed in" }, { status: 401 }) };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("app_role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.app_role !== "admin" && profile?.app_role !== "manager") {
+    return {
+      error: NextResponse.json({ error: "Manager or admin access required" }, { status: 403 }),
+    };
+  }
+
+  return { supabase, user, profile };
+}
+
 export function requireServiceRole() {
   if (!isServiceRoleConfigured()) {
     return {

@@ -12,7 +12,7 @@ import {
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export function usePermissions() {
-  const { profile, isAdmin, isLoading: authLoading } = useAuth();
+  const { profile, isAdmin, isManager, isManagerOrAdmin, isLoading: authLoading } = useAuth();
   const { employees, dataSource } = useScheduling();
 
   const localMode = !isSupabaseConfigured() || dataSource === "local";
@@ -35,6 +35,8 @@ export function usePermissions() {
   return {
     permissions,
     isAdmin,
+    isManager,
+    isManagerOrAdmin,
     profile,
     linkedEmployeeId,
     canLogTime,

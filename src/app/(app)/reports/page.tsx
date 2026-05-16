@@ -24,7 +24,7 @@ export default function ReportsPage() {
             Team utilization, scheduled vs actual, and project budgets.
             {permissions.exportReports
               ? " Export any report as CSV."
-              : " View-only for members; CSV export requires an admin."}{" "}
+              : " View-only for members."}{" "}
             Uses the same period as Team Scheduling.
           </p>
         </div>

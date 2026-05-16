@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { AppRole } from "@/lib/auth/roles";
+import { isAdminRole, parseAppRole, type AppRole } from "@/lib/auth/roles";
 import { createAdminClient, isServiceRoleConfigured } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,7 +27,7 @@ export async function PATCH(request: Request) {
 
     const body = (await request.json()) as { userId?: string; app_role?: AppRole };
     const userId = body.userId;
-    const app_role: AppRole = body.app_role === "admin" ? "admin" : "member";
+    const app_role: AppRole = parseAppRole(body.app_role);
 
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
@@ -47,7 +47,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: true, app_role });
     }
 
-    if (targetProfile.app_role === "admin" && app_role === "member") {
+    if (isAdminRole(targetProfile.app_role) && !isAdminRole(app_role)) {
       const { count, error: countError } = await supabase
         .from("profiles")
         .select("id", { count: "exact", head: true })

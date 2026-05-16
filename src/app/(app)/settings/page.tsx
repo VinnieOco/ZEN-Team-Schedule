@@ -30,7 +30,9 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           {permissions.manageAppAccess
             ? "Company defaults, schedule team, and app access."
-            : "Company defaults (view only)."}
+            : permissions.manageTeamMembers
+              ? "Company defaults, schedule team, and team options. App access is admin-only."
+              : "Company defaults (view only)."}
           {isSupabaseConfigured() && profile && !authLoading && (
             <span className="ml-1 capitalize">· App role: {profile.app_role}</span>
           )}

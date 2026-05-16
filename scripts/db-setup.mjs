@@ -57,14 +57,31 @@ async function run() {
   await client.connect();
 
   try {
+    await client.query(`
+      create table if not exists public._schema_migrations (
+        id text primary key,
+        applied_at timestamptz not null default now()
+      );
+    `);
+
     const migrationFiles = readdirSync(migrationsDir)
       .filter((f) => f.endsWith(".sql"))
       .sort();
 
     for (const file of migrationFiles) {
+      const { rows } = await client.query(
+        "select 1 from public._schema_migrations where id = $1",
+        [file],
+      );
+      if (rows.length > 0) {
+        console.log(`Skipping ${file} (already applied)`);
+        continue;
+      }
+
       console.log(`Running migration ${file}…`);
       const migration = readFileSync(join(migrationsDir, file), "utf8");
       await client.query(migration);
+      await client.query("insert into public._schema_migrations (id) values ($1)", [file]);
       console.log(`✓ ${file}`);
     }
 

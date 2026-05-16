@@ -12,7 +12,7 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import type { AppRole } from "@/lib/auth/roles";
+import { isAdminRole, isManagerOrAdminRole, type AppRole } from "@/lib/auth/roles";
 
 export interface UserProfile {
   id: string;
@@ -25,6 +25,8 @@ interface AuthContextValue {
   userEmail: string | null;
   profile: UserProfile | null;
   isAdmin: boolean;
+  isManager: boolean;
+  isManagerOrAdmin: boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -97,7 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       userEmail,
       profile,
-      isAdmin: profile?.app_role === "admin",
+      isAdmin: isAdminRole(profile?.app_role),
+      isManager: profile?.app_role === "manager",
+      isManagerOrAdmin: isManagerOrAdminRole(profile?.app_role),
       refreshProfile,
     }),
     [isLoading, userEmail, profile, refreshProfile],

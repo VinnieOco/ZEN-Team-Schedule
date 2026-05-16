@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin, requireServiceRole } from "@/lib/auth/admin-api";
 import { isUserAlreadyRegisteredError } from "@/lib/auth/invite";
-import type { AppRole } from "@/lib/auth/roles";
+import { parseAppRole, type AppRole } from "@/lib/auth/roles";
 import { inviteRedirectUrl } from "@/lib/auth/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       resend?: boolean;
     };
     const email = body.email?.trim().toLowerCase();
-    const role: AppRole = body.role === "admin" ? "admin" : "member";
+    const role: AppRole = parseAppRole(body.role);
     const resend = body.resend === true;
 
     if (!email || !email.includes("@")) {
