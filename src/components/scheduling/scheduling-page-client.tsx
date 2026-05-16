@@ -6,6 +6,7 @@ import { AllocationFormDialog } from "@/components/scheduling/allocation-form-di
 import { SchedulingFilters } from "@/components/scheduling/scheduling-filters";
 import { SchedulingGrid } from "@/components/scheduling/scheduling-grid";
 import { SchedulingGridSkeleton } from "@/components/scheduling/scheduling-grid-skeleton";
+import { WorkloadView } from "@/components/scheduling/workload-view";
 import { useScheduling } from "@/context/scheduling-context";
 import { SchedulingHeader } from "@/components/scheduling/scheduling-header";
 import { TeamSummaryBar } from "@/components/scheduling/team-summary-bar";
@@ -28,9 +29,7 @@ export function SchedulingPageClient() {
       <Tabs defaultValue="schedule">
         <TabsList className="w-full justify-start sm:w-auto">
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="workload" disabled title="Coming soon">
-            Workload
-          </TabsTrigger>
+          <TabsTrigger value="workload">Workload</TabsTrigger>
           <TabsTrigger value="availability" disabled title="Coming soon">
             Availability
           </TabsTrigger>
@@ -39,12 +38,9 @@ export function SchedulingPageClient() {
           {showFilters && <SchedulingFilters />}
           {isLoading ? <SchedulingGridSkeleton /> : <SchedulingGrid />}
         </TabsContent>
-        <TabsContent value="workload">
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              Workload view coming soon.
-            </CardContent>
-          </Card>
+        <TabsContent value="workload" className="mt-4 space-y-4">
+          {showFilters && <SchedulingFilters />}
+          {isLoading ? <SchedulingGridSkeleton /> : <WorkloadView />}
         </TabsContent>
         <TabsContent value="availability">
           <Card>

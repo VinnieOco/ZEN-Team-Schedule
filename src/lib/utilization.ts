@@ -62,6 +62,16 @@ export function getEmployeeDayHours(
     .reduce((sum, a) => sum + a.hours, 0);
 }
 
+/** Cell styling for daily workload heatmap (scheduled vs daily capacity). */
+export function dayWorkloadCellClass(scheduled: number, dailyCapacity: number): string {
+  if (scheduled <= 0) return "bg-slate-50 text-slate-400";
+  if (scheduled > dailyCapacity) return "bg-red-100 text-red-800 font-semibold";
+  const pct = dailyCapacity > 0 ? (scheduled / dailyCapacity) * 100 : 0;
+  if (pct >= 90) return "bg-orange-100 text-orange-800 font-medium";
+  if (pct >= 50) return "bg-emerald-50 text-emerald-800";
+  return "bg-blue-50 text-blue-700";
+}
+
 export function getEmployeeWeekStats(
   employee: Employee,
   allocations: Allocation[],
