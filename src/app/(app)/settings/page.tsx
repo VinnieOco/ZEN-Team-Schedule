@@ -9,6 +9,7 @@ import { MemberAccessBanner } from "@/components/settings/member-access-banner";
 import { MemberPermissionsCard } from "@/components/settings/member-permissions-card";
 import { TeamAccessCard } from "@/components/settings/team-access-card";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
+import { CategoriesCard } from "@/components/settings/categories-card";
 import { TeamOptionsCard } from "@/components/settings/team-options-card";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
@@ -85,6 +86,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <CategoriesCard canEdit={permissions.editCompanySettings} />
       {permissions.manageTeamOptions && <TeamOptionsCard canEdit={permissions.manageTeamOptions} />}
       {permissions.manageTeamMembers && (
         <TeamMembersCard canEdit={permissions.manageTeamMembers} />

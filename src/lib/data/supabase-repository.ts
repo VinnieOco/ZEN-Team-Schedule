@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   allocationToRow,
+  categoryToRow,
   employeeToRow,
   mapAllocation,
   mapCategory,
@@ -133,6 +134,21 @@ export function createSupabaseRepository(
         .single();
       if (error) throw error;
       return mapEmployee(data);
+    },
+
+    async upsertCategory(category: AllocationCategory) {
+      const { data, error } = await supabase
+        .from("allocation_categories")
+        .upsert(categoryToRow(category))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapCategory(data);
+    },
+
+    async deleteCategory(id: string) {
+      const { error } = await supabase.from("allocation_categories").delete().eq("id", id);
+      if (error) throw error;
     },
 
     async updateSettings(settings: CompanySettings) {

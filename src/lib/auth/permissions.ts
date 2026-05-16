@@ -40,6 +40,12 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
   { label: "Reports", admin: "View and export CSV", manager: "View and export CSV", member: "View only" },
   { label: "Settings — company defaults", admin: "Edit", manager: "Edit", member: "View only" },
   {
+    label: "Settings — categories",
+    admin: "Add and remove",
+    manager: "Add and remove",
+    member: "Use presets only",
+  },
+  {
     label: "Settings — schedule team",
     admin: "Add and edit members",
     manager: "Add and edit members",

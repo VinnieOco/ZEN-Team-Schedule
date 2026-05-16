@@ -20,5 +20,7 @@ export interface SchedulingRepository {
   deleteTimeEntry(id: string): Promise<void>;
   upsertProject(project: Project): Promise<Project>;
   upsertEmployee(employee: Employee): Promise<Employee>;
+  upsertCategory(category: AllocationCategory): Promise<AllocationCategory>;
+  deleteCategory(id: string): Promise<void>;
   updateSettings(settings: CompanySettings): Promise<CompanySettings>;
 }

@@ -65,7 +65,7 @@ After `npm run db:setup` (includes profiles, permissions, and manager migrations
 |------|------------|
 | **Admin** | Full access — scheduling, projects, time tracking, reports (export), all Settings including **Team access** (invites, roles, login links) |
 | **Manager** | Same as admin for day-to-day work; **cannot** invite users or change app roles (no Team access section) |
-| **Member** | View/edit **team schedule**; view projects and reports; log **own** time only; Settings is read-only (company defaults) |
+| **Member** | View/edit **team schedule**; view projects and reports; log **own** time only; Settings is read-only (company defaults, category list) |
 
 See **Settings → App roles** (admins only) for the full matrix.
 

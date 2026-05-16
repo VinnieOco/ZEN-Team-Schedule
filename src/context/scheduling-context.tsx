@@ -34,6 +34,7 @@ import type {
   Allocation,
   AllocationCategory,
   AllocationFormValues,
+  CategoryFormValues,
   CompanySettings,
   Employee,
   Project,
@@ -51,6 +52,7 @@ type DataSource = "local" | "supabase";
 interface PersistedState {
   employees: Employee[];
   projects: Project[];
+  categories?: AllocationCategory[];
   allocations: Allocation[];
   timeEntries: TimeEntry[];
   settings: CompanySettings;
@@ -91,6 +93,8 @@ interface SchedulingContextValue {
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
   updateEmployeeFromForm: (id: string, values: EmployeeFormValues) => void;
+  addCategory: (values: CategoryFormValues) => AllocationCategory | null;
+  deleteCategory: (id: string) => { ok: true } | { ok: false; message: string };
   getCategoryById: (id: string) => AllocationCategory | undefined;
   getProjectById: (id: string) => Project | undefined;
   getEmployeeById: (id: string) => Employee | undefined;
@@ -155,7 +159,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>(persisted?.employees ?? seedEmployees);
   const [projects, setProjects] = useState<Project[]>(persisted?.projects ?? seedProjects);
-  const [categories, setCategories] = useState<AllocationCategory[]>(seedCategories);
+  const [categories, setCategories] = useState<AllocationCategory[]>(
+    persisted?.categories?.length ? persisted.categories : seedCategories,
+  );
   const [allocations, setAllocations] = useState<Allocation[]>(
     persisted?.allocations ?? initialAllocations,
   );
@@ -214,9 +220,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (useSupabase) return;
-    const payload: PersistedState = { employees, projects, allocations, timeEntries, settings };
+    const payload: PersistedState = {
+      employees,
+      projects,
+      categories,
+      allocations,
+      timeEntries,
+      settings,
+    };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [useSupabase, employees, projects, allocations, timeEntries, settings]);
+  }, [useSupabase, employees, projects, categories, allocations, timeEntries, settings]);
 
   const persistAsync = useCallback(
     async <T,>(action: () => Promise<T>, rollback: () => void): Promise<T | undefined> => {
@@ -631,6 +644,83 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [employeeFromForm, persistAsync, ensureTeamMemberOptions],
   );
 
+  const addCategory = useCallback(
+    (values: CategoryFormValues): AllocationCategory | null => {
+      const name = values.name.trim();
+      if (!name) return null;
+
+      const duplicate = categories.some(
+        (c) => c.name.localeCompare(name, undefined, { sensitivity: "accent" }) === 0,
+      );
+      if (duplicate) return null;
+
+      const maxSort = categories.reduce((max, c) => Math.max(max, c.sort_order), 0);
+      const category: AllocationCategory = {
+        id: generateId(),
+        name,
+        color: values.color,
+        is_billable_default: values.is_billable_default,
+        sort_order: maxSort + 1,
+      };
+
+      setCategories((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertCategory(category),
+            () => setCategories(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setCategories((current) =>
+                current.map((c) => (c.id === category.id ? saved : c)),
+              );
+            }
+          });
+        }
+        return [...prev, category];
+      });
+      return category;
+    },
+    [categories, persistAsync],
+  );
+
+  const deleteCategory = useCallback(
+    (id: string): { ok: true } | { ok: false; message: string } => {
+      if (categories.length <= 1) {
+        return { ok: false, message: "At least one category is required." };
+      }
+
+      const inUse =
+        allocations.some((a) => a.allocation_category_id === id) ||
+        timeEntries.some((e) => e.allocation_category_id === id);
+      if (inUse) {
+        return {
+          ok: false,
+          message:
+            "This category is used on schedule or time entries. Reassign those rows before deleting.",
+        };
+      }
+
+      setCategories((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteCategory(id),
+            () => setCategories(snapshot),
+          );
+        }
+        return prev.filter((c) => c.id !== id);
+      });
+
+      setFiltersState((prev) =>
+        prev.categoryId === id ? { ...prev, categoryId: null } : prev,
+      );
+
+      return { ok: true };
+    },
+    [categories.length, allocations, timeEntries, persistAsync],
+  );
+
   const value = useMemo(
     () => ({
       dataSource,
@@ -667,6 +757,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateEmployee,
       addEmployee,
       updateEmployeeFromForm,
+      addCategory,
+      deleteCategory,
       getCategoryById,
       getProjectById,
       getEmployeeById,
@@ -707,6 +799,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateEmployee,
       addEmployee,
       updateEmployeeFromForm,
+      addCategory,
+      deleteCategory,
       getCategoryById,
       getProjectById,
       getEmployeeById,

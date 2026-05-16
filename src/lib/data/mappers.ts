@@ -202,6 +202,16 @@ export function projectToRow(project: Project) {
   };
 }
 
+export function categoryToRow(category: AllocationCategory) {
+  return {
+    id: category.id,
+    name: category.name,
+    color: category.color,
+    is_billable_default: category.is_billable_default,
+    sort_order: category.sort_order,
+  };
+}
+
 export function allocationToRow(allocation: Allocation) {
   return {
     id: allocation.id,

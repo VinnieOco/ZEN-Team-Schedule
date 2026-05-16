@@ -141,6 +141,12 @@ export interface SchedulingFilters {
   showHours: boolean;
 }
 
+export interface CategoryFormValues {
+  name: string;
+  color: string;
+  is_billable_default: boolean;
+}
+
 export interface AllocationFormValues {
   employee_id: string;
   project_id: string | null;
