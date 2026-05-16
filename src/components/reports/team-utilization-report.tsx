@@ -11,12 +11,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useReportsWeekStart } from "@/components/reports/use-reports-export-context";
 import { useScheduling } from "@/context/scheduling-context";
+import type { ReportsPeriod } from "@/lib/reports-export";
 import {
+  getEmployeeMonthStats,
   getEmployeeWeekStats,
   utilizationStatusBg,
   utilizationStatusColor,
 } from "@/lib/utilization";
+import { getMonthStart } from "@/lib/week";
 import type { UtilizationStatus } from "@/types";
 import { getEmployeeFullName } from "@/lib/week";
 import { cn } from "@/lib/utils";
@@ -49,23 +53,35 @@ function UtilizationBar({ percent, status }: { percent: number; status: Utilizat
   );
 }
 
-export function TeamUtilizationReport() {
+interface TeamUtilizationReportProps {
+  period: ReportsPeriod;
+}
+
+export function TeamUtilizationReport({ period }: TeamUtilizationReportProps) {
   const { employees, allocations, selectedWeekStart, settings } = useScheduling();
+  const weekStart = useReportsWeekStart(period);
+  const monthStart = getMonthStart(selectedWeekStart);
 
   const rows = employees
     .filter((e) => e.active)
     .map((employee) => ({
       employee,
-      stats: getEmployeeWeekStats(employee, allocations, selectedWeekStart, settings),
+      stats:
+        period === "month"
+          ? getEmployeeMonthStats(employee, allocations, monthStart, settings)
+          : getEmployeeWeekStats(employee, allocations, weekStart, settings),
     }))
     .sort((a, b) => b.stats.utilizationPercent - a.stats.utilizationPercent);
+
+  const capacityLabel = period === "month" ? "Monthly capacity" : "Weekly capacity";
+  const periodWord = period === "month" ? "month" : "week";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Team utilization</CardTitle>
         <CardDescription>
-          Scheduled hours vs weekly capacity for the selected week.{" "}
+          Scheduled hours vs {capacityLabel.toLowerCase()} for the selected {periodWord}.{" "}
           <Link href="/scheduling" className="text-emerald-700 hover:underline">
             Edit schedule
           </Link>
@@ -78,7 +94,7 @@ export function TeamUtilizationReport() {
               <TableHead>Team member</TableHead>
               <TableHead>Role</TableHead>
               <TableHead className="text-right">Scheduled</TableHead>
-              <TableHead className="text-right">Capacity</TableHead>
+              <TableHead className="text-right">{capacityLabel}</TableHead>
               <TableHead className="text-right">Billable</TableHead>
               <TableHead className="min-w-[180px]">Utilization</TableHead>
             </TableRow>
@@ -92,7 +108,7 @@ export function TeamUtilizationReport() {
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{stats.scheduledHours}h</TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {stats.weeklyCapacity}h
+                  {"monthlyCapacity" in stats ? stats.monthlyCapacity : stats.weeklyCapacity}h
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{stats.billableHours}h</TableCell>
                 <TableCell>

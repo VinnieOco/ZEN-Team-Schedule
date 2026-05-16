@@ -1,38 +1,71 @@
 "use client";
 
+import { useReportsWeekStart } from "@/components/reports/use-reports-export-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScheduling } from "@/context/scheduling-context";
+import type { ReportsPeriod } from "@/lib/reports-export";
 import {
+  filterAllocationsForMonth,
   filterAllocationsForWeek,
+  getEmployeeMonthStats,
   getEmployeeWeekStats,
+  getTeamMonthSummary,
   getTeamSummary,
 } from "@/lib/utilization";
+import { getTeamMonthTimeSummary, getTeamTimeSummary } from "@/lib/time-tracking";
+import { getMonthStart } from "@/lib/week";
 
-export function ReportsSummaryCards() {
-  const { employees, allocations, selectedWeekStart, settings } = useScheduling();
-  const summary = getTeamSummary(allocations, employees, selectedWeekStart, settings);
-  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
+interface ReportsSummaryCardsProps {
+  period: ReportsPeriod;
+}
+
+export function ReportsSummaryCards({ period }: ReportsSummaryCardsProps) {
+  const { employees, allocations, timeEntries, selectedWeekStart, settings } = useScheduling();
+  const weekStart = useReportsWeekStart(period);
+  const monthStart = getMonthStart(selectedWeekStart);
+
+  const summary =
+    period === "month"
+      ? getTeamMonthSummary(allocations, employees, monthStart, settings)
+      : getTeamSummary(allocations, employees, weekStart, settings);
+
+  const periodAllocations =
+    period === "month"
+      ? filterAllocationsForMonth(allocations, monthStart, settings)
+      : filterAllocationsForWeek(allocations, weekStart, settings);
+
+  const timeSummary =
+    period === "month"
+      ? getTeamMonthTimeSummary(allocations, timeEntries, monthStart, settings)
+      : getTeamTimeSummary(allocations, timeEntries, employees, weekStart, settings);
 
   const activeEmployees = employees.filter((e) => e.active);
-  const overCount = activeEmployees.filter(
-    (e) =>
-      getEmployeeWeekStats(e, allocations, selectedWeekStart, settings).status === "over",
-  ).length;
-  const underCount = activeEmployees.filter(
-    (e) =>
-      getEmployeeWeekStats(e, allocations, selectedWeekStart, settings).status === "under",
-  ).length;
+  const overCount = activeEmployees.filter((e) => {
+    const stats =
+      period === "month"
+        ? getEmployeeMonthStats(e, allocations, monthStart, settings)
+        : getEmployeeWeekStats(e, allocations, weekStart, settings);
+    return stats.status === "over";
+  }).length;
+  const underCount = activeEmployees.filter((e) => {
+    const stats =
+      period === "month"
+        ? getEmployeeMonthStats(e, allocations, monthStart, settings)
+        : getEmployeeWeekStats(e, allocations, weekStart, settings);
+    return stats.status === "under";
+  }).length;
 
-  const billableHours = weekAllocations
+  const billableHours = periodAllocations
     .filter((a) => a.is_billable)
     .reduce((s, a) => s + a.hours, 0);
-  const totalScheduled = weekAllocations.reduce((s, a) => s + a.hours, 0);
+  const totalScheduled = periodAllocations.reduce((s, a) => s + a.hours, 0);
+  const periodWord = period === "month" ? "month" : "week";
 
   const items = [
     {
       label: "Team utilization",
       value: `${summary.totalUtilizationPercent}%`,
-      sub: `${totalScheduled}h scheduled this week`,
+      sub: `${totalScheduled}h scheduled this ${periodWord}`,
     },
     {
       label: "Billable hours",
@@ -40,14 +73,21 @@ export function ReportsSummaryCards() {
       sub: `${summary.billablePercent}% of team capacity`,
     },
     {
-      label: "Overallocated",
-      value: String(overCount),
-      sub: overCount === 1 ? "team member" : "team members",
+      label: "Schedule match",
+      value: `${timeSummary.matchPercent}%`,
+      sub: `${timeSummary.actualHours}h actual vs ${timeSummary.scheduledHours}h scheduled`,
     },
     {
-      label: "Underutilized",
-      value: String(underCount),
-      sub: underCount === 1 ? "team member" : "team members",
+      label: overCount > 0 ? "Overallocated" : "Underutilized",
+      value: String(overCount > 0 ? overCount : underCount),
+      sub:
+        overCount > 0
+          ? overCount === 1
+            ? "team member over capacity"
+            : "team members over capacity"
+          : underCount === 1
+            ? "team member under capacity"
+            : "team members under capacity",
     },
   ];
 

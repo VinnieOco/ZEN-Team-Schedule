@@ -102,6 +102,10 @@ export interface EmployeeMonthStats {
   scheduledHours: number;
   monthlyCapacity: number;
   utilizationPercent: number;
+  billableHours: number;
+  nonBillableHours: number;
+  billablePercent: number;
+  nonBillablePercent: number;
   status: UtilizationStatus;
 }
 
@@ -115,6 +119,10 @@ export function getEmployeeMonthStats(
     (a) => a.employee_id === employee.id,
   );
   const scheduledHours = monthAllocations.reduce((sum, a) => sum + a.hours, 0);
+  const billableHours = monthAllocations
+    .filter((a) => a.is_billable)
+    .reduce((sum, a) => sum + a.hours, 0);
+  const nonBillableHours = scheduledHours - billableHours;
   const workDays = getMonthDays(monthStart, settings).length;
   const workDaysPerWeek = settings.include_weekends ? 7 : 5;
   const monthlyCapacity =
@@ -129,6 +137,12 @@ export function getEmployeeMonthStats(
     scheduledHours: Math.round(scheduledHours * 10) / 10,
     monthlyCapacity,
     utilizationPercent,
+    billableHours: Math.round(billableHours * 10) / 10,
+    nonBillableHours: Math.round(nonBillableHours * 10) / 10,
+    billablePercent:
+      monthlyCapacity > 0 ? Math.round((billableHours / monthlyCapacity) * 100) : 0,
+    nonBillablePercent:
+      monthlyCapacity > 0 ? Math.round((nonBillableHours / monthlyCapacity) * 100) : 0,
     status: getUtilizationStatus(utilizationPercent),
   };
 }

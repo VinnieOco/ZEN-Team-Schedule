@@ -1,26 +1,37 @@
 "use client";
 
+import { useState } from "react";
+
 import { ProjectBudgetReport } from "@/components/reports/project-budget-report";
+import { ReportsExportMenu } from "@/components/reports/reports-export-menu";
+import { ReportsPeriodNavigator } from "@/components/reports/reports-period-navigator";
 import { ReportsSummaryCards } from "@/components/reports/reports-summary-cards";
+import { ScheduledVsActualReport } from "@/components/reports/scheduled-vs-actual-report";
 import { TeamUtilizationReport } from "@/components/reports/team-utilization-report";
-import { WeekNavigator } from "@/components/reports/week-navigator";
+import type { ReportsPeriod } from "@/lib/reports-export";
 
 export default function ReportsPage() {
+  const [period, setPeriod] = useState<ReportsPeriod>("week");
+
   return (
     <div className="space-y-5 p-4 md:space-y-6 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Team utilization and project budget for the selected week. Uses the same week as Team
-            Scheduling.
+            Team utilization, scheduled vs actual, and project budgets. Export any report as CSV.
+            Uses the same period as Team Scheduling.
           </p>
         </div>
-        <WeekNavigator />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ReportsPeriodNavigator period={period} onPeriodChange={setPeriod} />
+          <ReportsExportMenu period={period} />
+        </div>
       </div>
 
-      <ReportsSummaryCards />
-      <TeamUtilizationReport />
+      <ReportsSummaryCards period={period} />
+      <ScheduledVsActualReport period={period} />
+      <TeamUtilizationReport period={period} />
       <ProjectBudgetReport />
     </div>
   );
