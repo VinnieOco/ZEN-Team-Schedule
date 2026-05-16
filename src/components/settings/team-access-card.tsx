@@ -23,12 +23,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InviteEmailButton } from "@/components/settings/invite-email-button";
+import { UserAccessActions } from "@/components/settings/user-access-actions";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
+import { inviteSuccessMessage, sendTeamInvite } from "@/lib/auth/invite";
+import type { AppRole } from "@/lib/auth/roles";
+import { emailsMatch } from "@/lib/auth/email-link";
 import { getEmployeeFullName } from "@/lib/week";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import type { AppRole } from "@/lib/auth/roles";
 
 interface ProfileRow {
   id: string;
@@ -73,18 +77,12 @@ export function TeamAccessCard() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/admin/invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-      });
-      const json = (await res.json()) as { error?: string };
-
-      if (!res.ok) {
-        throw new Error(json.error ?? "Invite failed");
+      const json = await sendTeamInvite(inviteEmail, inviteRole);
+      if (json.error) {
+        throw new Error(json.error);
       }
 
-      setMessage(`Invite sent to ${inviteEmail}. They can set a password from the email link.`);
+      setMessage(inviteSuccessMessage(inviteEmail, json.resent));
       setInviteEmail("");
       void loadProfiles();
       void refreshData();
@@ -131,8 +129,8 @@ export function TeamAccessCard() {
           Team access
         </CardTitle>
         <CardDescription>
-          App logins and permissions. Matching emails link to a schedule team row automatically.
-          Signed in as {userEmail}.
+          Send email invites for app access. Use the actions menu on each user to resend an invite
+          email or set their password directly. Signed in as {userEmail}.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -167,8 +165,55 @@ export function TeamAccessCard() {
         </form>
 
         {message && (
-          <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">{message}</p>
+          <p
+            className={`rounded-md px-3 py-2 text-sm ${
+              message.toLowerCase().includes("fail") || message.toLowerCase().includes("error")
+                ? "bg-red-50 text-red-800"
+                : "bg-emerald-50 text-emerald-900"
+            }`}
+          >
+            {message}
+          </p>
         )}
+
+        {(() => {
+          const pendingInvites = employees.filter(
+            (e) =>
+              e.email &&
+              e.active &&
+              !e.profile_id &&
+              !profiles.some((p) => emailsMatch(p.email, e.email)),
+          );
+          if (pendingInvites.length === 0) return null;
+          return (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4">
+              <h3 className="text-sm font-medium text-amber-950">Schedule team without app access</h3>
+              <p className="mt-1 text-xs text-amber-900/80">
+                These people are on the schedule but have not accepted an invite yet.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {pendingInvites.map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/80 px-3 py-2 text-sm"
+                  >
+                    <span>
+                      <span className="font-medium text-slate-900">
+                        {getEmployeeFullName(e)}
+                      </span>
+                      <span className="text-muted-foreground"> · {e.email}</span>
+                    </span>
+                    <InviteEmailButton
+                      email={e.email!}
+                      label="Send invite"
+                      onMessage={setMessage}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
 
         <div>
           <h3 className="mb-2 text-sm font-medium text-slate-900">App users</h3>
@@ -178,6 +223,7 @@ export function TeamAccessCard() {
                 <TableHead>Email</TableHead>
                 <TableHead>App role</TableHead>
                 <TableHead>Schedule team</TableHead>
+                <TableHead className="w-[56px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -220,12 +266,25 @@ export function TeamAccessCard() {
                       <span className="text-xs text-muted-foreground">No match</span>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    {p.email ? (
+                      <UserAccessActions
+                        userId={p.id}
+                        email={p.email}
+                        role={p.app_role}
+                        onMessage={setMessage}
+                        disabled={roleSavingId === p.id}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
               })}
               {profiles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-muted-foreground">
+                  <TableCell colSpan={4} className="text-muted-foreground">
                     No app users yet.
                   </TableCell>
                 </TableRow>

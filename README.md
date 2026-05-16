@@ -30,6 +30,7 @@ In the Vercel project → **Settings** → **Environment Variables**, add:
 | `NEXT_PUBLIC_SUPABASE_URL` | Same as local **Project URL** | Required for auth + live data |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as local `anon public` key | Must be the real JWT (`eyJ...`) or `sb_publishable_...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → `service_role` | **Server only** — admin email invites |
+| `NEXT_PUBLIC_SITE_URL` | `https://zenteamschedule.com` (your production URL) | Used in invite email links; set on Vercel |
 | `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP` | `false` (recommended) | Omit or set `true` to allow open sign-up on `/login` |
 
 You do **not** need `DATABASE_URL` on Vercel for the running site — it is only used by `npm run db:setup` and `npm run supabase:check` on your machine.
@@ -70,9 +71,11 @@ After `npm run db:setup` (includes the profiles migration):
 1. Do **not** set `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP=true` (default is invite-only in the UI).
 2. Supabase → **Authentication** → **Providers** → **Email** → disable **Allow new users to sign up** (or restrict sign-ups in Supabase Auth settings).
 3. Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` and Vercel (never use `NEXT_PUBLIC_` for this key).
-4. Sign in as an admin → **Settings** → **Team access** → **Send invite** or change roles.
+4. Sign in as an admin → **Settings** → **Team access** → **Send invite** or change roles. Add their email on **Schedule team** first so the app links their login to the grid row.
 
-5. **Settings** → **Schedule team** → add/edit designers on the weekly grid (name, role, capacity).
+5. **Settings** → **Schedule team** → add/edit designers on the weekly grid (name, role, capacity). Use the mail icon to send an app invite when they have an email but no linked login.
+
+**Invite email (Supabase):** Authentication → [Email Templates](https://supabase.com/dashboard/project/_/auth/templates) → **Invite user** — customize subject/body (mention ZEN Team Scheduling and that the link sets their password). Ensure **Redirect URLs** include `https://your-domain.com/**` and `https://your-domain.com/auth/callback`.
 
 **Email linking:** If a schedule team member and an app user share the same email (case-insensitive), they link automatically. Set the email on the team row, invite/login with that email, or update either side later — the link syncs in the database.
 

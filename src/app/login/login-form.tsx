@@ -15,6 +15,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/scheduling";
+  const authError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,6 +88,16 @@ export function LoginForm() {
           {!allowSignup && mode === "signin" && (
             <p className="text-center text-xs text-muted-foreground">
               Access is invite-only. Use the link from your invite email, or ask an admin.
+            </p>
+          )}
+          {authError === "invite" && (
+            <p className="rounded-md bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">
+              Open the invite link from your email first, then set your password.
+            </p>
+          )}
+          {authError === "auth" && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-center text-xs text-red-800">
+              Sign-in link expired or invalid. Ask an admin to send a new invite.
             </p>
           )}
         </CardHeader>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link2, Pencil, Plus, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +15,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmployeeFormDialog } from "@/components/settings/employee-form-dialog";
+import { InviteEmailButton } from "@/components/settings/invite-email-button";
+import { UserAccessActions } from "@/components/settings/user-access-actions";
+import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
+import type { AppRole } from "@/lib/auth/roles";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Employee } from "@/types";
+
+interface ProfileRow {
+  id: string;
+  email: string | null;
+  app_role: AppRole;
+}
 
 interface TeamMembersCardProps {
   canEdit: boolean;
@@ -25,8 +37,24 @@ interface TeamMembersCardProps {
 
 export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
   const { employees } = useScheduling();
+  const { isAdmin } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+
+  const showInviteActions = canEdit && isSupabaseConfigured() && isAdmin;
+  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
+
+  const loadProfiles = useCallback(async () => {
+    if (!showInviteActions) return;
+    const supabase = createClient();
+    const { data } = await supabase.from("profiles").select("id, email, app_role");
+    if (data) setProfiles(data as ProfileRow[]);
+  }, [showInviteActions]);
+
+  useEffect(() => {
+    void loadProfiles();
+  }, [loadProfiles]);
 
   const openAdd = () => {
     setEditingEmployee(null);
@@ -56,7 +84,19 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
             </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {inviteMessage && (
+            <p
+              className={`rounded-md px-3 py-2 text-sm ${
+                inviteMessage.toLowerCase().includes("fail") ||
+                inviteMessage.toLowerCase().includes("error")
+                  ? "bg-red-50 text-red-800"
+                  : "bg-emerald-50 text-emerald-900"
+              }`}
+            >
+              {inviteMessage}
+            </p>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
@@ -66,7 +106,9 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
                 <TableHead>Capacity</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>App login</TableHead>
-                {canEdit && <TableHead className="w-[80px]" />}
+                {canEdit && (
+                  <TableHead className={showInviteActions ? "w-[120px]" : "w-[80px]"} />
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -92,22 +134,49 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
                         Linked
                       </Badge>
                     ) : employee.email ? (
-                      <span className="text-xs text-muted-foreground">No match</span>
+                      <span className="text-xs text-muted-foreground">Invite pending</span>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   {canEdit && (
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(employee)}
-                        aria-label={`Edit ${getEmployeeFullName(employee)}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {showInviteActions && employee.email && !employee.profile_id && (
+                          <InviteEmailButton
+                            email={employee.email}
+                            size="icon"
+                            variant="ghost"
+                            onMessage={setInviteMessage}
+                          />
+                        )}
+                        {showInviteActions &&
+                          employee.email &&
+                          employee.profile_id &&
+                          (() => {
+                            const linkedProfile = profiles.find(
+                              (p) => p.id === employee.profile_id,
+                            );
+                            if (!linkedProfile?.email) return null;
+                            return (
+                              <UserAccessActions
+                                userId={linkedProfile.id}
+                                email={linkedProfile.email}
+                                role={linkedProfile.app_role}
+                                onMessage={setInviteMessage}
+                              />
+                            );
+                          })()}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEdit(employee)}
+                          aria-label={`Edit ${getEmployeeFullName(employee)}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
