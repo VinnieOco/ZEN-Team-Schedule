@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -71,8 +71,12 @@ export function AllocationFormDialog({
     filters,
   } = useScheduling();
 
-  const selectableEmployees = employees.filter(
-    (e) => e.active && employeeMatchesDepartmentFilter(e, filters.department),
+  const selectableEmployees = useMemo(
+    () =>
+      employees.filter(
+        (e) => e.active && employeeMatchesDepartmentFilter(e, filters.department),
+      ),
+    [employees, filters.department],
   );
 
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -122,7 +126,15 @@ export function AllocationFormDialog({
         notes: "",
       });
     }
-  }, [open, allocation, defaultEmployeeId, defaultDate, selectableEmployees, categories, form]);
+  }, [
+    open,
+    allocation,
+    defaultEmployeeId,
+    defaultDate,
+    selectableEmployees,
+    categories,
+    form.reset,
+  ]);
 
   const watchCategory = form.watch("allocation_category_id");
   const watchEmployee = form.watch("employee_id");
@@ -188,7 +200,10 @@ export function AllocationFormDialog({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Employee</Label>
-            <Select value={form.watch("employee_id")} onValueChange={(v) => form.setValue("employee_id", v)}>
+            <Select
+              value={form.watch("employee_id") || undefined}
+              onValueChange={(v) => form.setValue("employee_id", v)}
+            >
               <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
               <SelectContent>
                 {selectableEmployees.map((e) => (
@@ -218,7 +233,7 @@ export function AllocationFormDialog({
             <div className="space-y-2">
               <Label>Project</Label>
               <Select
-                value={form.watch("project_id") ?? ""}
+                value={form.watch("project_id") ?? undefined}
                 onValueChange={(v) => form.setValue("project_id", v)}
               >
                 <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
@@ -251,7 +266,7 @@ export function AllocationFormDialog({
           <div className="space-y-2">
             <Label>Category</Label>
             <Select
-              value={form.watch("allocation_category_id")}
+              value={form.watch("allocation_category_id") || undefined}
               onValueChange={(v) => form.setValue("allocation_category_id", v)}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
