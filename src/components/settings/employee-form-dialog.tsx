@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
 import { CreatableOptionField } from "@/components/settings/creatable-option-field";
@@ -21,7 +21,7 @@ import {
   getDepartmentOptions,
   getJobRoleOptions,
 } from "@/lib/team-options";
-import type { Employee, EmployeeFormValues } from "@/types";
+import type { CompanySettings, Employee, EmployeeFormValues } from "@/types";
 import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES } from "@/types";
 
 interface EmployeeFormDialogProps {
@@ -30,48 +30,64 @@ interface EmployeeFormDialogProps {
   employee?: Employee | null;
 }
 
-const defaultValues: EmployeeFormValues = {
-  first_name: "",
-  last_name: "",
-  role: DEFAULT_JOB_ROLES[3] ?? "Junior Landscape Designer",
-  email: "",
-  department: DEFAULT_DEPARTMENTS[0] ?? "Design",
-  daily_capacity_hours: 8,
-  weekly_capacity_hours: 40,
-  active: true,
-};
+function buildAddDefaults(
+  settings: CompanySettings,
+  jobRoleOptions: string[],
+  departmentOptions: string[],
+): EmployeeFormValues {
+  return {
+    first_name: "",
+    last_name: "",
+    role: jobRoleOptions[0] ?? DEFAULT_JOB_ROLES[3] ?? "Junior Landscape Designer",
+    email: "",
+    department: departmentOptions[0] ?? DEFAULT_DEPARTMENTS[0] ?? "Design",
+    daily_capacity_hours: settings.default_daily_capacity,
+    weekly_capacity_hours: settings.default_weekly_capacity,
+    active: true,
+  };
+}
+
+function employeeToFormValues(employee: Employee): EmployeeFormValues {
+  return {
+    first_name: employee.first_name,
+    last_name: employee.last_name,
+    role: employee.role,
+    email: employee.email ?? "",
+    department: employee.department ?? "",
+    daily_capacity_hours: employee.daily_capacity_hours,
+    weekly_capacity_hours: employee.weekly_capacity_hours,
+    active: employee.active,
+  };
+}
 
 export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFormDialogProps) {
   const { employees, settings, addEmployee, updateEmployeeFromForm, updateSettings } =
     useScheduling();
-  const form = useForm<EmployeeFormValues>({ defaultValues });
 
-  const jobRoleOptions = getJobRoleOptions(settings, employees);
-  const departmentOptions = getDepartmentOptions(settings, employees);
+  const jobRoleOptions = useMemo(
+    () => getJobRoleOptions(settings, employees),
+    [settings, employees],
+  );
+  const departmentOptions = useMemo(
+    () => getDepartmentOptions(settings, employees),
+    [settings, employees],
+  );
+
+  const form = useForm<EmployeeFormValues>({
+    defaultValues: employee
+      ? employeeToFormValues(employee)
+      : buildAddDefaults(settings, jobRoleOptions, departmentOptions),
+  });
 
   useEffect(() => {
     if (!open) return;
     if (employee) {
-      form.reset({
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        role: employee.role,
-        email: employee.email ?? "",
-        department: employee.department ?? "",
-        daily_capacity_hours: employee.daily_capacity_hours,
-        weekly_capacity_hours: employee.weekly_capacity_hours,
-        active: employee.active,
-      });
-    } else {
-      form.reset({
-        ...defaultValues,
-        role: jobRoleOptions[0] ?? defaultValues.role,
-        department: departmentOptions[0] ?? defaultValues.department,
-        daily_capacity_hours: settings.default_daily_capacity,
-        weekly_capacity_hours: settings.default_weekly_capacity,
-      });
+      form.reset(employeeToFormValues(employee));
+      return;
     }
-  }, [open, employee, form, settings, jobRoleOptions, departmentOptions]);
+    form.reset(buildAddDefaults(settings, jobRoleOptions, departmentOptions));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens or member changes
+  }, [open, employee?.id]);
 
   const addJobRoleOption = (role: string) => {
     const next = appendJobRole(settings, role);

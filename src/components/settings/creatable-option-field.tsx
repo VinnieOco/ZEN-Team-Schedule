@@ -65,7 +65,12 @@ export function CreatableOptionField({
       <Label>{label}</Label>
       {!adding ? (
         <>
-          <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>
+          <Select
+            key={`${label}-${value || "empty"}`}
+            value={value || undefined}
+            onValueChange={onChange}
+            disabled={disabled}
+          >
             <SelectTrigger>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>

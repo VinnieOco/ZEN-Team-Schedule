@@ -131,8 +131,12 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
 
       {canEdit && (
         <EmployeeFormDialog
+          key={editingEmployee?.id ?? "new"}
           open={dialogOpen}
-          onOpenChange={setDialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) setEditingEmployee(null);
+          }}
           employee={editingEmployee}
         />
       )}
