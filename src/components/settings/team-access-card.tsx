@@ -35,11 +35,12 @@ interface ProfileRow {
 }
 
 export function TeamAccessCard() {
-  const { isAdmin, userEmail } = useAuth();
+  const { isAdmin, userEmail, profile: currentProfile, refreshProfile } = useAuth();
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AppRole>("member");
   const [loading, setLoading] = useState(false);
+  const [roleSavingId, setRoleSavingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const loadProfiles = useCallback(async () => {
@@ -74,7 +75,7 @@ export function TeamAccessCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
-      const json = (await res.json()) as { error?: string; ok?: boolean };
+      const json = (await res.json()) as { error?: string };
 
       if (!res.ok) {
         throw new Error(json.error ?? "Invite failed");
@@ -90,6 +91,34 @@ export function TeamAccessCard() {
     }
   };
 
+  const handleRoleChange = async (userId: string, app_role: AppRole) => {
+    setRoleSavingId(userId);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/admin/profiles", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, app_role }),
+      });
+      const json = (await res.json()) as { error?: string };
+
+      if (!res.ok) {
+        throw new Error(json.error ?? "Could not update role");
+      }
+
+      setProfiles((prev) => prev.map((p) => (p.id === userId ? { ...p, app_role } : p)));
+      if (userId === currentProfile?.id) {
+        await refreshProfile();
+      }
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not update role");
+      void loadProfiles();
+    } finally {
+      setRoleSavingId(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -98,8 +127,8 @@ export function TeamAccessCard() {
           Team access
         </CardTitle>
         <CardDescription>
-          Invite teammates by email. Public sign-up is disabled — only invited users can join.
-          Signed in as {userEmail}.
+          App logins and permissions. Invite teammates by email; change roles anytime. Signed in as{" "}
+          {userEmail}.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -143,17 +172,36 @@ export function TeamAccessCard() {
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>App role</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {profiles.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell>{p.email ?? "—"}</TableCell>
                   <TableCell>
-                    <Badge variant={p.app_role === "admin" ? "default" : "secondary"}>
-                      {p.app_role}
-                    </Badge>
+                    <span className="flex items-center gap-2">
+                      {p.email ?? "—"}
+                      {p.id === currentProfile?.id && (
+                        <Badge variant="outline" className="text-[10px]">
+                          you
+                        </Badge>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={p.app_role}
+                      disabled={roleSavingId === p.id}
+                      onValueChange={(v) => void handleRoleChange(p.id, v as AppRole)}
+                    >
+                      <SelectTrigger className="h-8 w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="member">Member</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))}

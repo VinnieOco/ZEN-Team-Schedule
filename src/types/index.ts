@@ -143,3 +143,25 @@ export interface ProjectFormValues {
   project_number?: string;
   notes?: string;
 }
+
+export interface EmployeeFormValues {
+  first_name: string;
+  last_name: string;
+  role: string;
+  email?: string;
+  department?: string;
+  daily_capacity_hours: number;
+  weekly_capacity_hours: number;
+  active: boolean;
+}
+
+export const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = [
+  "Design Department Manager",
+  "Senior Landscape Designer",
+  "Landscape Architect",
+  "Junior Landscape Designer",
+  "Design Technician",
+  "Intern",
+  "Estimator",
+  "Construction PM",
+];

@@ -1,0 +1,161 @@
+"use client";
+
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useScheduling } from "@/context/scheduling-context";
+import type { Employee, EmployeeFormValues } from "@/types";
+import { EMPLOYEE_ROLE_OPTIONS } from "@/types";
+
+interface EmployeeFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  employee?: Employee | null;
+}
+
+const defaultValues: EmployeeFormValues = {
+  first_name: "",
+  last_name: "",
+  role: "Junior Landscape Designer",
+  email: "",
+  department: "Design",
+  daily_capacity_hours: 8,
+  weekly_capacity_hours: 40,
+  active: true,
+};
+
+export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFormDialogProps) {
+  const { settings, addEmployee, updateEmployeeFromForm } = useScheduling();
+  const form = useForm<EmployeeFormValues>({ defaultValues });
+
+  useEffect(() => {
+    if (!open) return;
+    if (employee) {
+      form.reset({
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        role: employee.role,
+        email: employee.email ?? "",
+        department: employee.department ?? "Design",
+        daily_capacity_hours: employee.daily_capacity_hours,
+        weekly_capacity_hours: employee.weekly_capacity_hours,
+        active: employee.active,
+      });
+    } else {
+      form.reset({
+        ...defaultValues,
+        daily_capacity_hours: settings.default_daily_capacity,
+        weekly_capacity_hours: settings.default_weekly_capacity,
+      });
+    }
+  }, [open, employee, form, settings]);
+
+  const onSubmit = form.handleSubmit((values) => {
+    if (employee) {
+      updateEmployeeFromForm(employee.id, values);
+    } else {
+      addEmployee(values);
+    }
+    onOpenChange(false);
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{employee ? "Edit team member" : "Add team member"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">First name</Label>
+              <Input id="first_name" required {...form.register("first_name")} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Last name</Label>
+              <Input id="last_name" required {...form.register("last_name")} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Job role</Label>
+            <Select value={form.watch("role")} onValueChange={(v) => form.setValue("role", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EMPLOYEE_ROLE_OPTIONS.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email (optional)</Label>
+            <Input id="email" type="email" {...form.register("email")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="department">Department</Label>
+            <Input id="department" {...form.register("department")} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="daily_capacity_hours">Daily capacity (hrs)</Label>
+              <Input
+                id="daily_capacity_hours"
+                type="number"
+                min={1}
+                max={24}
+                required
+                {...form.register("daily_capacity_hours", { valueAsNumber: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="weekly_capacity_hours">Weekly capacity (hrs)</Label>
+              <Input
+                id="weekly_capacity_hours"
+                type="number"
+                min={1}
+                max={80}
+                required
+                {...form.register("weekly_capacity_hours", { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="active"
+              checked={form.watch("active")}
+              onCheckedChange={(v) => form.setValue("active", v)}
+            />
+            <Label htmlFor="active">Active on schedule</Label>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">{employee ? "Save changes" : "Add member"}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

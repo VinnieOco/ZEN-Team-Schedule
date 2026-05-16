@@ -31,6 +31,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  EmployeeFormValues,
   ProjectFormValues,
   SchedulingFilters,
 } from "@/types";
@@ -72,6 +73,8 @@ interface SchedulingContextValue {
   updateProject: (id: string, values: ProjectFormValues) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  addEmployee: (values: EmployeeFormValues) => Employee;
+  updateEmployeeFromForm: (id: string, values: EmployeeFormValues) => void;
   getCategoryById: (id: string) => AllocationCategory | undefined;
   getProjectById: (id: string) => Project | undefined;
   getEmployeeById: (id: string) => Employee | undefined;
@@ -435,6 +438,58 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  const employeeFromForm = useCallback(
+    (id: string, values: EmployeeFormValues): Employee => ({
+      id,
+      first_name: values.first_name.trim(),
+      last_name: values.last_name.trim(),
+      role: values.role,
+      email: values.email?.trim() || undefined,
+      department: values.department?.trim() || undefined,
+      daily_capacity_hours: values.daily_capacity_hours,
+      weekly_capacity_hours: values.weekly_capacity_hours,
+      active: values.active,
+    }),
+    [],
+  );
+
+  const addEmployee = useCallback(
+    (values: EmployeeFormValues): Employee => {
+      const employee = employeeFromForm(generateId(), values);
+      setEmployees((prev) => {
+        const snapshot = prev;
+        const next = [...prev, employee];
+        if (repoRef.current) {
+          persistAsync(
+            () => repoRef.current!.upsertEmployee(employee),
+            () => setEmployees(snapshot),
+          );
+        }
+        return next;
+      });
+      return employee;
+    },
+    [employeeFromForm, persistAsync],
+  );
+
+  const updateEmployeeFromForm = useCallback(
+    (id: string, values: EmployeeFormValues) => {
+      const employee = employeeFromForm(id, values);
+      setEmployees((prev) => {
+        const snapshot = prev;
+        const next = prev.map((e) => (e.id === id ? employee : e));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertEmployee(employee),
+            () => setEmployees(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [employeeFromForm, persistAsync],
+  );
+
   const value = useMemo(
     () => ({
       dataSource,
@@ -462,6 +517,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProject,
       updateSettings,
       updateEmployee,
+      addEmployee,
+      updateEmployeeFromForm,
       getCategoryById,
       getProjectById,
       getEmployeeById,
@@ -493,6 +550,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProject,
       updateSettings,
       updateEmployee,
+      addEmployee,
+      updateEmployeeFromForm,
       getCategoryById,
       getProjectById,
       getEmployeeById,

@@ -4,22 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { TeamAccessCard } from "@/components/settings/team-access-card";
+import { TeamMembersCard } from "@/components/settings/team-members-card";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { getEmployeeFullName } from "@/lib/week";
 
 export default function SettingsPage() {
-  const { settings, employees, updateSettings, updateEmployee, dataSource } = useScheduling();
+  const { settings, updateSettings, dataSource } = useScheduling();
   const { isAdmin, profile, isLoading: authLoading } = useAuth();
   const canEdit = !isSupabaseConfigured() || dataSource === "local" || isAdmin;
 
@@ -28,15 +20,15 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Company defaults and team member capacity.
+          Company defaults, schedule team, and app access.
           {isSupabaseConfigured() && profile && !authLoading && (
             <span className="ml-1 capitalize">· App role: {profile.app_role}</span>
           )}
         </p>
         {isSupabaseConfigured() && !canEdit && !authLoading && (
           <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            You have member access. Scheduling and projects are editable; company settings and team
-            capacity require an admin.
+            You have member access. Scheduling and projects are editable; settings and team management
+            require an admin.
           </p>
         )}
       </div>
@@ -82,65 +74,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Members</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Daily Cap.</TableHead>
-                <TableHead>Weekly Cap.</TableHead>
-                <TableHead>Active</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell className="font-medium">{getEmployeeFullName(employee)}</TableCell>
-                  <TableCell>{employee.role}</TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      className="w-20"
-                      disabled={!canEdit}
-                      value={employee.daily_capacity_hours}
-                      onChange={(e) =>
-                        updateEmployee(employee.id, {
-                          daily_capacity_hours: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      className="w-20"
-                      disabled={!canEdit}
-                      value={employee.weekly_capacity_hours}
-                      onChange={(e) =>
-                        updateEmployee(employee.id, {
-                          weekly_capacity_hours: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      disabled={!canEdit}
-                      checked={employee.active}
-                      onCheckedChange={(v) => updateEmployee(employee.id, { active: v })}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <TeamMembersCard canEdit={canEdit} />
     </div>
   );
 }

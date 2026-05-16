@@ -70,7 +70,9 @@ After `npm run db:setup` (includes the profiles migration):
 1. Do **not** set `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP=true` (default is invite-only in the UI).
 2. Supabase → **Authentication** → **Providers** → **Email** → disable **Allow new users to sign up** (or restrict sign-ups in Supabase Auth settings).
 3. Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` and Vercel (never use `NEXT_PUBLIC_` for this key).
-4. Sign in as an admin → **Settings** → **Team access** → **Send invite**.
+4. Sign in as an admin → **Settings** → **Team access** → **Send invite** or change roles.
+
+5. **Settings** → **Schedule team** → add/edit designers on the weekly grid (name, role, capacity).
 
 The first user in the database becomes **admin** automatically. Existing users are backfilled when you run the migration.
 
