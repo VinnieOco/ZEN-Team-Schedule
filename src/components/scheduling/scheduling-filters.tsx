@@ -16,16 +16,38 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
+import { departmentFilterLabel, listDepartmentsFromEmployees } from "@/lib/departments";
 
 export function SchedulingFilters() {
-  const { projects, categories, filters, setFilters, clearFilters } = useScheduling();
+  const { employees, projects, categories, filters, setFilters, clearFilters } = useScheduling();
+
+  const departments = listDepartmentsFromEmployees(employees);
 
   const hasActiveFilters =
-    Boolean(filters.search) || Boolean(filters.projectId) || Boolean(filters.categoryId);
+    Boolean(filters.search) ||
+    Boolean(filters.department) ||
+    Boolean(filters.projectId) ||
+    Boolean(filters.categoryId);
 
   return (
     <div className="space-y-3 rounded-lg border bg-white p-3">
       <div className="flex flex-wrap items-center gap-3">
+        <Select
+          value={filters.department ?? "all"}
+          onValueChange={(v) => setFilters({ department: v === "all" ? null : v })}
+        >
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Department" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All departments</SelectItem>
+            {departments.map((dept) => (
+              <SelectItem key={dept} value={dept}>
+                {departmentFilterLabel(dept)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="relative min-w-[min(100%,240px)] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -89,6 +111,19 @@ export function SchedulingFilters() {
       </div>
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-2">
+          {filters.department && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              {departmentFilterLabel(filters.department)}
+              <button
+                type="button"
+                className="ml-1 rounded-full p-0.5 hover:bg-slate-200"
+                onClick={() => setFilters({ department: null })}
+                aria-label="Clear department filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
           {filters.search && (
             <Badge variant="secondary" className="gap-1 pr-1">
               Search: {filters.search}

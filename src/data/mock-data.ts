@@ -67,11 +67,11 @@ export const employees: Employee[] = [
     id: "emp-5",
     first_name: "Carlos",
     last_name: "Rivera",
-    role: "Design Technician",
+    role: "Estimator",
     email: "carlos@zenlandscape.com",
     weekly_capacity_hours: 40,
     daily_capacity_hours: 8,
-    department: "Design",
+    department: "Estimating",
     active: true,
   },
   {

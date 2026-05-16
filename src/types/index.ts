@@ -130,6 +130,8 @@ export interface TeamSummaryStats {
 
 export interface SchedulingFilters {
   search: string;
+  /** Department key from listDepartmentsFromEmployees, or null for all. */
+  department: string | null;
   projectId: string | null;
   categoryId: string | null;
   showHours: boolean;

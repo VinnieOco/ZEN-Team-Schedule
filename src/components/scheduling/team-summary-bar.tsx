@@ -2,6 +2,7 @@
 
 import type { ScheduleCalendarView } from "@/components/scheduling/scheduling-header";
 import { useScheduling } from "@/context/scheduling-context";
+import { filterEmployeesByDepartment } from "@/lib/departments";
 import { getTeamMonthSummary, getTeamSummary } from "@/lib/utilization";
 import { getMonthStart } from "@/lib/week";
 import { cn } from "@/lib/utils";
@@ -11,16 +12,20 @@ interface TeamSummaryBarProps {
 }
 
 export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
-  const { allocations, employees, selectedWeekStart, settings } = useScheduling();
+  const { allocations, employees, selectedWeekStart, settings, filters } = useScheduling();
+  const scopedEmployees = filterEmployeesByDepartment(
+    employees.filter((e) => e.active),
+    filters.department,
+  );
   const summary =
     calendarView === "month"
       ? getTeamMonthSummary(
           allocations,
-          employees,
+          scopedEmployees,
           getMonthStart(selectedWeekStart),
           settings,
         )
-      : getTeamSummary(allocations, employees, selectedWeekStart, settings);
+      : getTeamSummary(allocations, scopedEmployees, selectedWeekStart, settings);
 
   const items = [
     {

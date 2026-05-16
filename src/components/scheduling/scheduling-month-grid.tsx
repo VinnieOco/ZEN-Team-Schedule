@@ -35,6 +35,7 @@ import {
 } from "@/lib/week";
 import type { Allocation } from "@/types";
 import type { EmployeeMonthStats } from "@/lib/utilization";
+import { departmentFilterLabel } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 
 export function SchedulingMonthGrid() {
@@ -87,7 +88,11 @@ export function SchedulingMonthGrid() {
       <EmptyState
         icon={Users}
         title="No team members match your filters"
-        description="Try adjusting search, project, or category filters to see more of the schedule."
+        description={
+          filters.department
+            ? `No one in ${departmentFilterLabel(filters.department)} matches your filters.`
+            : "Try adjusting search, project, department, or category filters to see more of the schedule."
+        }
         actionLabel="Clear filters"
         onAction={clearFilters}
       />
@@ -146,6 +151,9 @@ export function SchedulingMonthGrid() {
                           <p className="truncate text-xs font-semibold text-slate-900">
                             {getEmployeeFullName(employee)}
                           </p>
+                          {!filters.department && employee.department && (
+                            <p className="truncate text-[10px] text-slate-500">{employee.department}</p>
+                          )}
                           <span
                             className={cn(
                               "mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold",

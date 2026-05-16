@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Filter, Plus, Printer } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
+import { departmentFilterLabel } from "@/lib/departments";
 import { formatMonthRange, formatWeekRange } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
@@ -34,12 +35,16 @@ export function SchedulingHeader({
     goToToday,
     setWeek,
     setMonth,
+    filters,
   } = useScheduling();
 
   const isMonth = calendarView === "month";
   const periodLabel = isMonth
     ? formatMonthRange(selectedWeekStart)
     : formatWeekRange(selectedWeekStart, settings);
+  const departmentSuffix = filters.department
+    ? ` · ${departmentFilterLabel(filters.department)}`
+    : "";
 
   const handleToday = () => {
     if (isMonth) {
@@ -75,7 +80,12 @@ export function SchedulingHeader({
         <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
           Team Scheduling
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{periodLabel}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {periodLabel}
+          {departmentSuffix && (
+            <span className="font-medium text-emerald-700">{departmentSuffix}</span>
+          )}
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex items-center rounded-lg border bg-white p-0.5 shadow-sm">

@@ -14,7 +14,7 @@ insert into public.employees (id, first_name, last_name, role, email, weekly_cap
   ('11111111-1111-1111-1111-111111111102', 'Rose', 'Nguyen', 'Design Department Manager', 'rose@zenlandscape.com', 40, 8, 'Design', true),
   ('11111111-1111-1111-1111-111111111103', 'Mike', 'Johnson', 'Landscape Architect', 'mike@zenlandscape.com', 40, 8, 'Design', true),
   ('11111111-1111-1111-1111-111111111104', 'Emily', 'Larson', 'Junior Landscape Designer', 'emily@zenlandscape.com', 40, 8, 'Design', true),
-  ('11111111-1111-1111-1111-111111111105', 'Carlos', 'Rivera', 'Design Technician', 'carlos@zenlandscape.com', 40, 8, 'Design', true),
+  ('11111111-1111-1111-1111-111111111105', 'Carlos', 'Rivera', 'Estimator', 'carlos@zenlandscape.com', 40, 8, 'Estimating', true),
   ('11111111-1111-1111-1111-111111111106', 'Lily', 'Chen', 'Intern', 'lily@zenlandscape.com', 40, 8, 'Design', true)
 on conflict (id) do nothing;
 

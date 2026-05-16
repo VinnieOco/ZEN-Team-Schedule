@@ -163,6 +163,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
   const [filters, setFiltersState] = useState<SchedulingFilters>({
     search: "",
+    department: null,
     projectId: null,
     categoryId: null,
     showHours: true,
@@ -262,6 +263,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const clearFilters = useCallback(() => {
     setFiltersState({
       search: "",
+      department: null,
       projectId: null,
       categoryId: null,
       showHours: true,

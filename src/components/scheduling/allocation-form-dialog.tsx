@@ -26,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { employeeMatchesDepartmentFilter } from "@/lib/departments";
 import { validateAllocationHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Allocation, AllocationFormValues } from "@/types";
@@ -67,7 +68,12 @@ export function AllocationFormDialog({
     addAllocation,
     updateAllocation,
     getCategoryById,
+    filters,
   } = useScheduling();
+
+  const selectableEmployees = employees.filter(
+    (e) => e.active && employeeMatchesDepartmentFilter(e, filters.department),
+  );
 
   const [warnings, setWarnings] = useState<string[]>([]);
   const [useTaskName, setUseTaskName] = useState(false);
@@ -105,7 +111,7 @@ export function AllocationFormDialog({
     } else {
       setUseTaskName(false);
       form.reset({
-        employee_id: defaultEmployeeId ?? employees[0]?.id ?? "",
+        employee_id: defaultEmployeeId ?? selectableEmployees[0]?.id ?? "",
         project_id: null,
         task_name: "",
         allocation_date: defaultDate ?? format(new Date(), "yyyy-MM-dd"),
@@ -116,7 +122,7 @@ export function AllocationFormDialog({
         notes: "",
       });
     }
-  }, [open, allocation, defaultEmployeeId, defaultDate, employees, categories, form]);
+  }, [open, allocation, defaultEmployeeId, defaultDate, selectableEmployees, categories, form]);
 
   const watchCategory = form.watch("allocation_category_id");
   const watchEmployee = form.watch("employee_id");
@@ -185,8 +191,11 @@ export function AllocationFormDialog({
             <Select value={form.watch("employee_id")} onValueChange={(v) => form.setValue("employee_id", v)}>
               <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
               <SelectContent>
-                {employees.filter((e) => e.active).map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{getEmployeeFullName(e)}</SelectItem>
+                {selectableEmployees.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {getEmployeeFullName(e)}
+                    {!filters.department && e.department ? ` · ${e.department}` : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

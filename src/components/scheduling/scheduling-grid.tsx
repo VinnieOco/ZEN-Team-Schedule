@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -19,35 +19,25 @@ import {
   ScheduleDropCell,
 } from "@/components/scheduling/schedule-drop-cell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
-import {
-  filterAllocationsForWeek,
-  getEmployeeDayHours,
-  getEmployeeWeekStats,
-  utilizationStatusBg,
-  utilizationStatusColor,
-} from "@/lib/utilization";
+import { getEmployeeDayHours, utilizationStatusBg, utilizationStatusColor } from "@/lib/utilization";
+import { departmentFilterLabel } from "@/lib/departments";
 import {
   formatDateKey,
   formatDayHeader,
   getEmployeeFullName,
   getEmployeeInitials,
-  getWeekDays,
 } from "@/lib/week";
 import type { Allocation } from "@/types";
 import { cn } from "@/lib/utils";
 
 export function SchedulingGrid() {
-  const {
-    employees,
-    allocations,
-    settings,
-    selectedWeekStart,
-    filters,
-    clearFilters,
-    moveAllocation,
-  } = useScheduling();
+  const { allocations, filters, moveAllocation } = useScheduling();
+  const { rows, weekDays, weekAllocations, clearFilters } = useFilteredEmployeeRows({
+    period: "week",
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
@@ -58,29 +48,6 @@ export function SchedulingGrid() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
-
-  const weekDays = getWeekDays(selectedWeekStart, settings);
-  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
-
-  const filteredEmployees = useMemo(() => {
-    return employees
-      .filter((e) => e.active)
-      .filter((e) => {
-        if (!filters.search) return true;
-        const q = filters.search.toLowerCase();
-        const name = getEmployeeFullName(e).toLowerCase();
-        return name.includes(q) || e.role.toLowerCase().includes(q);
-      })
-      .filter((e) => {
-        if (!filters.projectId && !filters.categoryId) return true;
-        return weekAllocations.some((a) => {
-          if (a.employee_id !== e.id) return false;
-          if (filters.projectId && a.project_id !== filters.projectId) return false;
-          if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
-          return true;
-        });
-      });
-  }, [employees, filters, weekAllocations]);
 
   const openAdd = (employeeId: string, date: string) => {
     setEditingAllocation(null);
@@ -112,12 +79,16 @@ export function SchedulingGrid() {
     moveAllocation(String(active.id), target.employeeId, target.dateKey);
   };
 
-  if (filteredEmployees.length === 0) {
+  if (rows.length === 0) {
     return (
       <EmptyState
         icon={Users}
         title="No team members match your filters"
-        description="Try adjusting search, project, or category filters to see more of the schedule."
+        description={
+          filters.department
+            ? `No one in ${departmentFilterLabel(filters.department)} matches your filters. Try another department or clear filters.`
+            : "Try adjusting search, project, department, or category filters to see more of the schedule."
+        }
         actionLabel="Clear filters"
         onAction={clearFilters}
       />
@@ -153,13 +124,7 @@ export function SchedulingGrid() {
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.map((employee) => {
-                const stats = getEmployeeWeekStats(
-                  employee,
-                  allocations,
-                  selectedWeekStart,
-                  settings,
-                );
+              {rows.map(({ employee, stats }) => {
                 const dayAllocs = (dateKey: string) =>
                   weekAllocations.filter(
                     (a) => a.employee_id === employee.id && a.allocation_date === dateKey,
@@ -179,6 +144,9 @@ export function SchedulingGrid() {
                             {getEmployeeFullName(employee)}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">{employee.role}</p>
+                          {!filters.department && employee.department && (
+                            <p className="truncate text-[10px] text-slate-500">{employee.department}</p>
+                          )}
                           <span
                             className={cn(
                               "mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -189,7 +157,9 @@ export function SchedulingGrid() {
                             {stats.utilizationPercent}% utilized
                           </span>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {stats.scheduledHours} / {stats.weeklyCapacity} hrs
+                            {stats.scheduledHours} /{" "}
+                            {"weeklyCapacity" in stats ? stats.weeklyCapacity : stats.monthlyCapacity}{" "}
+                            hrs
                           </p>
                         </div>
                       </div>

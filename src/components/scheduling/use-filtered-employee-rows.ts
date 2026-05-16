@@ -11,6 +11,7 @@ import {
 } from "@/lib/utilization";
 import type { EmployeeWeekStats } from "@/types";
 import type { EmployeeMonthStats } from "@/lib/utilization";
+import { employeeMatchesDepartmentFilter } from "@/lib/departments";
 import { getEmployeeFullName, getMonthDays, getMonthStart, getWeekDays } from "@/lib/week";
 import type { Employee } from "@/types";
 
@@ -43,6 +44,7 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
   const rows: EmployeeWeekRow[] = useMemo(() => {
     const mapped = employees
       .filter((e) => e.active)
+      .filter((e) => employeeMatchesDepartmentFilter(e, filters.department))
       .filter((e) => {
         if (!filters.search) return true;
         const q = filters.search.toLowerCase();
