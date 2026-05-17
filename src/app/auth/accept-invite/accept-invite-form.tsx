@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DEFAULT_APP_PATH } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/client";
 
 interface AcceptInviteFormProps {
@@ -40,7 +41,7 @@ export function AcceptInviteForm({ email }: AcceptInviteFormProps) {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      router.push("/scheduling");
+      router.push(DEFAULT_APP_PATH);
       router.refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not set password");
@@ -50,7 +51,7 @@ export function AcceptInviteForm({ email }: AcceptInviteFormProps) {
   };
 
   const skipToApp = () => {
-    router.push("/scheduling");
+    router.push(DEFAULT_APP_PATH);
     router.refresh();
   };
 

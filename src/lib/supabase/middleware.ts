@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { DEFAULT_APP_PATH } from "@/lib/routes";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export async function updateSession(request: NextRequest) {
@@ -46,7 +47,9 @@ export async function updateSession(request: NextRequest) {
 
   if (user && request.nextUrl.pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/scheduling";
+    const redirect = request.nextUrl.searchParams.get("redirect");
+    url.pathname = redirect && redirect.startsWith("/") ? redirect : DEFAULT_APP_PATH;
+    url.searchParams.delete("redirect");
     return NextResponse.redirect(url);
   }
 

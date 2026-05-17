@@ -9,13 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isPublicSignupAllowed } from "@/lib/auth/roles";
+import { DEFAULT_APP_PATH } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/scheduling";
+  const redirect = searchParams.get("redirect") ?? DEFAULT_APP_PATH;
   const authError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ export function LoginForm() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" onClick={() => router.push("/scheduling")}>
+            <Button className="w-full" onClick={() => router.push(DEFAULT_APP_PATH)}>
               Continue to app
             </Button>
           </CardContent>
