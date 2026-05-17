@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Calendar, Clock } from "lucide-react";
 
+import { TimeEntryFormDialog } from "@/components/time-tracking/time-entry-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { filterTimeEntriesForWeek, varianceColorClass, varianceLabel } from "@/lib/time-tracking";
 import { filterAllocationsForWeek } from "@/lib/utilization";
 import type { PersonalWeekSummary } from "@/lib/dashboard";
@@ -23,6 +26,8 @@ interface PersonalWeekSectionProps {
 export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWeekSectionProps) {
   const { allocations, timeEntries, settings, getProjectById, getCategoryById } =
     useScheduling();
+  const { canLogTime } = usePermissions();
+  const [logTimeOpen, setLogTimeOpen] = useState(false);
 
   const weekAllocations = filterAllocationsForWeek(allocations, weekStart, settings)
     .filter((a) => a.employee_id === employee.id)
@@ -50,14 +55,20 @@ export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWe
               Schedule
             </Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/time-tracking">
+          {canLogTime && (
+            <Button variant="outline" size="sm" onClick={() => setLogTimeOpen(true)}>
               <Clock className="mr-2 h-3.5 w-3.5" />
               Log time
-            </Link>
-          </Button>
+            </Button>
+          )}
         </div>
       </div>
+
+      <TimeEntryFormDialog
+        open={logTimeOpen}
+        onOpenChange={setLogTimeOpen}
+        defaultEmployeeId={employee.id}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
