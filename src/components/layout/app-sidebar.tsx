@@ -22,9 +22,9 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays },
   { href: "/time-tracking", label: "Time Tracking", icon: Timer },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
