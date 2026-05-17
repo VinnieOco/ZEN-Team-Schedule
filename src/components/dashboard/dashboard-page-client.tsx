@@ -70,15 +70,41 @@ export function DashboardPageClient() {
     0,
   );
 
+  const linkProfileBanner = !linkedEmployee && (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <p className="font-medium">Link your schedule profile</p>
+      <p className="mt-1 text-amber-800/90">
+        Connect your login to your team member record in Settings to see your personal week
+        summary.
+      </p>
+      <Button variant="outline" size="sm" className="mt-3 border-amber-300 bg-white" asChild>
+        <Link href="/settings">Go to Settings</Link>
+      </Button>
+    </div>
+  );
+
+  const personalWeekSection =
+    linkedEmployee && personalSummary ? (
+      <PersonalWeekSection
+        employee={linkedEmployee}
+        summary={personalSummary}
+        weekStart={selectedWeekStart}
+      />
+    ) : null;
+
+  const headerSubtitle = linkedEmployee
+    ? `${getEmployeeFullName(linkedEmployee)} · ${weekLabel}`
+    : isManagerOrAdmin
+      ? `Team overview by department · ${weekLabel}`
+      : weekLabel;
+
   if (isManagerOrAdmin) {
     return (
       <div className="space-y-5 p-4 md:space-y-6 md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Team overview by department · {weekLabel}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{headerSubtitle}</p>
           </div>
           <Button asChild className="w-full sm:w-auto">
             <Link href="/scheduling">
@@ -87,6 +113,9 @@ export function DashboardPageClient() {
             </Link>
           </Button>
         </div>
+
+        {linkProfileBanner}
+        {personalWeekSection}
 
         {totalOverallocated > 0 && (
           <div
@@ -119,11 +148,7 @@ export function DashboardPageClient() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {linkedEmployee
-              ? `${getEmployeeFullName(linkedEmployee)} · ${weekLabel}`
-              : weekLabel}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{headerSubtitle}</p>
         </div>
         <Button asChild className="w-full sm:w-auto">
           <Link href="/scheduling">
@@ -133,26 +158,8 @@ export function DashboardPageClient() {
         </Button>
       </div>
 
-      {!linkedEmployee && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-medium">Link your schedule profile</p>
-          <p className="mt-1 text-amber-800/90">
-            Connect your login to your team member record in Settings to see your personal week
-            summary.
-          </p>
-          <Button variant="outline" size="sm" className="mt-3 border-amber-300 bg-white" asChild>
-            <Link href="/settings">Go to Settings</Link>
-          </Button>
-        </div>
-      )}
-
-      {linkedEmployee && personalSummary && (
-        <PersonalWeekSection
-          employee={linkedEmployee}
-          summary={personalSummary}
-          weekStart={selectedWeekStart}
-        />
-      )}
+      {linkProfileBanner}
+      {personalWeekSection}
 
       {deptLabel && memberDepartmentSummaries.length > 0 && (
         <section className="space-y-4">
