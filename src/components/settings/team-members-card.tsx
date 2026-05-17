@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Link2, Pencil, Plus, UserPlus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link2, Pencil, Plus, Trash2, UserPlus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -22,6 +24,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import type { AppRole } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Employee } from "@/types";
 
@@ -36,12 +39,15 @@ interface TeamMembersCardProps {
 }
 
 export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
-  const { employees } = useScheduling();
+  const { employees, allocations, timeEntries, deleteEmployee } = useScheduling();
   const { permissions: userPermissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
+  const canDelete = canEdit && userPermissions.deleteTeamMembers;
   const showInviteActions = canEdit && isSupabaseConfigured() && userPermissions.manageAppAccess;
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
 
@@ -56,6 +62,19 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
     void loadProfiles();
   }, [loadProfiles]);
 
+  const visibleEmployees = useMemo(() => {
+    const list = showInactive ? employees : employees.filter((e) => e.active);
+    return [...list].sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1;
+      return getEmployeeFullName(a).localeCompare(getEmployeeFullName(b));
+    });
+  }, [employees, showInactive]);
+
+  const inactiveCount = useMemo(
+    () => employees.filter((e) => !e.active).length,
+    [employees],
+  );
+
   const openAdd = () => {
     setEditingEmployee(null);
     setDialogOpen(true);
@@ -65,6 +84,34 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
     setEditingEmployee(employee);
     setDialogOpen(true);
   };
+
+  const handleDelete = (employee: Employee) => {
+    const name = getEmployeeFullName(employee);
+    const allocCount = allocations.filter((a) => a.employee_id === employee.id).length;
+    const timeCount = timeEntries.filter((e) => e.employee_id === employee.id).length;
+
+    let detail = `Remove ${name} from the schedule team?`;
+    if (allocCount > 0 || timeCount > 0) {
+      detail += ` This also deletes ${allocCount} schedule allocation(s) and ${timeCount} time entr${timeCount === 1 ? "y" : "ies"}.`;
+    }
+    detail += " This cannot be undone.";
+
+    if (!window.confirm(detail)) return;
+
+    setActionMessage(null);
+    const result = deleteEmployee(employee.id);
+    if (!result.ok) {
+      setActionMessage(result.message);
+      return;
+    }
+    setActionMessage(`${name} was removed from the schedule team.`);
+  };
+
+  const actionsColWidth = canDelete && showInviteActions
+    ? "w-[148px]"
+    : canDelete || showInviteActions
+      ? "w-[108px]"
+      : "w-[80px]";
 
   return (
     <>
@@ -85,16 +132,39 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
           )}
         </CardHeader>
         <CardContent className="space-y-3">
-          {inviteMessage && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-slate-50/80 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-inactive-team"
+                checked={showInactive}
+                onCheckedChange={setShowInactive}
+              />
+              <Label htmlFor="show-inactive-team" className="text-sm font-normal">
+                Show inactive members
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {showInactive
+                ? `Showing all ${employees.length} members`
+                : `Showing ${visibleEmployees.length} active`}
+              {inactiveCount > 0 && !showInactive && (
+                <span> · {inactiveCount} inactive hidden</span>
+              )}
+            </p>
+          </div>
+
+          {(inviteMessage || actionMessage) && (
             <p
-              className={`rounded-md px-3 py-2 text-sm ${
-                inviteMessage.toLowerCase().includes("fail") ||
-                inviteMessage.toLowerCase().includes("error")
+              className={cn(
+                "rounded-md px-3 py-2 text-sm",
+                (inviteMessage ?? actionMessage ?? "").toLowerCase().includes("fail") ||
+                  (inviteMessage ?? actionMessage ?? "").toLowerCase().includes("error") ||
+                  (inviteMessage ?? actionMessage ?? "").toLowerCase().includes("cannot")
                   ? "bg-red-50 text-red-800"
-                  : "bg-emerald-50 text-emerald-900"
-              }`}
+                  : "bg-emerald-50 text-emerald-900",
+              )}
             >
-              {inviteMessage}
+              {actionMessage ?? inviteMessage}
             </p>
           )}
           <Table>
@@ -106,14 +176,15 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
                 <TableHead>Capacity</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>App login</TableHead>
-                {canEdit && (
-                  <TableHead className={showInviteActions ? "w-[120px]" : "w-[80px]"} />
-                )}
+                {canEdit && <TableHead className={actionsColWidth} />}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.map((employee) => (
-                <TableRow key={employee.id}>
+              {visibleEmployees.map((employee) => (
+                <TableRow
+                  key={employee.id}
+                  className={cn(!employee.active && "bg-slate-50/60 text-muted-foreground")}
+                >
                   <TableCell className="font-medium">{getEmployeeFullName(employee)}</TableCell>
                   <TableCell className="max-w-[160px] truncate text-sm">{employee.role}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -176,20 +247,36 @@ export function TeamMembersCard({ canEdit }: TeamMembersCardProps) {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => handleDelete(employee)}
+                            aria-label={`Delete ${getEmployeeFullName(employee)}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   )}
                 </TableRow>
               ))}
-              {employees.length === 0 && (
+              {visibleEmployees.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={canEdit ? 7 : 6}
                     className="py-8 text-center text-muted-foreground"
                   >
                     <UserPlus className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                    No team members yet.
-                    {canEdit && " Add your first designer to get started."}
+                    {showInactive
+                      ? "No team members yet."
+                      : "No active team members."}
+                    {canEdit && !showInactive && inactiveCount > 0 && (
+                      <span> Turn on &quot;Show inactive members&quot; to see {inactiveCount} inactive.</span>
+                    )}
+                    {canEdit && employees.length === 0 && " Add your first designer to get started."}
                   </TableCell>
                 </TableRow>
               )}

@@ -14,6 +14,8 @@ export interface AppPermissions {
   viewSettings: boolean;
   editCompanySettings: boolean;
   manageTeamMembers: boolean;
+  /** Remove schedule team members from the database (admin only) */
+  deleteTeamMembers: boolean;
   manageTeamOptions: boolean;
   /** Invites, app roles, manual login links, permissions matrix */
   manageAppAccess: boolean;
@@ -47,7 +49,7 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
   },
   {
     label: "Settings — schedule team",
-    admin: "Add and edit members",
+    admin: "Add, edit, and delete members",
     manager: "Add and edit members",
     member: "Hidden",
   },
@@ -79,6 +81,7 @@ function adminPermissions(): AppPermissions {
     viewSettings: true,
     editCompanySettings: true,
     manageTeamMembers: true,
+    deleteTeamMembers: true,
     manageTeamOptions: true,
     manageAppAccess: true,
   };
@@ -98,6 +101,7 @@ function managerPermissions(): AppPermissions {
     viewSettings: true,
     editCompanySettings: true,
     manageTeamMembers: true,
+    deleteTeamMembers: false,
     manageTeamOptions: true,
     manageAppAccess: false,
   };
@@ -117,6 +121,7 @@ function memberPermissions(): AppPermissions {
     viewSettings: true,
     editCompanySettings: false,
     manageTeamMembers: false,
+    deleteTeamMembers: false,
     manageTeamOptions: false,
     manageAppAccess: false,
   };

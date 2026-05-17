@@ -136,6 +136,11 @@ export function createSupabaseRepository(
       return mapEmployee(data);
     },
 
+    async deleteEmployee(id: string) {
+      const { error } = await supabase.from("employees").delete().eq("id", id);
+      if (error) throw error;
+    },
+
     async upsertCategory(category: AllocationCategory) {
       const { data, error } = await supabase
         .from("allocation_categories")

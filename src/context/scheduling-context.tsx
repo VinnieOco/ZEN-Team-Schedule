@@ -93,6 +93,7 @@ interface SchedulingContextValue {
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
   updateEmployeeFromForm: (id: string, values: EmployeeFormValues) => void;
+  deleteEmployee: (id: string) => { ok: true } | { ok: false; message: string };
   addCategory: (values: CategoryFormValues) => AllocationCategory | null;
   deleteCategory: (id: string) => { ok: true } | { ok: false; message: string };
   getCategoryById: (id: string) => AllocationCategory | undefined;
@@ -644,6 +645,42 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [employeeFromForm, persistAsync, ensureTeamMemberOptions],
   );
 
+  const deleteEmployee = useCallback(
+    (id: string): { ok: true } | { ok: false; message: string } => {
+      const employee = employees.find((e) => e.id === id);
+      if (!employee) {
+        return { ok: false, message: "Team member not found." };
+      }
+
+      const employeesSnapshot = employees;
+      const allocationsSnapshot = allocations;
+      const timeEntriesSnapshot = timeEntries;
+      const projectsSnapshot = projects;
+
+      setEmployees((prev) => prev.filter((e) => e.id !== id));
+      setAllocations((prev) => prev.filter((a) => a.employee_id !== id));
+      setTimeEntries((prev) => prev.filter((e) => e.employee_id !== id));
+      setProjects((prev) =>
+        prev.map((p) => (p.lead_employee_id === id ? { ...p, lead_employee_id: undefined } : p)),
+      );
+
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.deleteEmployee(id),
+          () => {
+            setEmployees(employeesSnapshot);
+            setAllocations(allocationsSnapshot);
+            setTimeEntries(timeEntriesSnapshot);
+            setProjects(projectsSnapshot);
+          },
+        );
+      }
+
+      return { ok: true };
+    },
+    [employees, allocations, timeEntries, projects, persistAsync],
+  );
+
   const addCategory = useCallback(
     (values: CategoryFormValues): AllocationCategory | null => {
       const name = values.name.trim();
@@ -757,6 +794,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateEmployee,
       addEmployee,
       updateEmployeeFromForm,
+      deleteEmployee,
       addCategory,
       deleteCategory,
       getCategoryById,
@@ -799,6 +837,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateEmployee,
       addEmployee,
       updateEmployeeFromForm,
+      deleteEmployee,
       addCategory,
       deleteCategory,
       getCategoryById,
