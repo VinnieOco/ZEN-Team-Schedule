@@ -48,6 +48,7 @@ interface AllocationFormDialogProps {
   onOpenChange: (open: boolean) => void;
   allocation?: Allocation | null;
   defaultEmployeeId?: string;
+  defaultProjectId?: string;
   defaultDate?: string;
 }
 
@@ -56,6 +57,7 @@ export function AllocationFormDialog({
   onOpenChange,
   allocation,
   defaultEmployeeId,
+  defaultProjectId,
   defaultDate,
 }: AllocationFormDialogProps) {
   const {
@@ -80,6 +82,7 @@ export function AllocationFormDialog({
   );
 
   const [warnings, setWarnings] = useState<string[]>([]);
+  const lockProject = Boolean(defaultProjectId && !allocation);
   const [useTaskName, setUseTaskName] = useState(false);
 
   const form = useForm<AllocationFormValues>({
@@ -116,7 +119,7 @@ export function AllocationFormDialog({
       setUseTaskName(false);
       form.reset({
         employee_id: defaultEmployeeId ?? selectableEmployees[0]?.id ?? "",
-        project_id: null,
+        project_id: defaultProjectId ?? null,
         task_name: "",
         allocation_date: defaultDate ?? format(new Date(), "yyyy-MM-dd"),
         hours: 4,
@@ -130,6 +133,7 @@ export function AllocationFormDialog({
     open,
     allocation,
     defaultEmployeeId,
+    defaultProjectId,
     defaultDate,
     selectableEmployees,
     categories,
@@ -216,12 +220,14 @@ export function AllocationFormDialog({
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Switch checked={useTaskName} onCheckedChange={setUseTaskName} id="use-task" />
-            <Label htmlFor="use-task">Use task name instead of project</Label>
-          </div>
+          {!lockProject && (
+            <div className="flex items-center gap-2">
+              <Switch checked={useTaskName} onCheckedChange={setUseTaskName} id="use-task" />
+              <Label htmlFor="use-task">Use task name instead of project</Label>
+            </div>
+          )}
 
-          {useTaskName ? (
+          {useTaskName && !lockProject ? (
             <div className="space-y-2">
               <Label>Task name</Label>
               <Input {...form.register("task_name")} placeholder="PTO, Admin, etc." />
@@ -235,6 +241,7 @@ export function AllocationFormDialog({
               <Select
                 value={form.watch("project_id") ?? undefined}
                 onValueChange={(v) => form.setValue("project_id", v)}
+                disabled={lockProject}
               >
                 <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
                 <SelectContent>
