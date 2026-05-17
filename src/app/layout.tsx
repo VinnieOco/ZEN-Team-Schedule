@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ZEN Team Scheduling",
   description: "Resource planning and team scheduling for landscape design departments",
+  icons: {
+    icon: [{ url: "/zen-logo.jpg", type: "image/jpeg" }],
+    apple: "/zen-logo.jpg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

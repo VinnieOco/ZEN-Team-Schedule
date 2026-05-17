@@ -12,6 +12,7 @@ import {
   Timer,
 } from "lucide-react";
 
+import { ZenLogo } from "@/components/layout/zen-logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { createClient } from "@/lib/supabase/client";
@@ -40,9 +41,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
     <aside className="flex h-full w-64 shrink-0 flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
       <div className="border-b border-slate-800 px-6 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-            Z
-          </div>
+          <ZenLogo size={36} priority />
           <div>
             <p className="text-sm font-semibold tracking-wide">ZEN</p>
             <p className="text-xs text-slate-400">Team Scheduling</p>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { ZenLogo } from "@/components/layout/zen-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -67,9 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-xs font-bold text-white">
-              Z
-            </div>
+            <ZenLogo size={32} />
             <span className="text-sm font-semibold text-slate-900">ZEN Team Scheduling</span>
           </div>
         </header>
