@@ -48,8 +48,8 @@ export function TimeEntriesList() {
       <>
         <EmptyState
           icon={Clock}
-          title="No time logged this week"
-          description="Log hours to compare against the schedule."
+          title="No entries match your filters"
+          description="Try another search or clear filters to see time logged this week."
           actionLabel="Clear filters"
           onAction={clearFilters}
         />

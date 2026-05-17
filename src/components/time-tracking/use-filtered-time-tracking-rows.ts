@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useScheduling } from "@/context/scheduling-context";
+import { employeeMatchesDepartmentFilter } from "@/lib/departments";
 import { filterTimeEntriesForWeek, getEmployeeWeekTimeStats } from "@/lib/time-tracking";
 import { filterAllocationsForWeek } from "@/lib/utilization";
 import type { EmployeeWeekTimeStats } from "@/types";
@@ -32,6 +33,7 @@ export function useFilteredTimeTrackingRows() {
   const rows: TimeTrackingRow[] = useMemo(() => {
     return employees
       .filter((e) => e.active)
+      .filter((e) => employeeMatchesDepartmentFilter(e, filters.department))
       .filter((e) => {
         if (!filters.search) return true;
         const q = filters.search.toLowerCase();
@@ -75,11 +77,21 @@ export function useFilteredTimeTrackingRows() {
     settings,
   ]);
 
+  const filteredWeekTimeEntries = useMemo(() => {
+    const employeeIds = new Set(rows.map((r) => r.employee.id));
+    return weekTimeEntries.filter((e) => {
+      if (!employeeIds.has(e.employee_id)) return false;
+      if (filters.projectId && e.project_id !== filters.projectId) return false;
+      if (filters.categoryId && e.allocation_category_id !== filters.categoryId) return false;
+      return true;
+    });
+  }, [rows, weekTimeEntries, filters.projectId, filters.categoryId]);
+
   return {
     rows,
     weekDays,
     weekAllocations,
-    weekTimeEntries,
+    weekTimeEntries: filteredWeekTimeEntries,
     clearFilters,
   };
 }
