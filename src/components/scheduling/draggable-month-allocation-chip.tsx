@@ -10,16 +10,19 @@ import type { Allocation } from "@/types";
 
 interface DraggableMonthAllocationChipProps {
   allocation: Allocation;
+  canEdit?: boolean;
   onEdit: (allocation: Allocation) => void;
 }
 
 export function DraggableMonthAllocationChip({
   allocation,
+  canEdit = true,
   onEdit,
 }: DraggableMonthAllocationChipProps) {
   const { getCategoryById, getProjectById } = useScheduling();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: allocation.id,
+    disabled: !canEdit,
     data: { type: "allocation", allocation },
   });
 
@@ -33,18 +36,21 @@ export function DraggableMonthAllocationChip({
 
   return (
     <div ref={setNodeRef} style={style} className={cn("flex gap-0.5", isDragging && "opacity-60")}>
+      {canEdit && (
+        <button
+          type="button"
+          className="flex shrink-0 cursor-grab touch-none items-center justify-center text-slate-400 hover:text-slate-600 active:cursor-grabbing print:hidden"
+          aria-label="Drag to reschedule"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-3 w-3" />
+        </button>
+      )}
       <button
         type="button"
-        className="flex shrink-0 cursor-grab touch-none items-center justify-center text-slate-400 hover:text-slate-600 active:cursor-grabbing print:hidden"
-        aria-label="Drag to reschedule"
-        {...listeners}
-        {...attributes}
-      >
-        <GripVertical className="h-3 w-3" />
-      </button>
-      <button
-        type="button"
-        onClick={() => onEdit(allocation)}
+        onClick={() => canEdit && onEdit(allocation)}
+        disabled={!canEdit}
         className="min-w-0 flex-1 truncate rounded px-1 py-0.5 text-left text-[9px] font-medium leading-tight text-slate-800 ring-1 ring-slate-200/80 hover:ring-emerald-300"
         style={{ backgroundColor: category?.color ?? "#f1f5f9" }}
         title={`${title} · ${allocation.hours}h`}

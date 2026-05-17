@@ -16,10 +16,11 @@ import type { Allocation } from "@/types";
 
 interface AllocationCardProps {
   allocation: Allocation;
+  canEdit?: boolean;
   onEdit: (allocation: Allocation) => void;
 }
 
-export function AllocationCard({ allocation, onEdit }: AllocationCardProps) {
+export function AllocationCard({ allocation, canEdit = true, onEdit }: AllocationCardProps) {
   const { getCategoryById, getProjectById, deleteAllocation, duplicateAllocation } =
     useScheduling();
   const category = getCategoryById(allocation.allocation_category_id);
@@ -44,7 +45,8 @@ export function AllocationCard({ allocation, onEdit }: AllocationCardProps) {
         <button
           type="button"
           className="min-w-0 flex-1 text-left"
-          onClick={() => onEdit(allocation)}
+          onClick={() => canEdit && onEdit(allocation)}
+          disabled={!canEdit}
         >
           <div className="flex items-center gap-1.5">
             <p className="truncate font-semibold leading-tight text-slate-900">{title}</p>
@@ -69,29 +71,31 @@ export function AllocationCard({ allocation, onEdit }: AllocationCardProps) {
             <p className="mt-0.5 truncate text-slate-500">{allocation.phase}</p>
           )}
         </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 shrink-0 opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(allocation)}>
-              <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => duplicateAllocation(allocation.id)}>
-              <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600" onClick={handleDelete}>
-              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {canEdit && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(allocation)}>
+                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => duplicateAllocation(allocation.id)}>
+                <Copy className="mr-2 h-3.5 w-3.5" /> Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600" onClick={handleDelete}>
+                <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );

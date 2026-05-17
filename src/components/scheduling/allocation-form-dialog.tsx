@@ -26,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { employeeMatchesDepartmentFilter } from "@/lib/departments";
 import { validateAllocationHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
@@ -72,14 +73,23 @@ export function AllocationFormDialog({
     getCategoryById,
     filters,
   } = useScheduling();
+  const { canEditAllocationFor, permissions } = usePermissions();
 
   const selectableEmployees = useMemo(
     () =>
       employees.filter(
-        (e) => e.active && employeeMatchesDepartmentFilter(e, filters.department),
+        (e) =>
+          e.active &&
+          employeeMatchesDepartmentFilter(e, filters.department) &&
+          canEditAllocationFor(e.id),
       ),
-    [employees, filters.department],
+    [employees, filters.department, canEditAllocationFor],
   );
+
+  const defaultSelectableEmployeeId = selectableEmployees[0]?.id ?? "";
+
+  const lockEmployee =
+    !permissions.editSchedulingForAnyone && selectableEmployees.length === 1;
 
   const [warnings, setWarnings] = useState<string[]>([]);
   const lockProject = Boolean(defaultProjectId && !allocation);
@@ -118,7 +128,7 @@ export function AllocationFormDialog({
     } else {
       setUseTaskName(false);
       form.reset({
-        employee_id: defaultEmployeeId ?? selectableEmployees[0]?.id ?? "",
+        employee_id: defaultEmployeeId ?? defaultSelectableEmployeeId,
         project_id: defaultProjectId ?? null,
         task_name: "",
         allocation_date: defaultDate ?? format(new Date(), "yyyy-MM-dd"),
@@ -135,7 +145,7 @@ export function AllocationFormDialog({
     defaultEmployeeId,
     defaultProjectId,
     defaultDate,
-    selectableEmployees,
+    defaultSelectableEmployeeId,
     categories,
     form.reset,
   ]);
@@ -171,6 +181,10 @@ export function AllocationFormDialog({
   }, [watchEmployee, watchHours, watchDate, employees, allocations, selectedWeekStart, settings, allocation]);
 
   const onSubmit = form.handleSubmit((values) => {
+    if (!canEditAllocationFor(values.employee_id)) {
+      form.setError("employee_id", { message: "You cannot edit allocations for this team member" });
+      return;
+    }
     if (useTaskName && !values.task_name.trim()) {
       form.setError("task_name", { message: "Task name is required when no project is selected" });
       return;
@@ -207,6 +221,7 @@ export function AllocationFormDialog({
             <Select
               value={form.watch("employee_id") || undefined}
               onValueChange={(v) => form.setValue("employee_id", v)}
+              disabled={lockEmployee}
             >
               <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
               <SelectContent>

@@ -9,6 +9,7 @@ import { ProjectDayCell } from "@/components/scheduling/project-day-cell";
 import type { ScheduleCalendarView } from "@/components/scheduling/scheduling-header";
 import { useFilteredProjectRows } from "@/components/scheduling/use-filtered-project-rows";
 import { EmptyState } from "@/components/ui/empty-state";
+import { usePermissions } from "@/hooks/use-permissions";
 import { formatDateKey, formatDayHeader } from "@/lib/week";
 import type { Allocation } from "@/types";
 
@@ -17,6 +18,7 @@ interface ByProjectViewProps {
 }
 
 export function ByProjectView({ calendarView }: ByProjectViewProps) {
+  const { canEditAllocationFor, canEditSchedule } = usePermissions();
   const period = calendarView === "month" ? "month" : "week";
   const { rows, periodDays, periodAllocations, clearFilters } = useFilteredProjectRows(period);
 
@@ -33,6 +35,7 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
   };
 
   const openEdit = (allocation: Allocation) => {
+    if (!canEditAllocationFor(allocation.employee_id)) return;
     setEditingAllocation(allocation);
     setDefaultProjectId(undefined);
     setDefaultDate(undefined);
@@ -121,6 +124,8 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
                       <ProjectDayCell
                         key={dateKey}
                         allocations={dayAllocs}
+                        canAdd={canEditSchedule}
+                        canEditAllocation={canEditAllocationFor}
                         onAdd={() => openAdd(project.id, dateKey)}
                         onEdit={openEdit}
                       />

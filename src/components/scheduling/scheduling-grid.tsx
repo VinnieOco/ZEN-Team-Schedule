@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getEmployeeDayHours, utilizationStatusBg, utilizationStatusColor } from "@/lib/utilization";
 import { departmentFilterLabel } from "@/lib/departments";
 import {
@@ -40,6 +41,7 @@ interface SchedulingGridProps {
 
 export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
   const { allocations, filters, moveAllocation, settings } = useScheduling();
+  const { canEditAllocationFor, canEditSchedule } = usePermissions();
   const { rows, weekDays, weekAllocations, clearFilters } = useFilteredEmployeeRows({
     period: "week",
   });
@@ -55,6 +57,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
   );
 
   const openAdd = (employeeId: string, date: string) => {
+    if (!canEditAllocationFor(employeeId)) return;
     setEditingAllocation(null);
     setDefaultEmployeeId(employeeId);
     setDefaultDate(date);
@@ -62,6 +65,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
   };
 
   const openEdit = (allocation: Allocation) => {
+    if (!canEditAllocationFor(allocation.employee_id)) return;
     setEditingAllocation(allocation);
     setDefaultEmployeeId(undefined);
     setDefaultDate(undefined);
@@ -80,6 +84,11 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
 
     const target = parseCellDropId(String(over.id));
     if (!target) return;
+
+    const alloc = allocations.find((a) => a.id === active.id);
+    if (!alloc) return;
+    if (!canEditAllocationFor(alloc.employee_id)) return;
+    if (!canEditAllocationFor(target.employeeId)) return;
 
     moveAllocation(String(active.id), target.employeeId, target.dateKey);
   };
@@ -103,7 +112,11 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
   return (
     <>
       <p className="mb-2 text-xs text-muted-foreground print:hidden">
-        <span className="hidden sm:inline">Drag cards by the grip handle to move work between days or team members. </span>
+        {canEditSchedule && (
+          <span className="hidden sm:inline">
+            Drag cards by the grip handle to move work between days or team members.{" "}
+          </span>
+        )}
         <span className="lg:hidden">Swipe horizontally to view the full week →</span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -185,6 +198,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
                           dailyCapacity={employee.daily_capacity_hours}
                           showHours={filters.showHours}
                           isOverDay={dayHours > employee.daily_capacity_hours}
+                          canEdit={canEditAllocationFor(employee.id)}
                           onAdd={() => openAdd(employee.id, dateKey)}
                           onEdit={openEdit}
                         />
@@ -222,7 +236,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
             <CalendarOff className="mt-0.5 h-4 w-4 shrink-0" />
             <p>No allocations scheduled for this week yet. Tap a cell or add your first assignment.</p>
           </div>
-          {onAddAllocation && (
+          {canEditSchedule && onAddAllocation && (
             <Button type="button" size="sm" variant="outline" className="shrink-0 border-amber-300 bg-white" onClick={onAddAllocation}>
               Add allocation
             </Button>

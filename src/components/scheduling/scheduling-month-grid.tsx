@@ -20,6 +20,7 @@ import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-em
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   filterAllocationsForMonth,
   getEmployeeDayHours,
@@ -40,6 +41,7 @@ import { cn } from "@/lib/utils";
 
 export function SchedulingMonthGrid() {
   const { allocations, settings, selectedWeekStart, filters, moveAllocation } = useScheduling();
+  const { canEditAllocationFor, canEditSchedule } = usePermissions();
   const { rows, monthDays, clearFilters } = useFilteredEmployeeRows({ period: "month" });
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -56,6 +58,7 @@ export function SchedulingMonthGrid() {
   const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
 
   const openAdd = (employeeId: string, date: string) => {
+    if (!canEditAllocationFor(employeeId)) return;
     setEditingAllocation(null);
     setDefaultEmployeeId(employeeId);
     setDefaultDate(date);
@@ -63,6 +66,7 @@ export function SchedulingMonthGrid() {
   };
 
   const openEdit = (allocation: Allocation) => {
+    if (!canEditAllocationFor(allocation.employee_id)) return;
     setEditingAllocation(allocation);
     setDefaultEmployeeId(undefined);
     setDefaultDate(undefined);
@@ -80,6 +84,12 @@ export function SchedulingMonthGrid() {
     if (!over) return;
     const target = parseCellDropId(String(over.id));
     if (!target) return;
+
+    const alloc = allocations.find((a) => a.id === active.id);
+    if (!alloc) return;
+    if (!canEditAllocationFor(alloc.employee_id)) return;
+    if (!canEditAllocationFor(target.employeeId)) return;
+
     moveAllocation(String(active.id), target.employeeId, target.dateKey);
   };
 
@@ -102,7 +112,8 @@ export function SchedulingMonthGrid() {
   return (
     <>
       <p className="mb-2 text-xs text-muted-foreground print:hidden">
-        Drag chips by the grip to move work between days. Click a chip to edit.
+        {canEditSchedule && "Drag chips by the grip to move work between days. "}
+        Click a chip to {canEditSchedule ? "edit" : "view"}.
         <span className="lg:hidden"> Swipe horizontally to see all days →</span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -183,6 +194,7 @@ export function SchedulingMonthGrid() {
                           dailyCapacity={employee.daily_capacity_hours}
                           showHours={filters.showHours}
                           isOverDay={dayHours > employee.daily_capacity_hours}
+                          canEdit={canEditAllocationFor(employee.id)}
                           onAdd={() => openAdd(employee.id, dateKey)}
                           onEdit={openEdit}
                         />

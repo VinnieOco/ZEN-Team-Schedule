@@ -10,7 +10,9 @@ import { SchedulingGridSkeleton } from "@/components/scheduling/scheduling-grid-
 import { AvailabilityView } from "@/components/scheduling/availability-view";
 import { ByProjectView } from "@/components/scheduling/by-project-view";
 import { WorkloadView } from "@/components/scheduling/workload-view";
+import { SchedulingMemberBanner } from "@/components/scheduling/scheduling-member-banner";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   SchedulingHeader,
   type ScheduleCalendarView,
@@ -21,7 +23,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function SchedulingPageClient() {
   const { isLoading } = useScheduling();
+  const { canEditSchedule, linkedEmployeeId, permissions } = usePermissions();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [defaultEmployeeId, setDefaultEmployeeId] = useState<string>();
   const [showFilters, setShowFilters] = useState(true);
   const [calendarView, setCalendarView] = useState<ScheduleCalendarView>("week");
 
@@ -31,10 +35,19 @@ export function SchedulingPageClient() {
         <SchedulingHeader
           calendarView={calendarView}
           onCalendarViewChange={setCalendarView}
-          onAddAllocation={() => setAddDialogOpen(true)}
+          canEditSchedule={canEditSchedule}
+          onAddAllocation={() => {
+            setDefaultEmployeeId(
+              !permissions.editSchedulingForAnyone && linkedEmployeeId
+                ? linkedEmployeeId
+                : undefined,
+            );
+            setAddDialogOpen(true);
+          }}
           onToggleFilters={() => setShowFilters((v) => !v)}
           filtersVisible={showFilters}
         />
+        <SchedulingMemberBanner />
         <div className="print:hidden">
           <TeamSummaryBar calendarView={calendarView} />
         </div>
@@ -90,7 +103,11 @@ export function SchedulingPageClient() {
         </TabsContent>
       </Tabs>
       <CapacityAlerts calendarView={calendarView} />
-      <AllocationFormDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+      <AllocationFormDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        defaultEmployeeId={defaultEmployeeId}
+      />
     </div>
   );
 }

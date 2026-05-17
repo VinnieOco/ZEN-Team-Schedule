@@ -10,12 +10,18 @@ import type { Allocation } from "@/types";
 
 interface DraggableAllocationCardProps {
   allocation: Allocation;
+  canEdit?: boolean;
   onEdit: (allocation: Allocation) => void;
 }
 
-export function DraggableAllocationCard({ allocation, onEdit }: DraggableAllocationCardProps) {
+export function DraggableAllocationCard({
+  allocation,
+  canEdit = true,
+  onEdit,
+}: DraggableAllocationCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: allocation.id,
+    disabled: !canEdit,
     data: { type: "allocation", allocation },
   });
 
@@ -29,17 +35,19 @@ export function DraggableAllocationCard({ allocation, onEdit }: DraggableAllocat
       style={style}
       className={cn("relative flex gap-0.5", isDragging && "opacity-60")}
     >
-      <button
-        type="button"
-        className="mt-1 flex h-6 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:text-slate-600 active:cursor-grabbing"
-        aria-label="Drag to reschedule"
-        {...listeners}
-        {...attributes}
-      >
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
+      {canEdit && (
+        <button
+          type="button"
+          className="mt-1 flex h-6 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+          aria-label="Drag to reschedule"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="min-w-0 flex-1">
-        <AllocationCard allocation={allocation} onEdit={onEdit} />
+        <AllocationCard allocation={allocation} canEdit={canEdit} onEdit={onEdit} />
       </div>
     </div>
   );

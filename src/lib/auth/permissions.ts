@@ -6,6 +6,8 @@ export interface AppPermissions {
   editProjects: boolean;
   viewScheduling: boolean;
   editScheduling: boolean;
+  /** Edit allocations for any team member (admin only) */
+  editSchedulingForAnyone: boolean;
   viewTimeTracking: boolean;
   /** Log or edit time for any team member */
   logTimeForAnyone: boolean;
@@ -31,7 +33,12 @@ export interface PermissionRow {
 /** Human-readable matrix shown to admins in Settings */
 export const PERMISSION_MATRIX: PermissionRow[] = [
   { label: "Dashboard", admin: "View", manager: "View", member: "View" },
-  { label: "Team scheduling", admin: "View and edit", manager: "View and edit", member: "View and edit" },
+  {
+    label: "Team scheduling",
+    admin: "View and edit all",
+    manager: "View all; edit own department",
+    member: "View all; edit own row only",
+  },
   { label: "Projects", admin: "View and edit", manager: "View and edit", member: "View only" },
   {
     label: "Time tracking",
@@ -74,6 +81,7 @@ function adminPermissions(): AppPermissions {
     editProjects: true,
     viewScheduling: true,
     editScheduling: true,
+    editSchedulingForAnyone: true,
     viewTimeTracking: true,
     logTimeForAnyone: true,
     viewReports: true,
@@ -94,6 +102,7 @@ function managerPermissions(): AppPermissions {
     editProjects: true,
     viewScheduling: true,
     editScheduling: true,
+    editSchedulingForAnyone: false,
     viewTimeTracking: true,
     logTimeForAnyone: true,
     viewReports: true,
@@ -114,6 +123,7 @@ function memberPermissions(): AppPermissions {
     editProjects: false,
     viewScheduling: true,
     editScheduling: true,
+    editSchedulingForAnyone: false,
     viewTimeTracking: true,
     logTimeForAnyone: false,
     viewReports: true,

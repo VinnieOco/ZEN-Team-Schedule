@@ -1,9 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
+import {
+  canEditAllocation,
+  canEditAnySchedule,
+} from "@/lib/auth/schedule-access";
 import {
   canEditTimeEntry,
   getPermissions,
@@ -13,7 +17,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export function usePermissions() {
   const { profile, isAdmin, isManager, isManagerOrAdmin, isLoading: authLoading } = useAuth();
-  const { employees, dataSource } = useScheduling();
+  const { employees, getEmployeeById, dataSource } = useScheduling();
 
   const localMode = !isSupabaseConfigured() || dataSource === "local";
 
@@ -27,10 +31,22 @@ export function usePermissions() {
     return employees.find((e) => e.profile_id === profile.id)?.id ?? null;
   }, [profile, employees]);
 
-  const canLogTime = permissions.logTimeForAnyone || linkedEmployeeId != null;
+  const role = profile?.app_role ?? null;
 
-  const canEditEntry = (employeeId: string) =>
-    canEditTimeEntry(permissions, employeeId, linkedEmployeeId);
+  const canLogTime = permissions.logTimeForAnyone || linkedEmployeeId != null;
+  const canEditSchedule = canEditAnySchedule(permissions, role, linkedEmployeeId);
+
+  const canEditEntry = useCallback(
+    (employeeId: string) =>
+      canEditTimeEntry(permissions, employeeId, linkedEmployeeId),
+    [permissions, linkedEmployeeId],
+  );
+
+  const canEditAllocationFor = useCallback(
+    (employeeId: string) =>
+      canEditAllocation(permissions, role, employeeId, linkedEmployeeId, getEmployeeById),
+    [permissions, role, linkedEmployeeId, getEmployeeById],
+  );
 
   return {
     permissions,
@@ -40,7 +56,9 @@ export function usePermissions() {
     profile,
     linkedEmployeeId,
     canLogTime,
+    canEditSchedule,
     canEditEntry,
+    canEditAllocationFor,
     authLoading,
     localMode,
   };

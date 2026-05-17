@@ -20,6 +20,7 @@ interface ScheduleMonthCellProps {
   dailyCapacity: number;
   showHours: boolean;
   isOverDay: boolean;
+  canEdit?: boolean;
   onAdd: () => void;
   onEdit: (allocation: Allocation) => void;
 }
@@ -33,11 +34,13 @@ export function ScheduleMonthCell({
   dailyCapacity,
   showHours,
   isOverDay,
+  canEdit = true,
   onAdd,
   onEdit,
 }: ScheduleMonthCellProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: cellDropId(employeeId, dateKey),
+    disabled: !canEdit,
     data: { type: "cell", employeeId, dateKey },
   });
 
@@ -66,24 +69,33 @@ export function ScheduleMonthCell({
         ref={setNodeRef}
         className={cn(
           "flex min-h-[52px] flex-col gap-0.5 rounded-md transition-colors",
-          isOver && "bg-emerald-50 ring-2 ring-inset ring-emerald-400",
+          isOver && canEdit && "bg-emerald-50 ring-2 ring-inset ring-emerald-400",
         )}
       >
         {allocations.length === 0 ? (
-          <button
-            type="button"
-            onClick={onAdd}
-            className="flex min-h-[48px] w-full items-center justify-center rounded border border-dashed border-slate-200 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-600 print:border-slate-300"
-            aria-label="Add allocation"
-          >
-            <Plus className="h-3.5 w-3.5 print:hidden" />
-          </button>
+          canEdit ? (
+            <button
+              type="button"
+              onClick={onAdd}
+              className="flex min-h-[48px] w-full items-center justify-center rounded border border-dashed border-slate-200 text-slate-400 hover:border-emerald-400 hover:bg-emerald-50/50 hover:text-emerald-600 print:border-slate-300"
+              aria-label="Add allocation"
+            >
+              <Plus className="h-3.5 w-3.5 print:hidden" />
+            </button>
+          ) : (
+            <div className="min-h-[48px] rounded border border-dashed border-slate-100 bg-slate-50/30" aria-hidden />
+          )
         ) : (
           <>
             {allocations.slice(0, MAX_VISIBLE).map((alloc) => (
-              <DraggableMonthAllocationChip key={alloc.id} allocation={alloc} onEdit={onEdit} />
+              <DraggableMonthAllocationChip
+                key={alloc.id}
+                allocation={alloc}
+                canEdit={canEdit}
+                onEdit={onEdit}
+              />
             ))}
-            {overflow > 0 && (
+            {overflow > 0 && canEdit && (
               <button
                 type="button"
                 onClick={onAdd}
@@ -92,14 +104,16 @@ export function ScheduleMonthCell({
                 +{overflow} more
               </button>
             )}
-            <button
-              type="button"
-              onClick={onAdd}
-              className="flex h-4 w-full items-center justify-center text-slate-400 hover:text-emerald-600 print:hidden"
-              aria-label="Add allocation"
-            >
-              <Plus className="h-3 w-3" />
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={onAdd}
+                className="flex h-4 w-full items-center justify-center text-slate-400 hover:text-emerald-600 print:hidden"
+                aria-label="Add allocation"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            )}
           </>
         )}
       </div>

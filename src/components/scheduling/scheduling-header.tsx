@@ -13,7 +13,8 @@ export type ScheduleCalendarView = "week" | "month";
 interface SchedulingHeaderProps {
   calendarView: ScheduleCalendarView;
   onCalendarViewChange: (view: ScheduleCalendarView) => void;
-  onAddAllocation: () => void;
+  canEditSchedule?: boolean;
+  onAddAllocation?: () => void;
   onToggleFilters?: () => void;
   filtersVisible?: boolean;
 }
@@ -21,6 +22,7 @@ interface SchedulingHeaderProps {
 export function SchedulingHeader({
   calendarView,
   onCalendarViewChange,
+  canEditSchedule = true,
   onAddAllocation,
   onToggleFilters,
   filtersVisible,
@@ -132,10 +134,12 @@ export function SchedulingHeader({
           <Printer className="mr-2 h-4 w-4" />
           Print
         </Button>
-        <Button onClick={onAddAllocation} className="shadow-sm">
-          <Plus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Add Allocation</span>
-        </Button>
+        {canEditSchedule && onAddAllocation && (
+          <Button onClick={onAddAllocation} className="shadow-sm">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Allocation</span>
+          </Button>
+        )}
       </div>
     </div>
   );
