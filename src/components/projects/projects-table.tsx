@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Pencil, Plus } from "lucide-react";
+import { ExternalLink, FolderOpen, Pencil, Plus } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectsFilters } from "@/components/projects/projects-filters";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -17,7 +19,13 @@ import {
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
+import {
+  defaultProjectFilters,
+  filterProjects,
+  type ProjectFilters,
+} from "@/lib/filter-projects";
 import { getProjectScheduledHours } from "@/lib/utilization";
+import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Project } from "@/types";
 
@@ -26,83 +34,144 @@ export function ProjectsTable() {
   const { permissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [filters, setFilters] = useState<ProjectFilters>(defaultProjectFilters);
+
+  const visibleProjects = useMemo(
+    () => filterProjects(projects, filters, getEmployeeById),
+    [projects, filters, getEmployeeById],
+  );
+
+  const totalCount = useMemo(
+    () => projects.filter((p) => filters.showInactive || p.active).length,
+    [projects, filters.showInactive],
+  );
+
+  const updateFilters = (partial: Partial<ProjectFilters>) => {
+    setFilters((prev) => ({ ...prev, ...partial }));
+  };
 
   return (
     <div className="space-y-4">
+      <ProjectsFilters
+        filters={filters}
+        onChange={updateFilters}
+        onClear={() => setFilters(defaultProjectFilters())}
+        resultCount={visibleProjects.length}
+        totalCount={totalCount}
+      />
+
       {permissions.editProjects && (
         <div className="flex justify-end">
-          <Button onClick={() => { setEditingProject(null); setDialogOpen(true); }}>
+          <Button
+            onClick={() => {
+              setEditingProject(null);
+              setDialogOpen(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Add Project
           </Button>
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Project Name</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Phase</TableHead>
-              <TableHead>Lead Designer</TableHead>
-              <TableHead className="text-right">Budgeted Hrs</TableHead>
-              <TableHead className="text-right">Scheduled Hrs</TableHead>
-              <TableHead className="text-right">Remaining Hrs</TableHead>
-              <TableHead>Target Date</TableHead>
-              {permissions.editProjects && <TableHead />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.filter((p) => p.active).map((project) => {
-              const scheduled = getProjectScheduledHours(allocations, project.id);
-              const remaining = project.budgeted_design_hours - scheduled;
-              const lead = project.lead_employee_id
-                ? getEmployeeById(project.lead_employee_id)
-                : null;
 
-              return (
-                <TableRow key={project.id}>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/projects/${project.id}`}
-                      className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 hover:underline"
-                    >
-                      {project.project_name}
-                      <ExternalLink className="h-3 w-3 opacity-50" />
-                    </Link>
-                  </TableCell>
-                  <TableCell>{project.client_name}</TableCell>
-                  <TableCell>{project.status}</TableCell>
-                  <TableCell>{project.phase}</TableCell>
-                  <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>
-                  <TableCell className="text-right">{project.budgeted_design_hours}</TableCell>
-                  <TableCell className="text-right">{scheduled}</TableCell>
-                  <TableCell className={`text-right ${remaining < 0 ? "text-red-600 font-medium" : ""}`}>
-                    {remaining}
-                  </TableCell>
-                  <TableCell>
-                    {project.target_completion_date
-                      ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
-                      : "—"}
-                  </TableCell>
-                  {permissions.editProjects && (
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => { setEditingProject(project); setDialogOpen(true); }}
+      {visibleProjects.length === 0 ? (
+        <EmptyState
+          icon={FolderOpen}
+          title="No projects match your filters"
+          description="Try a different search term or clear filters to see more projects."
+          actionLabel="Clear filters"
+          onAction={() => setFilters(defaultProjectFilters())}
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Project Name</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Phase</TableHead>
+                <TableHead>Lead Designer</TableHead>
+                <TableHead className="text-right">Budgeted Hrs</TableHead>
+                <TableHead className="text-right">Scheduled Hrs</TableHead>
+                <TableHead className="text-right">Remaining Hrs</TableHead>
+                <TableHead>Target Date</TableHead>
+                {permissions.editProjects && <TableHead />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleProjects.map((project) => {
+                const scheduled = getProjectScheduledHours(allocations, project.id);
+                const remaining = project.budgeted_design_hours - scheduled;
+                const lead = project.lead_employee_id
+                  ? getEmployeeById(project.lead_employee_id)
+                  : null;
+
+                return (
+                  <TableRow
+                    key={project.id}
+                    className={cn(!project.active && "bg-slate-50/80 text-muted-foreground")}
+                  >
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/projects/${project.id}`}
+                        className={cn(
+                          "inline-flex items-center gap-1 hover:underline",
+                          project.active
+                            ? "text-emerald-700 hover:text-emerald-900"
+                            : "text-slate-600 hover:text-slate-800",
+                        )}
                       >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                        {project.project_name}
+                        {!project.active && (
+                          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                            Inactive
+                          </span>
+                        )}
+                        <ExternalLink className="h-3 w-3 opacity-50" />
+                      </Link>
                     </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+                    <TableCell>{project.client_name}</TableCell>
+                    <TableCell>{project.status}</TableCell>
+                    <TableCell>{project.phase}</TableCell>
+                    <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>
+                    <TableCell className="text-right">{project.budgeted_design_hours}</TableCell>
+                    <TableCell className="text-right">{scheduled}</TableCell>
+                    <TableCell
+                      className={cn(
+                        "text-right",
+                        remaining < 0 && "font-medium text-red-600",
+                      )}
+                    >
+                      {remaining}
+                    </TableCell>
+                    <TableCell>
+                      {project.target_completion_date
+                        ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
+                        : "—"}
+                    </TableCell>
+                    {permissions.editProjects && (
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingProject(project);
+                            setDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
       <p className="text-xs text-muted-foreground">
         Scheduled hours reflect all-time allocations across the team.
       </p>

@@ -22,18 +22,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import { getEmployeeFullName } from "@/lib/week";
-import type { Project, ProjectFormValues, ProjectPhase, ProjectStatus } from "@/types";
-
-const statuses: ProjectStatus[] = [
-  "Lead", "Proposal", "Active Design", "Estimating", "Client Review",
-  "Construction Documents", "Permit / Approvals", "Construction Support",
-  "On Hold", "Completed", "Lost / Cancelled",
-];
-
-const phases: ProjectPhase[] = [
-  "Concept", "Schematic Design", "Design Development", "Construction Documents",
-  "Estimating", "Revisions", "Construction Support", "Closeout",
-];
+import { PROJECT_PHASES, PROJECT_STATUSES } from "@/lib/project-options";
+import type { Project, ProjectFormValues } from "@/types";
 
 interface ProjectFormDialogProps {
   open: boolean;
@@ -108,7 +98,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               <Select value={form.watch("status")} onValueChange={(v) => form.setValue("status", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {statuses.map((s) => (
+                  {PROJECT_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
@@ -119,7 +109,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               <Select value={form.watch("phase")} onValueChange={(v) => form.setValue("phase", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {phases.map((p) => (
+                  {PROJECT_PHASES.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>
