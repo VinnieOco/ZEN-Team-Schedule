@@ -138,6 +138,19 @@ export function createSupabaseRepository(
       return mapProject(data);
     },
 
+    async updateProject(project: Project) {
+      const row = projectToRow(project);
+      const { id: _id, ...updates } = row;
+      const { data, error } = await supabase
+        .from("projects")
+        .update(updates)
+        .eq("id", project.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return mapProject(data);
+    },
+
     async insertProjectNote(note: ProjectNote) {
       const { data, error } = await supabase
         .from("project_notes")

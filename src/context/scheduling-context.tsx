@@ -29,6 +29,7 @@ import {
   appendJobRole,
   normalizeCompanySettings,
 } from "@/lib/team-options";
+import { projectFromFormValues } from "@/lib/project-form";
 import { getMonthStart, getWeekStart } from "@/lib/week";
 import type {
   Allocation,
@@ -123,6 +124,18 @@ function loadPersistedState(): PersistedState | null {
 
 function generateId(): string {
   return crypto.randomUUID();
+}
+
+function getPersistErrorMessage(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as { message?: string; details?: string; hint?: string };
+    const parts = [e.message, e.details, e.hint].filter(
+      (part): part is string => typeof part === "string" && part.length > 0,
+    );
+    if (parts.length > 0) return parts.join(" — ");
+  }
+  if (err instanceof Error) return err.message;
+  return "Save failed";
 }
 
 function buildAllocation(values: AllocationFormValues, id?: string): Allocation {
@@ -253,7 +266,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         return await action();
       } catch (err) {
         rollback();
-        setError(err instanceof Error ? err.message : "Save failed");
+        setError(getPersistErrorMessage(err));
         return undefined;
       }
     },
@@ -483,23 +496,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   const addProject = useCallback(
     (values: ProjectFormValues): Project => {
-      const project: Project = {
+      const project = projectFromFormValues(values, {
         id: generateId(),
-        project_name: values.project_name,
-        client_name: values.client_name,
-        status: values.status,
-        phase: values.phase,
-        lead_employee_id: values.lead_employee_id,
-        budgeted_design_hours: values.budgeted_design_hours,
-        contract_date: values.contract_date,
-        target_completion_date: values.target_completion_date,
-        project_number: values.project_number,
-        scope_of_work: values.scope_of_work,
-        address: values.address,
-        phone: values.phone,
-        email: values.email,
         active: true,
-      };
+      });
       setProjects((prev) => [...prev, project]);
       if (repoRef.current) {
         const snapshot = projects;
@@ -517,32 +517,21 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     (id: string, values: ProjectFormValues) => {
       setProjects((prev) => {
         const snapshot = prev;
-        const next = prev.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                project_name: values.project_name,
-                client_name: values.client_name,
-                status: values.status,
-                phase: values.phase,
-                lead_employee_id: values.lead_employee_id,
-                budgeted_design_hours: values.budgeted_design_hours,
-                contract_date: values.contract_date,
-                target_completion_date: values.target_completion_date,
-                project_number: values.project_number,
-                scope_of_work: values.scope_of_work,
-                address: values.address,
-                phone: values.phone,
-                email: values.email,
-              }
-            : p,
-        );
-        const merged = next.find((p) => p.id === id);
-        if (merged && repoRef.current) {
+        const existing = prev.find((p) => p.id === id);
+        if (!existing) return prev;
+        const merged = projectFromFormValues(values, existing);
+        const next = prev.map((p) => (p.id === id ? merged : p));
+        if (repoRef.current) {
           void persistAsync(
-            () => repoRef.current!.upsertProject(merged),
+            () => repoRef.current!.updateProject(merged),
             () => setProjects(snapshot),
-          );
+          ).then((saved) => {
+            if (saved) {
+              setProjects((current) =>
+                current.map((p) => (p.id === id ? saved : p)),
+              );
+            }
+          });
         }
         return next;
       });

@@ -21,6 +21,7 @@ export interface SchedulingRepository {
   upsertTimeEntry(entry: TimeEntry): Promise<TimeEntry>;
   deleteTimeEntry(id: string): Promise<void>;
   upsertProject(project: Project): Promise<Project>;
+  updateProject(project: Project): Promise<Project>;
   insertProjectNote(note: ProjectNote): Promise<ProjectNote>;
   updateProjectNote(note: ProjectNote): Promise<ProjectNote>;
   deleteProjectNote(id: string): Promise<void>;
