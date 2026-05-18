@@ -25,14 +25,14 @@ import {
   filterProjects,
   type ProjectFilters,
 } from "@/lib/filter-projects";
-import { getProjectScheduledHours } from "@/lib/utilization";
+import { formatProjectDepartment, formatProjectHours } from "@/lib/project-format";
+import { getProjectActualHours } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
-import { formatProjectDepartment } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Project } from "@/types";
 
 export function ProjectsTable() {
-  const { projects, allocations, getEmployeeById, isLoading } = useScheduling();
+  const { projects, timeEntries, getEmployeeById, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -99,7 +99,7 @@ export function ProjectsTable() {
                 <TableHead>Phase</TableHead>
                 <TableHead>Lead Designer</TableHead>
                 <TableHead className="text-right">Budgeted Hrs</TableHead>
-                <TableHead className="text-right">Scheduled Hrs</TableHead>
+                <TableHead className="text-right">Actual Hrs</TableHead>
                 <TableHead className="text-right">Remaining Hrs</TableHead>
                 <TableHead>Target Date</TableHead>
                 {permissions.editProjects && <TableHead />}
@@ -107,8 +107,8 @@ export function ProjectsTable() {
             </TableHeader>
             <TableBody>
               {visibleProjects.map((project) => {
-                const scheduled = getProjectScheduledHours(allocations, project.id);
-                const remaining = project.budgeted_design_hours - scheduled;
+                const actual = getProjectActualHours(timeEntries, project.id);
+                const remaining = project.budgeted_design_hours - actual;
                 const lead = project.lead_employee_id
                   ? getEmployeeById(project.lead_employee_id)
                   : null;
@@ -141,15 +141,17 @@ export function ProjectsTable() {
                     <TableCell>{formatProjectDepartment(project.department)}</TableCell>
                     <TableCell>{project.phase}</TableCell>
                     <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>
-                    <TableCell className="text-right">{project.budgeted_design_hours}</TableCell>
-                    <TableCell className="text-right">{scheduled}</TableCell>
+                    <TableCell className="text-right">
+                      {formatProjectHours(project.budgeted_design_hours)}
+                    </TableCell>
+                    <TableCell className="text-right">{formatProjectHours(actual)}</TableCell>
                     <TableCell
                       className={cn(
                         "text-right",
                         remaining < 0 && "font-medium text-red-600",
                       )}
                     >
-                      {remaining}
+                      {formatProjectHours(remaining)}
                     </TableCell>
                     <TableCell>
                       {project.target_completion_date
@@ -179,7 +181,7 @@ export function ProjectsTable() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Scheduled hours reflect all-time allocations across the team.
+        Actual hours reflect all time logged on this project. Remaining is budgeted minus actual.
       </p>
       {permissions.editProjects && (
         <ProjectFormDialog

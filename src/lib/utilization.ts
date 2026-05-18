@@ -13,6 +13,7 @@ import type {
   Employee,
   EmployeeWeekStats,
   TeamSummaryStats,
+  TimeEntry,
   UtilizationStatus,
 } from "@/types";
 
@@ -258,6 +259,16 @@ export function getProjectScheduledHours(
   return allocations
     .filter((a) => a.project_id === projectId)
     .reduce((sum, a) => sum + a.hours, 0);
+}
+
+/** All-time hours logged on time entries for a project. */
+export function getProjectActualHours(
+  timeEntries: TimeEntry[],
+  projectId: string,
+): number {
+  return timeEntries
+    .filter((e) => e.project_id === projectId)
+    .reduce((sum, e) => sum + e.hours, 0);
 }
 
 export function getProjectWeekScheduledHours(

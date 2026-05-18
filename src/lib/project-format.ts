@@ -11,3 +11,9 @@ export function formatProjectDepartment(department?: string): string {
   const trimmed = department?.trim();
   return trimmed || "—";
 }
+
+/** Display hours with up to one decimal when needed. */
+export function formatProjectHours(hours: number): string {
+  const rounded = Math.round(hours * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}

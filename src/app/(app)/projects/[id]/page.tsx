@@ -21,14 +21,15 @@ import {
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { getProjectScheduledHours } from "@/lib/utilization";
-import { formatProjectDepartment } from "@/lib/project-format";
+import { formatProjectDepartment, formatProjectHours } from "@/lib/project-format";
+import { getProjectActualHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
-  const { projects, allocations, employees, getEmployeeById, getCategoryById } = useScheduling();
+  const { projects, allocations, timeEntries, employees, getEmployeeById, getCategoryById } =
+    useScheduling();
   const { permissions } = usePermissions();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -45,11 +46,11 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const scheduled = getProjectScheduledHours(allocations, project.id);
-  const remaining = project.budgeted_design_hours - scheduled;
+  const actual = getProjectActualHours(timeEntries, project.id);
+  const remaining = project.budgeted_design_hours - actual;
   const percentUsed =
     project.budgeted_design_hours > 0
-      ? Math.round((scheduled / project.budgeted_design_hours) * 100)
+      ? Math.round((actual / project.budgeted_design_hours) * 100)
       : 0;
   const lead = project.lead_employee_id ? getEmployeeById(project.lead_employee_id) : null;
 
@@ -88,15 +89,15 @@ export default function ProjectDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Budgeted hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{project.budgeted_design_hours}h</p>
+            <p className="text-2xl font-bold">{formatProjectHours(project.budgeted_design_hours)}h</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Scheduled</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Actual</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{scheduled}h</p>
+            <p className="text-2xl font-bold">{formatProjectHours(actual)}h</p>
             <p className="text-sm text-muted-foreground">{percentUsed}% of budget</p>
           </CardContent>
         </Card>
@@ -106,7 +107,7 @@ export default function ProjectDetailPage() {
           </CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${remaining < 0 ? "text-red-600" : ""}`}>
-              {remaining}h
+              {formatProjectHours(remaining)}h
             </p>
           </CardContent>
         </Card>
