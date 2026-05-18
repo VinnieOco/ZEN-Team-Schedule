@@ -95,7 +95,6 @@ interface SchedulingContextValue {
   addProjectNote: (projectId: string, body: string) => void;
   updateProjectNote: (id: string, body: string) => void;
   deleteProjectNote: (id: string) => void;
-  updateProjectScopeOfWork: (projectId: string, scopeOfWork: string) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -551,26 +550,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
-  const updateProjectScopeOfWork = useCallback(
-    (projectId: string, scopeOfWork: string) => {
-      const trimmed = scopeOfWork.trim();
-      setProjects((prev) => {
-        const snapshot = prev;
-        const next = prev.map((p) =>
-          p.id === projectId ? { ...p, scope_of_work: trimmed || undefined } : p,
-        );
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.updateProjectScopeOfWork(projectId, trimmed),
-            () => setProjects(snapshot),
-          );
-        }
-        return next;
-      });
-    },
-    [persistAsync],
-  );
-
   const addProjectNote = useCallback(
     (projectId: string, body: string) => {
       const trimmed = body.trim();
@@ -920,7 +899,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addProjectNote,
       updateProjectNote,
       deleteProjectNote,
-      updateProjectScopeOfWork,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -968,7 +946,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addProjectNote,
       updateProjectNote,
       deleteProjectNote,
-      updateProjectScopeOfWork,
       updateSettings,
       updateEmployee,
       addEmployee,

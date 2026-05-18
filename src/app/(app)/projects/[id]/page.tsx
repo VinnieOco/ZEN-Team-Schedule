@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Calendar, Mail, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, Calendar, Mail, MapPin, Pencil, Phone } from "lucide-react";
 
+import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
-import { ProjectScopeOfWork } from "@/components/projects/project-scope-of-work";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getProjectScheduledHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
 
@@ -25,6 +27,8 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const projectId = params.id as string;
   const { projects, allocations, employees, getEmployeeById, getCategoryById } = useScheduling();
+  const { permissions } = usePermissions();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const project = projects.find((p) => p.id === projectId);
 
@@ -107,8 +111,19 @@ export default function ProjectDetailPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-base">Project details</CardTitle>
+          {permissions.editProjects && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditDialogOpen(true)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
@@ -172,7 +187,12 @@ export default function ProjectDetailPage() {
               )}
             </p>
           </div>
-          <ProjectScopeOfWork project={project} />
+          <div className="sm:col-span-2">
+            <p className="text-muted-foreground">Scope of work</p>
+            <p className="font-medium whitespace-pre-wrap leading-relaxed">
+              {project.scope_of_work?.trim() || "—"}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -215,6 +235,14 @@ export default function ProjectDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {permissions.editProjects && (
+        <ProjectFormDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          project={project}
+        />
+      )}
     </div>
   );
 }
