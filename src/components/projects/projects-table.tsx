@@ -7,6 +7,7 @@ import { format, parseISO } from "date-fns";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectsFilters } from "@/components/projects/projects-filters";
+import { ProjectsTableSkeleton } from "@/components/projects/projects-table-skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
@@ -30,7 +31,7 @@ import { getEmployeeFullName } from "@/lib/week";
 import type { Project } from "@/types";
 
 export function ProjectsTable() {
-  const { projects, allocations, getEmployeeById } = useScheduling();
+  const { projects, allocations, getEmployeeById, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -49,6 +50,10 @@ export function ProjectsTable() {
   const updateFilters = (partial: Partial<ProjectFilters>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
+
+  if (isLoading) {
+    return <ProjectsTableSkeleton />;
+  }
 
   return (
     <div className="space-y-4">

@@ -177,17 +177,28 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [dataSource] = useState<DataSource>(useSupabase ? "supabase" : "local");
   const [isLoading, setIsLoading] = useState(useSupabase);
   const [error, setError] = useState<string | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>(persisted?.employees ?? seedEmployees);
-  const [projects, setProjects] = useState<Project[]>(persisted?.projects ?? seedProjects);
-  const [projectNotes, setProjectNotes] = useState<ProjectNote[]>(persisted?.projectNotes ?? []);
+  // Supabase: start empty so seed/demo data never flashes before refreshData().
+  const [employees, setEmployees] = useState<Employee[]>(
+    useSupabase ? [] : (persisted?.employees ?? seedEmployees),
+  );
+  const [projects, setProjects] = useState<Project[]>(
+    useSupabase ? [] : (persisted?.projects ?? seedProjects),
+  );
+  const [projectNotes, setProjectNotes] = useState<ProjectNote[]>(
+    useSupabase ? [] : (persisted?.projectNotes ?? []),
+  );
   const [categories, setCategories] = useState<AllocationCategory[]>(
-    persisted?.categories?.length ? persisted.categories : seedCategories,
+    useSupabase
+      ? []
+      : persisted?.categories?.length
+        ? persisted.categories
+        : seedCategories,
   );
   const [allocations, setAllocations] = useState<Allocation[]>(
-    persisted?.allocations ?? initialAllocations,
+    useSupabase ? [] : (persisted?.allocations ?? initialAllocations),
   );
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(
-    persisted?.timeEntries ?? initialTimeEntries,
+    useSupabase ? [] : (persisted?.timeEntries ?? initialTimeEntries),
   );
   const [settings, setSettings] = useState<CompanySettings>(() =>
     normalizeCompanySettings(persisted?.settings ?? seedSettings),
