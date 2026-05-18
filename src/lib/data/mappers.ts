@@ -5,6 +5,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ProjectNote,
   TimeEntry,
 } from "@/types";
 
@@ -37,6 +38,15 @@ type ProjectRow = {
   target_completion_date: string | null;
   notes: string | null;
   active: boolean;
+};
+
+type ProjectNoteRow = {
+  id: string;
+  project_id: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type CategoryRow = {
@@ -115,6 +125,28 @@ export function mapProject(row: ProjectRow): Project {
     target_completion_date: row.target_completion_date ?? undefined,
     notes: row.notes ?? undefined,
     active: row.active,
+  };
+}
+
+export function mapProjectNote(row: ProjectNoteRow): ProjectNote {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    body: row.body,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function projectNoteToRow(note: ProjectNote) {
+  return {
+    id: note.id,
+    project_id: note.project_id,
+    body: note.body.trim(),
+    created_by: note.created_by ?? null,
+    created_at: note.created_at,
+    updated_at: note.updated_at,
   };
 }
 

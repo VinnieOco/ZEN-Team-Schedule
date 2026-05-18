@@ -68,6 +68,15 @@ export interface Project {
   active: boolean;
 }
 
+export interface ProjectNote {
+  id: string;
+  project_id: string;
+  body: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AllocationCategory {
   id: string;
   name: string;

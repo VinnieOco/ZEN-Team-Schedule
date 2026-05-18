@@ -4,6 +4,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ProjectNote,
   TimeEntry,
 } from "@/types";
 
@@ -13,13 +14,15 @@ export interface SchedulingRepository {
   listCategories(): Promise<AllocationCategory[]>;
   listAllocations(): Promise<Allocation[]>;
   listTimeEntries(): Promise<TimeEntry[]>;
+  listProjectNotes(): Promise<ProjectNote[]>;
   getSettings(): Promise<CompanySettings>;
   upsertAllocation(allocation: Allocation): Promise<Allocation>;
   deleteAllocation(id: string): Promise<void>;
   upsertTimeEntry(entry: TimeEntry): Promise<TimeEntry>;
   deleteTimeEntry(id: string): Promise<void>;
   upsertProject(project: Project): Promise<Project>;
-  updateProjectNotes(projectId: string, notes: string): Promise<Project>;
+  insertProjectNote(note: ProjectNote): Promise<ProjectNote>;
+  updateProjectNote(note: ProjectNote): Promise<ProjectNote>;
   upsertEmployee(employee: Employee): Promise<Employee>;
   deleteEmployee(id: string): Promise<void>;
   upsertCategory(category: AllocationCategory): Promise<AllocationCategory>;

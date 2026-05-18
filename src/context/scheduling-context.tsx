@@ -38,6 +38,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ProjectNote,
   EmployeeFormValues,
   ProjectFormValues,
   SchedulingFilters,
@@ -52,6 +53,7 @@ type DataSource = "local" | "supabase";
 interface PersistedState {
   employees: Employee[];
   projects: Project[];
+  projectNotes?: ProjectNote[];
   categories?: AllocationCategory[];
   allocations: Allocation[];
   timeEntries: TimeEntry[];
@@ -64,6 +66,7 @@ interface SchedulingContextValue {
   error: string | null;
   employees: Employee[];
   projects: Project[];
+  projectNotes: ProjectNote[];
   categories: AllocationCategory[];
   allocations: Allocation[];
   timeEntries: TimeEntry[];
@@ -89,7 +92,8 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => void;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
-  updateProjectNotes: (id: string, notes: string) => void;
+  addProjectNote: (projectId: string, body: string) => void;
+  updateProjectNote: (id: string, body: string) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -161,6 +165,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>(persisted?.employees ?? seedEmployees);
   const [projects, setProjects] = useState<Project[]>(persisted?.projects ?? seedProjects);
+  const [projectNotes, setProjectNotes] = useState<ProjectNote[]>(persisted?.projectNotes ?? []);
   const [categories, setCategories] = useState<AllocationCategory[]>(
     persisted?.categories?.length ? persisted.categories : seedCategories,
   );
@@ -192,9 +197,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const supabase = createClient();
       repoRef.current = createSupabaseRepository(supabase);
       const repo = repoRef.current;
-      const [emp, proj, cats, alloc, times, sett] = await Promise.all([
+      const [emp, proj, notes, cats, alloc, times, sett] = await Promise.all([
         repo.listEmployees(),
         repo.listProjects(),
+        repo.listProjectNotes(),
         repo.listCategories(),
         repo.listAllocations(),
         repo.listTimeEntries(),
@@ -202,6 +208,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       ]);
       setEmployees(emp);
       setProjects(proj);
+      setProjectNotes(notes);
       setCategories(cats.length > 0 ? cats : seedCategories);
       setAllocations(alloc);
       setTimeEntries(times);
@@ -225,13 +232,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     const payload: PersistedState = {
       employees,
       projects,
+      projectNotes,
       categories,
       allocations,
       timeEntries,
       settings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [useSupabase, employees, projects, categories, allocations, timeEntries, settings]);
+  }, [useSupabase, employees, projects, projectNotes, categories, allocations, timeEntries, settings]);
 
   const persistAsync = useCallback(
     async <T,>(action: () => Promise<T>, rollback: () => void): Promise<T | undefined> => {
@@ -531,19 +539,64 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
-  const updateProjectNotes = useCallback(
-    (id: string, notes: string) => {
-      const trimmed = notes.trim();
-      setProjects((prev) => {
+  const addProjectNote = useCallback(
+    (projectId: string, body: string) => {
+      const trimmed = body.trim();
+      if (!trimmed) return;
+      const now = new Date().toISOString();
+      const note: ProjectNote = {
+        id: generateId(),
+        project_id: projectId,
+        body: trimmed,
+        created_at: now,
+        updated_at: now,
+      };
+      setProjectNotes((prev) => {
         const snapshot = prev;
-        const next = prev.map((p) =>
-          p.id === id ? { ...p, notes: trimmed || undefined } : p,
-        );
         if (repoRef.current) {
           void persistAsync(
-            () => repoRef.current!.updateProjectNotes(id, trimmed),
-            () => setProjects(snapshot),
-          );
+            () => repoRef.current!.insertProjectNote(note),
+            () => setProjectNotes(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setProjectNotes((current) =>
+                current.map((n) => (n.id === note.id ? saved : n)),
+              );
+            }
+          });
+        }
+        return [note, ...prev];
+      });
+    },
+    [persistAsync],
+  );
+
+  const updateProjectNote = useCallback(
+    (id: string, body: string) => {
+      const trimmed = body.trim();
+      if (!trimmed) return;
+      const now = new Date().toISOString();
+      setProjectNotes((prev) => {
+        const snapshot = prev;
+        const existing = prev.find((n) => n.id === id);
+        if (!existing) return prev;
+        const updated: ProjectNote = {
+          ...existing,
+          body: trimmed,
+          updated_at: now,
+        };
+        const next = prev.map((n) => (n.id === id ? updated : n));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.updateProjectNote(updated),
+            () => setProjectNotes(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setProjectNotes((current) =>
+                current.map((n) => (n.id === id ? saved : n)),
+              );
+            }
+          });
         }
         return next;
       });
@@ -788,6 +841,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       error,
       employees,
       projects,
+      projectNotes,
       categories,
       allocations,
       timeEntries,
@@ -813,7 +867,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
-      updateProjectNotes,
+      addProjectNote,
+      updateProjectNote,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -832,6 +887,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       error,
       employees,
       projects,
+      projectNotes,
       categories,
       allocations,
       timeEntries,
@@ -857,7 +913,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
-      updateProjectNotes,
+      addProjectNote,
+      updateProjectNote,
       updateSettings,
       updateEmployee,
       addEmployee,

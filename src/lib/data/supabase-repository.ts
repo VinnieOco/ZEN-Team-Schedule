@@ -8,8 +8,10 @@ import {
   mapCategory,
   mapEmployee,
   mapProject,
+  mapProjectNote,
   mapSettings,
   mapTimeEntry,
+  projectNoteToRow,
   projectToRow,
   settingsToRow,
   timeEntryToRow,
@@ -21,6 +23,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ProjectNote,
   TimeEntry,
 } from "@/types";
 
@@ -71,6 +74,15 @@ export function createSupabaseRepository(
         .order("entry_date");
       if (error) throw error;
       return (data ?? []).map(mapTimeEntry);
+    },
+
+    async listProjectNotes() {
+      const { data, error } = await supabase
+        .from("project_notes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapProjectNote);
     },
 
     async getSettings() {
@@ -126,13 +138,28 @@ export function createSupabaseRepository(
       return mapProject(data);
     },
 
-    async updateProjectNotes(projectId: string, notes: string) {
-      const { data, error } = await supabase.rpc("update_project_notes", {
-        p_project_id: projectId,
-        p_notes: notes,
-      });
+    async insertProjectNote(note: ProjectNote) {
+      const { data, error } = await supabase
+        .from("project_notes")
+        .insert(projectNoteToRow(note))
+        .select()
+        .single();
       if (error) throw error;
-      return mapProject(data);
+      return mapProjectNote(data);
+    },
+
+    async updateProjectNote(note: ProjectNote) {
+      const { data, error } = await supabase
+        .from("project_notes")
+        .update({
+          body: note.body.trim(),
+          updated_at: note.updated_at,
+        })
+        .eq("id", note.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return mapProjectNote(data);
     },
 
     async upsertEmployee(employee: Employee) {
