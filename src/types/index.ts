@@ -62,6 +62,7 @@ export interface Project {
   budgeted_design_hours: number;
   estimated_construction_value?: number;
   start_date?: string;
+  contract_date?: string;
   target_completion_date?: string;
   notes?: string;
   active: boolean;
@@ -192,6 +193,7 @@ export interface ProjectFormValues {
   phase: string;
   lead_employee_id?: string;
   budgeted_design_hours: number;
+  contract_date?: string;
   target_completion_date?: string;
   project_number?: string;
   notes?: string;

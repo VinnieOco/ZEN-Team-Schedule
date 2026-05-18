@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft, Calendar } from "lucide-react";
 
+import { ProjectNotesSection } from "@/components/projects/project-notes-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -114,6 +115,15 @@ export default function ProjectDetailPage() {
             <p className="font-medium">{lead ? getEmployeeFullName(lead) : "—"}</p>
           </div>
           <div>
+            <p className="text-muted-foreground">Contract date</p>
+            <p className="font-medium flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              {project.contract_date
+                ? format(parseISO(project.contract_date), "MMMM d, yyyy")
+                : "—"}
+            </p>
+          </div>
+          <div>
             <p className="text-muted-foreground">Target completion</p>
             <p className="font-medium flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
@@ -128,14 +138,10 @@ export default function ProjectDetailPage() {
               <p className="font-medium">{project.project_number}</p>
             </div>
           )}
-          {project.notes && (
-            <div className="sm:col-span-2">
-              <p className="text-muted-foreground">Notes</p>
-              <p className="font-medium">{project.notes}</p>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      <ProjectNotesSection project={project} />
 
       <Card>
         <CardHeader>

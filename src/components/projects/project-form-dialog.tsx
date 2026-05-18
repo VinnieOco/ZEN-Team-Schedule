@@ -53,6 +53,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         phase: project.phase,
         lead_employee_id: project.lead_employee_id,
         budgeted_design_hours: project.budgeted_design_hours,
+        contract_date: project.contract_date,
         target_completion_date: project.target_completion_date,
         project_number: project.project_number,
         notes: project.notes,
@@ -133,8 +134,12 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               <Label>Budgeted hours</Label>
               <Input type="number" {...form.register("budgeted_design_hours", { valueAsNumber: true })} />
             </div>
-            <div className="col-span-2 space-y-2">
-              <Label>Target date</Label>
+            <div className="space-y-2">
+              <Label>Contract date</Label>
+              <Input type="date" {...form.register("contract_date")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Target completion</Label>
               <Input type="date" {...form.register("target_completion_date")} />
             </div>
             <div className="col-span-2 space-y-2">

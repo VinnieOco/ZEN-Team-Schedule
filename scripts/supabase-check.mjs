@@ -42,6 +42,13 @@ function validateDatabaseUrl(dbUrl, apiUrl) {
   }
   try {
     const u = new URL(dbUrl);
+    if (/^db\.[a-z0-9]+\.supabase\.co$/i.test(u.hostname)) {
+      issues.push(
+        "DATABASE_URL uses direct db.*.supabase.co (often IPv6-only and fails with ENOTFOUND). " +
+          "In Supabase → Project Settings → Database → Connection string, choose URI + Session pooler " +
+          "(host ends with .pooler.supabase.com, user postgres.YOUR_PROJECT_REF).",
+      );
+    }
     const user = decodeURIComponent(u.username);
     const refFromApi = apiUrl ? new URL(apiUrl).hostname.split(".")[0] : null;
     if (refFromApi && user.startsWith("postgres.") && !user.includes(refFromApi)) {
@@ -94,20 +101,21 @@ function checkEnvVars() {
     }
   }
 
-  const keyLooksJwt = key.startsWith("eyJ");
-  const keyLooksPublishable = key.startsWith("sb_publishable_");
-
   if (isPlaceholder(key)) {
     console.log("  ❌ NEXT_PUBLIC_SUPABASE_ANON_KEY — missing or placeholder");
     console.log("      Paste the anon public JWT from Project Settings → API (starts with eyJ)");
     ok = false;
-  } else if (!keyLooksJwt && !keyLooksPublishable) {
+  } else {
+    const keyLooksJwt = key.startsWith("eyJ");
+    const keyLooksPublishable = key.startsWith("sb_publishable_");
+    if (!keyLooksJwt && !keyLooksPublishable) {
     console.log("  ❌ NEXT_PUBLIC_SUPABASE_ANON_KEY — wrong value");
     console.log("      In Project Settings → API, copy \"anon\" \"public\" — it is a long JWT starting with eyJ");
     console.log("      (Do not use a random UUID or the service_role key.)");
-    ok = false;
-  } else {
-    console.log("  ✓ NEXT_PUBLIC_SUPABASE_ANON_KEY");
+      ok = false;
+    } else {
+      console.log("  ✓ NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    }
   }
 
   if (isPlaceholder(db)) {
@@ -162,7 +170,18 @@ async function testDatabase() {
     console.log("  ❌ Database connection failed");
     console.log(`      ${err.message}\n`);
 
-    if (err.message.includes("Tenant or user not found")) {
+    if (err.message.includes("ENOTFOUND") && err.message.includes("supabase")) {
+      const refHint = process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0]
+        : "YOUR_PROJECT_REF";
+      console.log("  💡 Fix ENOTFOUND (your DATABASE_URL host cannot be resolved):");
+      console.log("     Your .env.local still points at db.*.supabase.co (direct / IPv6).");
+      console.log("     1. Supabase Dashboard → Project Settings → Database → Connection string");
+      console.log("     2. URI tab → Session pooler (not Direct)");
+      console.log("     3. Replace [YOUR-PASSWORD], paste as DATABASE_URL");
+      console.log(`     4. User should be postgres.${refHint}`);
+      console.log("     5. Host should look like: aws-0-REGION.pooler.supabase.com\n");
+    } else if (err.message.includes("Tenant or user not found")) {
       console.log("  💡 Fix “Tenant or user not found”:");
       console.log("     1. Supabase Dashboard → Project Settings → Database");
       console.log("     2. Copy connection string → URI (Session mode)");
@@ -279,12 +298,14 @@ function printHowToFill() {
 
 3. Project Settings → Database → Connection string
    • Tab: URI
-   • Mode: Session (or Direct connection — see below)
+   • Mode: Session pooler (recommended — avoids ENOTFOUND on db.*.supabase.co)
    • Copy the string and replace [YOUR-PASSWORD] with your DB password
    • Paste as DATABASE_URL=
+   • Example shape:
+     postgresql://postgres.YOUR_PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres
 
-   Direct connection (if pooler fails):
-   postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
+   Direct db.*.supabase.co only if pooler fails with "Tenant or user not found":
+   postgresql://postgres:PASSWORD@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
 
 4. Save .env.local, then run:
    npm run supabase:check

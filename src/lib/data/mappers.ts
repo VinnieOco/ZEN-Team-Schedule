@@ -33,6 +33,7 @@ type ProjectRow = {
   budgeted_design_hours: number;
   estimated_construction_value: number | null;
   start_date: string | null;
+  contract_date: string | null;
   target_completion_date: string | null;
   notes: string | null;
   active: boolean;
@@ -110,6 +111,7 @@ export function mapProject(row: ProjectRow): Project {
     budgeted_design_hours: Number(row.budgeted_design_hours),
     estimated_construction_value: row.estimated_construction_value ?? undefined,
     start_date: row.start_date ?? undefined,
+    contract_date: row.contract_date ?? undefined,
     target_completion_date: row.target_completion_date ?? undefined,
     notes: row.notes ?? undefined,
     active: row.active,
@@ -196,6 +198,7 @@ export function projectToRow(project: Project) {
     budgeted_design_hours: project.budgeted_design_hours,
     estimated_construction_value: project.estimated_construction_value ?? null,
     start_date: project.start_date ?? null,
+    contract_date: project.contract_date ?? null,
     target_completion_date: project.target_completion_date ?? null,
     notes: project.notes ?? null,
     active: project.active,

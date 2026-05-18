@@ -160,7 +160,19 @@ Next steps:
 run().catch((err) => {
   console.error("\n❌ Database command failed:", err.message);
 
-  if (err.message.includes("Tenant or user not found")) {
+  if (err.message.includes("ENOTFOUND") && err.message.includes("supabase")) {
+    console.error(`
+The database host in DATABASE_URL could not be resolved (common with the direct db.*.supabase.co URL).
+
+Fix:
+  1. Supabase Dashboard → Project Settings → Database → Connection string
+  2. Choose URI, then Session pooler (IPv4-friendly)
+  3. Replace [YOUR-PASSWORD] and paste into DATABASE_URL in .env.local
+  4. Run: npm run supabase:check && npm run db:migrate
+
+Also confirm the project is not paused in the dashboard.
+`);
+  } else if (err.message.includes("Tenant or user not found")) {
     console.error(`
 This usually means DATABASE_URL has the wrong project ref or password.
 

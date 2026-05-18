@@ -89,6 +89,7 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => void;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
+  updateProjectNotes: (id: string, notes: string) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -477,6 +478,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         phase: values.phase,
         lead_employee_id: values.lead_employee_id,
         budgeted_design_hours: values.budgeted_design_hours,
+        contract_date: values.contract_date,
         target_completion_date: values.target_completion_date,
         project_number: values.project_number,
         notes: values.notes,
@@ -509,6 +511,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
                 phase: values.phase,
                 lead_employee_id: values.lead_employee_id,
                 budgeted_design_hours: values.budgeted_design_hours,
+                contract_date: values.contract_date,
                 target_completion_date: values.target_completion_date,
                 project_number: values.project_number,
                 notes: values.notes,
@@ -519,6 +522,26 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         if (merged && repoRef.current) {
           void persistAsync(
             () => repoRef.current!.upsertProject(merged),
+            () => setProjects(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const updateProjectNotes = useCallback(
+    (id: string, notes: string) => {
+      const trimmed = notes.trim();
+      setProjects((prev) => {
+        const snapshot = prev;
+        const next = prev.map((p) =>
+          p.id === id ? { ...p, notes: trimmed || undefined } : p,
+        );
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.updateProjectNotes(id, trimmed),
             () => setProjects(snapshot),
           );
         }
@@ -790,6 +813,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateProjectNotes,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -833,6 +857,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateProjectNotes,
       updateSettings,
       updateEmployee,
       addEmployee,

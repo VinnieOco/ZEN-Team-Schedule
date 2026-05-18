@@ -126,6 +126,15 @@ export function createSupabaseRepository(
       return mapProject(data);
     },
 
+    async updateProjectNotes(projectId: string, notes: string) {
+      const { data, error } = await supabase.rpc("update_project_notes", {
+        p_project_id: projectId,
+        p_notes: notes,
+      });
+      if (error) throw error;
+      return mapProject(data);
+    },
+
     async upsertEmployee(employee: Employee) {
       const { data, error } = await supabase
         .from("employees")
