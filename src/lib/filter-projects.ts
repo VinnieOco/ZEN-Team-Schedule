@@ -3,7 +3,7 @@ import type { Employee, Project } from "@/types";
 
 export interface ProjectFilters {
   search: string;
-  status: string | null;
+  department: string | null;
   phase: string | null;
   leadEmployeeId: string | null;
   showInactive: boolean;
@@ -11,7 +11,7 @@ export interface ProjectFilters {
 
 export const defaultProjectFilters = (): ProjectFilters => ({
   search: "",
-  status: null,
+  department: null,
   phase: null,
   leadEmployeeId: null,
   showInactive: false,
@@ -20,7 +20,7 @@ export const defaultProjectFilters = (): ProjectFilters => ({
 export function projectFiltersActive(filters: ProjectFilters): boolean {
   return (
     Boolean(filters.search.trim()) ||
-    Boolean(filters.status) ||
+    Boolean(filters.department) ||
     Boolean(filters.phase) ||
     Boolean(filters.leadEmployeeId) ||
     filters.showInactive
@@ -36,7 +36,9 @@ export function filterProjects(
 
   return projects.filter((project) => {
     if (!filters.showInactive && !project.active) return false;
-    if (filters.status && project.status !== filters.status) return false;
+    if (filters.department && (project.department?.trim() ?? "") !== filters.department) {
+      return false;
+    }
     if (filters.phase && project.phase !== filters.phase) return false;
     if (filters.leadEmployeeId && project.lead_employee_id !== filters.leadEmployeeId) {
       return false;
@@ -51,7 +53,7 @@ export function filterProjects(
       project.project_name,
       project.client_name,
       project.project_amount != null ? String(project.project_amount) : "",
-      project.status,
+      project.department,
       project.phase,
       lead ? getEmployeeFullName(lead) : "",
     ]

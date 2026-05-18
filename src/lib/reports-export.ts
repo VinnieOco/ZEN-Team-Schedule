@@ -144,7 +144,7 @@ export function exportProjectBudgetCsv(ctx: ReportsExportContext): void {
       return [
         project.project_name,
         project.client_name,
-        project.status,
+        project.department?.trim() ?? "",
         String(project.budgeted_design_hours),
         String(stats.scheduledAllTime),
         String(stats.scheduledThisWeek),
@@ -158,7 +158,7 @@ export function exportProjectBudgetCsv(ctx: ReportsExportContext): void {
     [
       "Project",
       "Client",
-      "Status",
+      "Department",
       "Budget (h)",
       "Scheduled all-time (h)",
       "Scheduled this week (h)",

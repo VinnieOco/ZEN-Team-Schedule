@@ -22,6 +22,7 @@ import {
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { getProjectScheduledHours } from "@/lib/utilization";
+import { formatProjectDepartment } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 
 export default function ProjectDetailPage() {
@@ -75,10 +76,10 @@ export default function ProjectDetailPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Department</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-semibold">{project.status}</p>
+            <p className="font-semibold">{formatProjectDepartment(project.department)}</p>
             <p className="text-sm text-muted-foreground">{project.phase}</p>
           </CardContent>
         </Card>

@@ -1,18 +1,4 @@
-import type { ProjectPhase, ProjectStatus } from "@/types";
-
-export const PROJECT_STATUSES: ProjectStatus[] = [
-  "Lead",
-  "Proposal",
-  "Active Design",
-  "Estimating",
-  "Client Review",
-  "Construction Documents",
-  "Permit / Approvals",
-  "Construction Support",
-  "On Hold",
-  "Completed",
-  "Lost / Cancelled",
-];
+import type { ProjectPhase } from "@/types";
 
 export const PROJECT_PHASES: ProjectPhase[] = [
   "Concept",

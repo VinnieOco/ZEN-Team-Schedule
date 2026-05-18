@@ -22,8 +22,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
+import { getDepartmentOptions } from "@/lib/team-options";
+import { PROJECT_PHASES } from "@/lib/project-options";
 import { getEmployeeFullName } from "@/lib/week";
-import { PROJECT_PHASES, PROJECT_STATUSES } from "@/lib/project-options";
 import type { Project, ProjectFormValues } from "@/types";
 
 interface ProjectFormDialogProps {
@@ -32,13 +34,20 @@ interface ProjectFormDialogProps {
   project?: Project | null;
 }
 
+const NO_DEPARTMENT = "__none__";
+
 export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDialogProps) {
-  const { employees, addProject, updateProject } = useScheduling();
+  const { employees, settings, projects, addProject, updateProject } = useScheduling();
+  const departmentOptions = [
+    ...new Set([
+      ...getDepartmentOptions(settings, employees).filter((d) => d !== UNASSIGNED_DEPARTMENT),
+      ...projects.map((p) => p.department?.trim()).filter(Boolean) as string[],
+    ]),
+  ].sort((a, b) => a.localeCompare(b));
   const form = useForm<ProjectFormValues>({
     defaultValues: {
       project_name: "",
       client_name: "",
-      status: "Active Design",
       phase: "Concept",
       budgeted_design_hours: 80,
     },
@@ -50,7 +59,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
       form.reset({
         project_name: project.project_name,
         client_name: project.client_name,
-        status: project.status,
+        department: project.department,
         phase: project.phase,
         lead_employee_id: project.lead_employee_id,
         budgeted_design_hours: project.budgeted_design_hours,
@@ -67,7 +76,6 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
       form.reset({
         project_name: "",
         client_name: "",
-        status: "Active Design",
         phase: "Concept",
         budgeted_design_hours: 80,
         scope_of_work: "",
@@ -120,12 +128,22 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               <Input type="email" {...form.register("email")} placeholder="client@example.com" />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.watch("status")} onValueChange={(v) => form.setValue("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label>Department</Label>
+              <Select
+                value={form.watch("department")?.trim() || NO_DEPARTMENT}
+                onValueChange={(v) =>
+                  form.setValue("department", v === NO_DEPARTMENT ? undefined : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
                 <SelectContent>
-                  {PROJECT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  <SelectItem value={NO_DEPARTMENT}>None</SelectItem>
+                  {departmentOptions.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

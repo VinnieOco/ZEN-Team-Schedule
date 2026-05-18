@@ -6,3 +6,8 @@ export function formatProjectAmount(amount?: number): string {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+export function formatProjectDepartment(department?: string): string {
+  const trimmed = department?.trim();
+  return trimmed || "—";
+}

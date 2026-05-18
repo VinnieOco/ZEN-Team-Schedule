@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
-import { PROJECT_PHASES, PROJECT_STATUSES } from "@/lib/project-options";
+import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
+import { getDepartmentOptions } from "@/lib/team-options";
+import { PROJECT_PHASES } from "@/lib/project-options";
 import { projectFiltersActive, type ProjectFilters } from "@/lib/filter-projects";
 import { getEmployeeFullName } from "@/lib/week";
 
@@ -33,7 +35,13 @@ export function ProjectsFilters({
   resultCount,
   totalCount,
 }: ProjectsFiltersProps) {
-  const { employees } = useScheduling();
+  const { employees, settings, projects } = useScheduling();
+  const departmentOptions = [
+    ...new Set([
+      ...getDepartmentOptions(settings, employees).filter((d) => d !== UNASSIGNED_DEPARTMENT),
+      ...projects.map((p) => p.department?.trim()).filter(Boolean) as string[],
+    ]),
+  ].sort((a, b) => a.localeCompare(b));
 
   const leadOptions = employees
     .filter((e) => e.active)
@@ -54,17 +62,17 @@ export function ProjectsFilters({
           />
         </div>
         <Select
-          value={filters.status ?? "all"}
-          onValueChange={(v) => onChange({ status: v === "all" ? null : v })}
+          value={filters.department ?? "all"}
+          onValueChange={(v) => onChange({ department: v === "all" ? null : v })}
         >
           <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Department" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {PROJECT_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
+            <SelectItem value="all">All departments</SelectItem>
+            {departmentOptions.map((dept) => (
+              <SelectItem key={dept} value={dept}>
+                {dept}
               </SelectItem>
             ))}
           </SelectContent>

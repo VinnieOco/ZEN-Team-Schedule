@@ -45,12 +45,12 @@ insert into public.employees (id, first_name, last_name, role, email, weekly_cap
   ('11111111-1111-1111-1111-111111111106', 'Lily', 'Chen', 'Intern', 'lily@zenlandscape.com', 40, 8, 'Design', true)
 on conflict (id) do nothing;
 
-insert into public.projects (id, project_name, client_name, status, phase, lead_employee_id, budgeted_design_hours, target_completion_date, active) values
-  ('22222222-2222-2222-2222-222222222201', 'Smith Residence', 'Smith Family', 'Active Design', 'Design Development', '11111111-1111-1111-1111-111111111101', 120, '2026-08-15', true),
-  ('22222222-2222-2222-2222-222222222202', 'Beacon Hill Park', 'City Parks Dept', 'Construction Documents', 'Construction Documents', '11111111-1111-1111-1111-111111111103', 200, '2026-10-01', true),
-  ('22222222-2222-2222-2222-222222222203', 'Oak Tree Place', 'Oak Tree LLC', 'Client Review', 'Revisions', '11111111-1111-1111-1111-111111111104', 80, '2026-07-20', true),
-  ('22222222-2222-2222-2222-222222222204', 'ZEN Corporate HQ', 'ZEN Landscape', 'Active Design', 'Schematic Design', '11111111-1111-1111-1111-111111111102', 160, '2026-09-30', true),
-  ('22222222-2222-2222-2222-222222222205', 'Riverfront Development', 'Riverfront Partners', 'Proposal', 'Concept', '11111111-1111-1111-1111-111111111103', 240, '2027-01-15', true),
+insert into public.projects (id, project_name, client_name, department, phase, lead_employee_id, budgeted_design_hours, target_completion_date, active) values
+  ('22222222-2222-2222-2222-222222222201', 'Smith Residence', 'Smith Family', 'Design', 'Design Development', '11111111-1111-1111-1111-111111111101', 120, '2026-08-15', true),
+  ('22222222-2222-2222-2222-222222222202', 'Beacon Hill Park', 'City Parks Dept', 'Design', 'Construction Documents', '11111111-1111-1111-1111-111111111103', 200, '2026-10-01', true),
+  ('22222222-2222-2222-2222-222222222203', 'Oak Tree Place', 'Oak Tree LLC', 'Design', 'Revisions', '11111111-1111-1111-1111-111111111104', 80, '2026-07-20', true),
+  ('22222222-2222-2222-2222-222222222204', 'ZEN Corporate HQ', 'ZEN Landscape', 'Design', 'Schematic Design', '11111111-1111-1111-1111-111111111102', 160, '2026-09-30', true),
+  ('22222222-2222-2222-2222-222222222205', 'Riverfront Development', 'Riverfront Partners', 'Design', 'Concept', '11111111-1111-1111-1111-111111111103', 240, '2027-01-15', true),
   ('22222222-2222-2222-2222-222222222206', 'Maple Grove Residence', 'Grove Family', 'Estimating', 'Estimating', '11111111-1111-1111-1111-111111111101', 60, '2026-06-30', true)
 on conflict (id) do nothing;
 

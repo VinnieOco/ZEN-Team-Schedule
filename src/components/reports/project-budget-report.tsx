@@ -74,7 +74,7 @@ export function ProjectBudgetReport() {
               <TableRow>
                 <TableHead>Project</TableHead>
                 <TableHead>Client</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead className="text-right">Budget</TableHead>
                 <TableHead className="text-right">Scheduled (all)</TableHead>
                 <TableHead className="text-right">This week</TableHead>
@@ -95,7 +95,7 @@ export function ProjectBudgetReport() {
                     </Link>
                   </TableCell>
                   <TableCell>{project.client_name}</TableCell>
-                  <TableCell className="text-sm">{project.status}</TableCell>
+                  <TableCell className="text-sm">{project.department?.trim() || "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {project.budgeted_design_hours > 0 ? `${project.budgeted_design_hours}h` : "—"}
                   </TableCell>

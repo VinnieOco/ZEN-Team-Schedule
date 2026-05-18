@@ -25,7 +25,7 @@ export function projectFromFormValues(
     active: values.active ?? base.active,
     project_name: values.project_name.trim(),
     client_name: values.client_name.trim(),
-    status: values.status,
+    department: optionalText(values.department),
     phase: values.phase,
     lead_employee_id: optionalText(values.lead_employee_id),
     budgeted_design_hours: budgeted,

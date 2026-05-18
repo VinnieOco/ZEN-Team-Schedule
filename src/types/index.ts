@@ -1,18 +1,5 @@
 export type UtilizationStatus = "under" | "healthy" | "near" | "over";
 
-export type ProjectStatus =
-  | "Lead"
-  | "Proposal"
-  | "Active Design"
-  | "Estimating"
-  | "Client Review"
-  | "Construction Documents"
-  | "Permit / Approvals"
-  | "Construction Support"
-  | "On Hold"
-  | "Completed"
-  | "Lost / Cancelled";
-
 export type ProjectPhase =
   | "Concept"
   | "Schematic Design"
@@ -56,7 +43,7 @@ export interface Project {
   project_name: string;
   client_name: string;
   project_number?: string;
-  status: ProjectStatus | string;
+  department?: string;
   phase: ProjectPhase | string;
   lead_employee_id?: string;
   budgeted_design_hours: number;
@@ -204,7 +191,7 @@ export interface TeamTimeSummary {
 export interface ProjectFormValues {
   project_name: string;
   client_name: string;
-  status: string;
+  department?: string;
   phase: string;
   lead_employee_id?: string;
   budgeted_design_hours: number;

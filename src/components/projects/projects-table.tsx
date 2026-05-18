@@ -27,6 +27,7 @@ import {
 } from "@/lib/filter-projects";
 import { getProjectScheduledHours } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
+import { formatProjectDepartment } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Project } from "@/types";
 
@@ -94,7 +95,7 @@ export function ProjectsTable() {
               <TableRow>
                 <TableHead>Project Name</TableHead>
                 <TableHead>Client</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead>Phase</TableHead>
                 <TableHead>Lead Designer</TableHead>
                 <TableHead className="text-right">Budgeted Hrs</TableHead>
@@ -137,7 +138,7 @@ export function ProjectsTable() {
                       </Link>
                     </TableCell>
                     <TableCell>{project.client_name}</TableCell>
-                    <TableCell>{project.status}</TableCell>
+                    <TableCell>{formatProjectDepartment(project.department)}</TableCell>
                     <TableCell>{project.phase}</TableCell>
                     <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>
                     <TableCell className="text-right">{project.budgeted_design_hours}</TableCell>

@@ -111,7 +111,7 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
                     </Link>
                     <p className="mt-0.5 text-xs text-muted-foreground">{project.client_name}</p>
                     <p className="mt-1 text-[10px] text-slate-500">
-                      {project.status} · {project.phase}
+                      {project.department?.trim() || "No department"} · {project.phase}
                     </p>
                   </td>
                   {periodDays.map((day) => {
