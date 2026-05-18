@@ -58,6 +58,9 @@ async function ensureMigrationsTable(client) {
       id text primary key,
       applied_at timestamptz not null default now()
     );
+    alter table public._schema_migrations enable row level security;
+    revoke all on table public._schema_migrations from anon, authenticated;
+    revoke all on table public._schema_migrations from public;
   `);
 }
 
