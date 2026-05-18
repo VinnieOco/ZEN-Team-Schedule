@@ -88,7 +88,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
             Sign out
           </Button>
         )}
-        <p className="px-3 text-xs text-slate-500">Landscape Design Resource Planning</p>
+        <p className="px-3 text-xs text-slate-500">ZEN Associates, Inc.</p>
       </div>
     </aside>
   );
