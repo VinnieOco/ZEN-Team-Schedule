@@ -17,7 +17,7 @@ export function projectFromFormValues(
   return {
     ...base,
     id: base.id,
-    active: base.active,
+    active: values.active ?? base.active,
     project_name: values.project_name.trim(),
     client_name: values.client_name.trim(),
     status: values.status,

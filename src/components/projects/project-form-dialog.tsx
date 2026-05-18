@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import { getEmployeeFullName } from "@/lib/week";
@@ -60,6 +61,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         address: project.address,
         phone: project.phone,
         email: project.email,
+        active: project.active,
       });
     } else {
       form.reset({
@@ -174,6 +176,23 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               />
             </div>
           </div>
+          {project && (
+            <div className="flex items-center justify-between gap-4 rounded-lg border bg-slate-50 px-4 py-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="project-active" className="text-sm font-medium">
+                  Active project
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Inactive projects are hidden unless you turn on “Show inactive projects”.
+                </p>
+              </div>
+              <Switch
+                id="project-active"
+                checked={form.watch("active") ?? true}
+                onCheckedChange={(checked) => form.setValue("active", checked)}
+              />
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit">{project ? "Save" : "Add project"}</Button>

@@ -213,6 +213,7 @@ export interface ProjectFormValues {
   address?: string;
   phone?: string;
   email?: string;
+  active?: boolean;
 }
 
 export interface EmployeeFormValues {
