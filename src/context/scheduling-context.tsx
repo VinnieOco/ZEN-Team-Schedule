@@ -208,7 +208,11 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       ]);
       setEmployees(emp);
       setProjects(proj);
-      setProjectNotes(notes);
+      setProjectNotes(
+        [...notes].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+      );
       setCategories(cats.length > 0 ? cats : seedCategories);
       setAllocations(alloc);
       setTimeEntries(times);
@@ -565,7 +569,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
             }
           });
         }
-        return [note, ...prev];
+        return [note, ...prev].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
       });
     },
     [persistAsync],
