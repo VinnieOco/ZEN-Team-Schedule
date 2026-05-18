@@ -56,7 +56,10 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         contract_date: project.contract_date,
         target_completion_date: project.target_completion_date,
         project_number: project.project_number,
-        notes: project.notes,
+        scope_of_work: project.scope_of_work,
+        address: project.address,
+        phone: project.phone,
+        email: project.email,
       });
     } else {
       form.reset({
@@ -65,6 +68,10 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         status: "Active Design",
         phase: "Concept",
         budgeted_design_hours: 80,
+        scope_of_work: "",
+        address: "",
+        phone: "",
+        email: "",
       });
     }
   }, [open, project, form]);
@@ -93,6 +100,22 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
             <div className="col-span-2 space-y-2">
               <Label>Client name</Label>
               <Input {...form.register("client_name", { required: true })} />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>Address</Label>
+              <Textarea
+                {...form.register("address")}
+                rows={2}
+                placeholder="Street, city, state, ZIP"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input type="tel" {...form.register("phone")} placeholder="(555) 555-5555" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" {...form.register("email")} placeholder="client@example.com" />
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
@@ -143,8 +166,12 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               <Input type="date" {...form.register("target_completion_date")} />
             </div>
             <div className="col-span-2 space-y-2">
-              <Label>Notes</Label>
-              <Textarea {...form.register("notes")} rows={2} />
+              <Label>Scope of work</Label>
+              <Textarea
+                {...form.register("scope_of_work")}
+                rows={4}
+                placeholder="Describe the project scope, deliverables, and key responsibilities…"
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">

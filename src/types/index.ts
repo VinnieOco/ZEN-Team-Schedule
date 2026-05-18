@@ -64,6 +64,10 @@ export interface Project {
   start_date?: string;
   contract_date?: string;
   target_completion_date?: string;
+  scope_of_work?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
   notes?: string;
   active: boolean;
 }
@@ -205,7 +209,10 @@ export interface ProjectFormValues {
   contract_date?: string;
   target_completion_date?: string;
   project_number?: string;
-  notes?: string;
+  scope_of_work?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface EmployeeFormValues {

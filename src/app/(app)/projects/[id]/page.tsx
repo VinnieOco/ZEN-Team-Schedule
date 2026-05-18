@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Calendar } from "lucide-react";
+import { ArrowLeft, Calendar, Mail, MapPin, Phone } from "lucide-react";
 
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
+import { ProjectScopeOfWork } from "@/components/projects/project-scope-of-work";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -138,6 +139,40 @@ export default function ProjectDetailPage() {
               <p className="font-medium">{project.project_number}</p>
             </div>
           )}
+          <div className="sm:col-span-2">
+            <p className="text-muted-foreground">Address</p>
+            <p className="font-medium flex items-start gap-1.5 whitespace-pre-wrap">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {project.address?.trim() || "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Phone</p>
+            <p className="font-medium flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5 shrink-0" />
+              {project.phone?.trim() ? (
+                <a href={`tel:${project.phone.trim()}`} className="hover:underline">
+                  {project.phone.trim()}
+                </a>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Email</p>
+            <p className="font-medium flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              {project.email?.trim() ? (
+                <a href={`mailto:${project.email.trim()}`} className="hover:underline">
+                  {project.email.trim()}
+                </a>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+          <ProjectScopeOfWork project={project} />
         </CardContent>
       </Card>
 

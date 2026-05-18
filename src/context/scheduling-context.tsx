@@ -94,6 +94,8 @@ interface SchedulingContextValue {
   updateProject: (id: string, values: ProjectFormValues) => void;
   addProjectNote: (projectId: string, body: string) => void;
   updateProjectNote: (id: string, body: string) => void;
+  deleteProjectNote: (id: string) => void;
+  updateProjectScopeOfWork: (projectId: string, scopeOfWork: string) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -493,7 +495,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         contract_date: values.contract_date,
         target_completion_date: values.target_completion_date,
         project_number: values.project_number,
-        notes: values.notes,
+        scope_of_work: values.scope_of_work,
+        address: values.address,
+        phone: values.phone,
+        email: values.email,
         active: true,
       };
       setProjects((prev) => [...prev, project]);
@@ -526,7 +531,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
                 contract_date: values.contract_date,
                 target_completion_date: values.target_completion_date,
                 project_number: values.project_number,
-                notes: values.notes,
+                scope_of_work: values.scope_of_work,
+                address: values.address,
+                phone: values.phone,
+                email: values.email,
               }
             : p,
         );
@@ -534,6 +542,26 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         if (merged && repoRef.current) {
           void persistAsync(
             () => repoRef.current!.upsertProject(merged),
+            () => setProjects(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const updateProjectScopeOfWork = useCallback(
+    (projectId: string, scopeOfWork: string) => {
+      const trimmed = scopeOfWork.trim();
+      setProjects((prev) => {
+        const snapshot = prev;
+        const next = prev.map((p) =>
+          p.id === projectId ? { ...p, scope_of_work: trimmed || undefined } : p,
+        );
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.updateProjectScopeOfWork(projectId, trimmed),
             () => setProjects(snapshot),
           );
         }
@@ -605,6 +633,22 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           });
         }
         return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const deleteProjectNote = useCallback(
+    (id: string) => {
+      setProjectNotes((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteProjectNote(id),
+            () => setProjectNotes(snapshot),
+          );
+        }
+        return prev.filter((n) => n.id !== id);
       });
     },
     [persistAsync],
@@ -875,6 +919,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProject,
       addProjectNote,
       updateProjectNote,
+      deleteProjectNote,
+      updateProjectScopeOfWork,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -921,6 +967,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProject,
       addProjectNote,
       updateProjectNote,
+      deleteProjectNote,
+      updateProjectScopeOfWork,
       updateSettings,
       updateEmployee,
       addEmployee,

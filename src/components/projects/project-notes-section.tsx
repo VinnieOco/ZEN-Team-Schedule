@@ -32,12 +32,14 @@ function formatNoteDate(iso: string) {
 interface SavedProjectNoteProps {
   note: ProjectNote;
   onSave: (id: string, body: string) => void;
+  onDelete: (id: string) => void;
 }
 
-function SavedProjectNote({ note, onSave }: SavedProjectNoteProps) {
+function SavedProjectNote({ note, onSave, onDelete }: SavedProjectNoteProps) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(note.body);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setBody(note.body);
@@ -61,6 +63,16 @@ function SavedProjectNote({ note, onSave }: SavedProjectNoteProps) {
     setEditing(false);
   };
 
+  const handleDelete = () => {
+    if (!window.confirm("Delete this note? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      onDelete(note.id);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (editing) {
     return (
       <div className="space-y-2 py-3">
@@ -72,17 +84,33 @@ function SavedProjectNote({ note, onSave }: SavedProjectNoteProps) {
           className="min-h-[96px] resize-y"
           autoFocus
         />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             size="sm"
             onClick={handleSave}
-            disabled={!body.trim() || body.trim() === note.body || saving}
+            disabled={!body.trim() || body.trim() === note.body || saving || deleting}
           >
             {saving ? "Saving…" : "Save"}
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={handleCancel} disabled={saving}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={saving || deleting}
+          >
             Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            className="ml-auto"
+            onClick={handleDelete}
+            disabled={saving || deleting}
+          >
+            {deleting ? "Deleting…" : "Delete"}
           </Button>
         </div>
       </div>
@@ -109,7 +137,7 @@ function SavedProjectNote({ note, onSave }: SavedProjectNoteProps) {
 }
 
 export function ProjectNotesSection({ project }: ProjectNotesSectionProps) {
-  const { projectNotes, addProjectNote, updateProjectNote } = useScheduling();
+  const { projectNotes, addProjectNote, updateProjectNote, deleteProjectNote } = useScheduling();
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -161,6 +189,7 @@ export function ProjectNotesSection({ project }: ProjectNotesSectionProps) {
                   key={note.id}
                   note={note}
                   onSave={updateProjectNote}
+                  onDelete={deleteProjectNote}
                 />
               ))}
             </div>
