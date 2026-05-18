@@ -123,6 +123,10 @@ export function mapProject(row: ProjectRow): Project {
     phase: row.phase,
     lead_employee_id: row.lead_employee_id ?? undefined,
     budgeted_design_hours: Number(row.budgeted_design_hours),
+    project_amount:
+      row.estimated_construction_value != null
+        ? Number(row.estimated_construction_value)
+        : undefined,
     estimated_construction_value: row.estimated_construction_value ?? undefined,
     start_date: row.start_date ?? undefined,
     contract_date: row.contract_date ?? undefined,
@@ -236,7 +240,7 @@ export function projectToRow(project: Project) {
     phase: project.phase,
     lead_employee_id: project.lead_employee_id ?? null,
     budgeted_design_hours: project.budgeted_design_hours,
-    estimated_construction_value: project.estimated_construction_value ?? null,
+    estimated_construction_value: project.project_amount ?? project.estimated_construction_value ?? null,
     start_date: project.start_date ?? null,
     contract_date: project.contract_date ?? null,
     target_completion_date: project.target_completion_date ?? null,

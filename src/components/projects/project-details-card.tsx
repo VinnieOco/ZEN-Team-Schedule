@@ -7,6 +7,7 @@ import { Building2, Calendar, Mail, MapPin, Pencil, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Employee, Project } from "@/types";
+import { formatProjectAmount } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 
 interface ProjectDetailsCardProps {
@@ -104,8 +105,8 @@ export function ProjectDetailsCard({
               <InfoField label="Lead designer">
                 {lead ? getEmployeeFullName(lead) : "—"}
               </InfoField>
-              <InfoField label="Project number">
-                {project.project_number?.trim() || "—"}
+              <InfoField label="Project amount">
+                {formatProjectAmount(project.project_amount)}
               </InfoField>
               <InfoField label="Contract date">
                 <span className="inline-flex items-center gap-1.5">

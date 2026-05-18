@@ -50,7 +50,7 @@ export function filterProjects(
     const haystack = [
       project.project_name,
       project.client_name,
-      project.project_number,
+      project.project_amount != null ? String(project.project_amount) : "",
       project.status,
       project.phase,
       lead ? getEmployeeFullName(lead) : "",

@@ -5,6 +5,11 @@ function optionalText(value: string | undefined): string | undefined {
   return trimmed || undefined;
 }
 
+function optionalAmount(value: number | undefined): number | undefined {
+  if (value == null || !Number.isFinite(value) || value < 0) return undefined;
+  return value;
+}
+
 /** Normalize project form values before save (empty strings, invalid UUIDs, NaN hours). */
 export function projectFromFormValues(
   values: ProjectFormValues,
@@ -26,7 +31,8 @@ export function projectFromFormValues(
     budgeted_design_hours: budgeted,
     contract_date: optionalText(values.contract_date),
     target_completion_date: optionalText(values.target_completion_date),
-    project_number: optionalText(values.project_number),
+    project_amount: optionalAmount(values.project_amount),
+    estimated_construction_value: optionalAmount(values.project_amount),
     scope_of_work: optionalText(values.scope_of_work),
     address: optionalText(values.address),
     phone: optionalText(values.phone),

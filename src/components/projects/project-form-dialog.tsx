@@ -56,7 +56,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         budgeted_design_hours: project.budgeted_design_hours,
         contract_date: project.contract_date,
         target_completion_date: project.target_completion_date,
-        project_number: project.project_number,
+        project_amount: project.project_amount,
         scope_of_work: project.scope_of_work,
         address: project.address,
         phone: project.phone,
@@ -154,6 +154,16 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Project amount</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0"
+                {...form.register("project_amount", { valueAsNumber: true })}
+              />
             </div>
             <div className="space-y-2">
               <Label>Budgeted hours</Label>

@@ -31,7 +31,11 @@ export function useFilteredProjectRows(period: "week" | "month" = "week") {
       .filter((p) => !filters.projectId || p.id === filters.projectId)
       .filter((p) => {
         if (!q) return true;
-        const projectHaystack = [p.project_name, p.client_name, p.project_number]
+        const projectHaystack = [
+          p.project_name,
+          p.client_name,
+          p.project_amount != null ? String(p.project_amount) : "",
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
