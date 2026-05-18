@@ -77,6 +77,40 @@ export function getEmployeeDayHours(
     .reduce((sum, a) => sum + a.hours, 0);
 }
 
+export interface DayScheduleTotals {
+  employeeCount: number;
+  totalHours: number;
+}
+
+/** Employees scheduled and total hours for one day (scoped to visible team members). */
+export function getDayScheduleTotals(
+  employeeIds: string[],
+  periodAllocations: Allocation[],
+  dateKey: string,
+): DayScheduleTotals {
+  const idSet = new Set(employeeIds);
+  const dayAllocs = periodAllocations.filter(
+    (a) => a.allocation_date === dateKey && idSet.has(a.employee_id),
+  );
+  return {
+    employeeCount: new Set(dayAllocs.map((a) => a.employee_id)).size,
+    totalHours: dayAllocs.reduce((sum, a) => sum + a.hours, 0),
+  };
+}
+
+/** Employees scheduled and total hours for a week or month (scoped to visible team members). */
+export function getPeriodScheduleTotals(
+  employeeIds: string[],
+  periodAllocations: Allocation[],
+): DayScheduleTotals {
+  const idSet = new Set(employeeIds);
+  const scoped = periodAllocations.filter((a) => idSet.has(a.employee_id));
+  return {
+    employeeCount: new Set(scoped.map((a) => a.employee_id)).size,
+    totalHours: scoped.reduce((sum, a) => sum + a.hours, 0),
+  };
+}
+
 /** Cell styling for daily workload heatmap (scheduled vs daily capacity). */
 export function dayWorkloadCellClass(scheduled: number, dailyCapacity: number): string {
   if (scheduled <= 0) return "bg-slate-50 text-slate-400";

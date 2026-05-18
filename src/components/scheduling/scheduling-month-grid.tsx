@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -21,9 +21,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
+import { formatProjectHours } from "@/lib/project-format";
 import {
   filterAllocationsForMonth,
+  getDayScheduleTotals,
   getEmployeeDayHours,
+  getPeriodScheduleTotals,
   utilizationStatusBg,
   utilizationStatusColor,
 } from "@/lib/utilization";
@@ -92,6 +95,25 @@ export function SchedulingMonthGrid() {
 
     moveAllocation(String(active.id), target.employeeId, target.dateKey);
   };
+
+  const visibleEmployeeIds = useMemo(() => rows.map((r) => r.employee.id), [rows]);
+
+  const dayTotals = useMemo(
+    () =>
+      monthDays.map((day) => {
+        const dateKey = formatDateKey(day);
+        return {
+          dateKey,
+          ...getDayScheduleTotals(visibleEmployeeIds, monthAllocations, dateKey),
+        };
+      }),
+    [monthDays, monthAllocations, visibleEmployeeIds],
+  );
+
+  const monthTotals = useMemo(
+    () => getPeriodScheduleTotals(visibleEmployeeIds, monthAllocations),
+    [visibleEmployeeIds, monthAllocations],
+  );
 
   if (rows.length === 0) {
     return (
@@ -214,6 +236,32 @@ export function SchedulingMonthGrid() {
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 bg-slate-100 print:bg-slate-50">
+                <td className="sticky left-0 z-20 border-r bg-slate-100 px-3 py-2 text-[10px] font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
+                  Daily totals
+                </td>
+                {dayTotals.map(({ dateKey, employeeCount, totalHours }) => (
+                  <td
+                    key={dateKey}
+                    className="border-r px-0.5 py-2 text-center text-[10px] last:border-r-0"
+                  >
+                    <p className="font-semibold leading-tight text-slate-800">{employeeCount}</p>
+                    <p className="mt-0.5 tabular-nums leading-tight text-muted-foreground">
+                      {formatProjectHours(totalHours)}h
+                    </p>
+                  </td>
+                ))}
+                <td className="bg-slate-100 px-2 py-2 text-center text-[10px] print:bg-slate-50">
+                  <p className="font-semibold leading-tight text-slate-800">
+                    {monthTotals.employeeCount}
+                  </p>
+                  <p className="mt-0.5 tabular-nums leading-tight text-muted-foreground">
+                    {formatProjectHours(monthTotals.totalHours)}h
+                  </p>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 

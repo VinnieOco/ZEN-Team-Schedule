@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -24,7 +24,14 @@ import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-em
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { getEmployeeDayHours, utilizationStatusBg, utilizationStatusColor } from "@/lib/utilization";
+import { formatProjectHours } from "@/lib/project-format";
+import {
+  getDayScheduleTotals,
+  getEmployeeDayHours,
+  getPeriodScheduleTotals,
+  utilizationStatusBg,
+  utilizationStatusColor,
+} from "@/lib/utilization";
 import { departmentFilterLabel } from "@/lib/departments";
 import {
   formatDateKey,
@@ -92,6 +99,25 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
 
     moveAllocation(String(active.id), target.employeeId, target.dateKey);
   };
+
+  const visibleEmployeeIds = useMemo(() => rows.map((r) => r.employee.id), [rows]);
+
+  const dayTotals = useMemo(
+    () =>
+      weekDays.map((day) => {
+        const dateKey = formatDateKey(day);
+        return {
+          dateKey,
+          ...getDayScheduleTotals(visibleEmployeeIds, weekAllocations, dateKey),
+        };
+      }),
+    [weekDays, weekAllocations, visibleEmployeeIds],
+  );
+
+  const weekTotals = useMemo(
+    () => getPeriodScheduleTotals(visibleEmployeeIds, weekAllocations),
+    [visibleEmployeeIds, weekAllocations],
+  );
 
   if (rows.length === 0) {
     return (
@@ -218,6 +244,36 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 bg-slate-100 print:bg-slate-50">
+                <td className="sticky left-0 z-20 border-r bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
+                  Daily totals
+                </td>
+                {dayTotals.map(({ dateKey, employeeCount, totalHours }) => (
+                  <td
+                    key={dateKey}
+                    className="border-r px-2 py-2.5 text-center text-xs last:border-r-0"
+                  >
+                    <p className="font-semibold text-slate-800">
+                      {employeeCount}{" "}
+                      {employeeCount === 1 ? "employee" : "employees"}
+                    </p>
+                    <p className="mt-0.5 tabular-nums text-muted-foreground">
+                      {formatProjectHours(totalHours)}h scheduled
+                    </p>
+                  </td>
+                ))}
+                <td className="bg-slate-100 px-3 py-2.5 text-center text-xs print:bg-slate-50">
+                  <p className="font-semibold text-slate-800">
+                    {weekTotals.employeeCount}{" "}
+                    {weekTotals.employeeCount === 1 ? "employee" : "employees"}
+                  </p>
+                  <p className="mt-0.5 tabular-nums text-muted-foreground">
+                    {formatProjectHours(weekTotals.totalHours)}h scheduled
+                  </p>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
