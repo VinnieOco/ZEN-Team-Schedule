@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, Calendar, Mail, MapPin, Pencil, Phone } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
+import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
 import { Button } from "@/components/ui/button";
@@ -110,91 +111,12 @@ export default function ProjectDetailPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-          <CardTitle className="text-base">Project details</CardTitle>
-          {permissions.editProjects && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setEditDialogOpen(true)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground">Lead designer</p>
-            <p className="font-medium">{lead ? getEmployeeFullName(lead) : "—"}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Contract date</p>
-            <p className="font-medium flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              {project.contract_date
-                ? format(parseISO(project.contract_date), "MMMM d, yyyy")
-                : "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Target completion</p>
-            <p className="font-medium flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5" />
-              {project.target_completion_date
-                ? format(parseISO(project.target_completion_date), "MMMM d, yyyy")
-                : "—"}
-            </p>
-          </div>
-          {project.project_number && (
-            <div>
-              <p className="text-muted-foreground">Project number</p>
-              <p className="font-medium">{project.project_number}</p>
-            </div>
-          )}
-          <div className="sm:col-span-2">
-            <p className="text-muted-foreground">Address</p>
-            <p className="font-medium flex items-start gap-1.5 whitespace-pre-wrap">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {project.address?.trim() || "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Phone</p>
-            <p className="font-medium flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5 shrink-0" />
-              {project.phone?.trim() ? (
-                <a href={`tel:${project.phone.trim()}`} className="hover:underline">
-                  {project.phone.trim()}
-                </a>
-              ) : (
-                "—"
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Email</p>
-            <p className="font-medium flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5 shrink-0" />
-              {project.email?.trim() ? (
-                <a href={`mailto:${project.email.trim()}`} className="hover:underline">
-                  {project.email.trim()}
-                </a>
-              ) : (
-                "—"
-              )}
-            </p>
-          </div>
-          <div className="sm:col-span-2">
-            <p className="text-muted-foreground">Scope of work</p>
-            <p className="font-medium whitespace-pre-wrap leading-relaxed">
-              {project.scope_of_work?.trim() || "—"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <ProjectDetailsCard
+        project={project}
+        lead={lead}
+        canEdit={permissions.editProjects}
+        onEdit={() => setEditDialogOpen(true)}
+      />
 
       <ProjectNotesSection project={project} />
 
