@@ -167,8 +167,8 @@ export function ProjectNotesSection({ project }: ProjectNotesSectionProps) {
             {hiddenNoteCount > 0 && (
               <Button
                 type="button"
-                variant="link"
-                className="h-auto px-0 text-sm text-muted-foreground"
+                variant="ghost"
+                className="h-auto px-0 text-sm font-normal text-muted-foreground hover:text-foreground"
                 onClick={() => setShowAllSavedNotes((open) => !open)}
               >
                 {showAllSavedNotes
