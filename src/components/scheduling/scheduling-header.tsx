@@ -90,31 +90,31 @@ export function SchedulingHeader({
           )}
         </p>
       </div>
-      <PageToolbar className="print:hidden">
-        <div className="flex shrink-0 items-center rounded-lg border bg-white p-0.5 shadow-sm">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevious}>
-            <ChevronLeft className="h-4 w-4" />
+      <PageToolbar className="print:hidden ms-auto w-full justify-end sm:w-auto">
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="outline" size="icon" onClick={handlePrevious} aria-label="Previous period">
+            <ChevronLeft />
           </Button>
-          <Button variant="ghost" size="sm" className="h-8 px-3 text-xs" onClick={handleToday}>
+          <Button variant="outline" size="sm" onClick={handleToday}>
             Today
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNext}>
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={handleNext} aria-label="Next period">
+            <ChevronRight />
           </Button>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border bg-white p-0.5 shadow-sm">
+        <div className="flex shrink-0 items-center gap-2">
           <Button
-            variant={calendarView === "week" ? "secondary" : "ghost"}
+            variant="outline"
             size="sm"
-            className="h-8"
+            className={cn(calendarView === "week" && "bg-slate-100")}
             onClick={() => switchView("week")}
           >
             Week
           </Button>
           <Button
-            variant={calendarView === "month" ? "secondary" : "ghost"}
+            variant="outline"
             size="sm"
-            className="h-8"
+            className={cn(calendarView === "month" && "bg-slate-100")}
             onClick={() => switchView("month")}
           >
             Month
@@ -127,17 +127,17 @@ export function SchedulingHeader({
             className={cn("shrink-0", filtersVisible && "border-emerald-300 bg-emerald-50")}
             onClick={onToggleFilters}
           >
-            <Filter className="mr-2 h-4 w-4" />
+            <Filter />
             Filters
           </Button>
         )}
         <Button variant="outline" size="sm" className="hidden shrink-0 sm:inline-flex" onClick={() => window.print()}>
-          <Printer className="mr-2 h-4 w-4" />
+          <Printer />
           Print
         </Button>
         {canEditSchedule && onAddAllocation && (
-          <Button onClick={onAddAllocation} className="shrink-0 shadow-sm">
-            <Plus className="h-4 w-4 sm:mr-2" />
+          <Button onClick={onAddAllocation} className="shrink-0">
+            <Plus />
             <span className="hidden sm:inline">Add Schedule</span>
           </Button>
         )}

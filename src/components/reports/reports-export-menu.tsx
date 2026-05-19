@@ -31,8 +31,8 @@ export function ReportsExportMenu({ period }: ReportsExportMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="shadow-sm">
-          <Download className="mr-2 h-4 w-4" />
+        <Button variant="outline" size="sm">
+          <Download />
           Export CSV
         </Button>
       </DropdownMenuTrigger>

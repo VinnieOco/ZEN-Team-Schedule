@@ -62,16 +62,16 @@ export function PersonalWeekSection({ employee, weekStart }: PersonalWeekSection
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <WeekNavigator variant="outline" />
+          <WeekNavigator />
           <Button variant="outline" size="sm" asChild>
             <Link href="/scheduling">
-              <Calendar className="mr-2 h-3.5 w-3.5" />
+              <Calendar />
               Schedule
             </Link>
           </Button>
           {canLogTime && (
             <Button variant="outline" size="sm" onClick={() => setLogTimeOpen(true)}>
-              <Clock className="mr-2 h-3.5 w-3.5" />
+              <Clock />
               Log time
             </Button>
           )}

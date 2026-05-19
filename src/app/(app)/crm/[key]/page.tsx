@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { findClientByRouteKey } from "@/lib/clients";
 import { formatProjectAmount } from "@/lib/project-format";
 
@@ -21,6 +22,7 @@ export default function ClientDetailPage() {
   const params = useParams();
   const routeKey = params.key as string;
   const { projects, isLoading } = useScheduling();
+  const { permissions } = usePermissions();
   const [showInactive, setShowInactive] = useState(true);
 
   const client = useMemo(
@@ -65,11 +67,14 @@ export default function ClientDetailPage() {
       </div>
 
       <ClientContactSection
+        clientKey={client.key}
         displayName={client.displayName}
+        projectCount={client.projects.length}
         address={client.address}
         phone={client.phone}
         email={client.email}
         contactVaries={client.contactVaries}
+        canEdit={permissions.editProjects}
       />
 
       <ClientNotesSection clientKey={client.key} />

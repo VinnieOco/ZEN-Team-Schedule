@@ -29,6 +29,12 @@ import {
   appendJobRole,
   normalizeCompanySettings,
 } from "@/lib/team-options";
+import {
+  normalizeClientName,
+  projectsForClientKey,
+  withClientContact,
+  type ClientContactFields,
+} from "@/lib/clients";
 import { projectFromFormValues } from "@/lib/project-form";
 import { getMonthStart, getWeekStart } from "@/lib/week";
 import type {
@@ -96,6 +102,8 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => void;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
+  /** Sync address, phone, and email to every project for this client key. */
+  updateClientContact: (clientKey: string, contact: ClientContactFields) => void;
   addProjectNote: (projectId: string, body: string) => void;
   updateProjectNote: (id: string, body: string) => void;
   deleteProjectNote: (id: string) => void;
@@ -587,6 +595,37 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  const updateClientContact = useCallback(
+    (clientKey: string, contact: ClientContactFields) => {
+      const key = normalizeClientName(clientKey);
+      if (!key) return;
+
+      setProjects((prev) => {
+        const snapshot = prev;
+        const matching = projectsForClientKey(prev, key);
+        if (matching.length === 0) return prev;
+
+        const matchingIds = new Set(matching.map((p) => p.id));
+        const next = prev.map((p) =>
+          matchingIds.has(p.id) ? withClientContact(p, contact) : p,
+        );
+
+        if (repoRef.current) {
+          const updated = next.filter((p) => matchingIds.has(p.id));
+          void persistAsync(
+            async () => {
+              await Promise.all(updated.map((p) => repoRef.current!.updateProject(p)));
+            },
+            () => setProjects(snapshot),
+          );
+        }
+
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
   const addProjectNote = useCallback(
     (projectId: string, body: string) => {
       const trimmed = body.trim();
@@ -1018,6 +1057,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateClientContact,
       addProjectNote,
       updateProjectNote,
       deleteProjectNote,
@@ -1069,6 +1109,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateClientContact,
       addProjectNote,
       updateProjectNote,
       deleteProjectNote,

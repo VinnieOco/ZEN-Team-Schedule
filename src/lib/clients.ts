@@ -110,6 +110,27 @@ export interface ClientContactFields {
   email?: string;
 }
 
+function trimContactField(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+/** Apply shared contact fields to a project (other project fields unchanged). */
+export function withClientContact(project: Project, contact: ClientContactFields): Project {
+  return {
+    ...project,
+    address: trimContactField(contact.address),
+    phone: trimContactField(contact.phone),
+    email: trimContactField(contact.email),
+  };
+}
+
+export function projectsForClientKey(projects: Project[], clientKey: string): Project[] {
+  const key = normalizeClientName(clientKey);
+  if (!key) return [];
+  return projects.filter((p) => normalizeClientName(p.client_name ?? "") === key);
+}
+
 /** Contact info from existing projects for a client name (case-insensitive). */
 export function getClientContactFromProjects(
   projects: Project[],

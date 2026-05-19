@@ -2,19 +2,24 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { ReportsExportMenu } from "@/components/reports/reports-export-menu";
 import { PageToolbar } from "@/components/layout/page-toolbar";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import type { ReportsPeriod } from "@/lib/reports-export";
-import { periodLabel } from "@/lib/reports-export";
-import { useReportsExportContext } from "@/components/reports/use-reports-export-context";
+import { cn } from "@/lib/utils";
 
 interface ReportsPeriodNavigatorProps {
   period: ReportsPeriod;
   onPeriodChange: (period: ReportsPeriod) => void;
+  showExport?: boolean;
 }
 
-export function ReportsPeriodNavigator({ period, onPeriodChange }: ReportsPeriodNavigatorProps) {
+export function ReportsPeriodNavigator({
+  period,
+  onPeriodChange,
+  showExport = false,
+}: ReportsPeriodNavigatorProps) {
   const {
     goToPreviousWeek,
     goToNextWeek,
@@ -25,9 +30,6 @@ export function ReportsPeriodNavigator({ period, onPeriodChange }: ReportsPeriod
     setMonth,
     selectedWeekStart,
   } = useScheduling();
-
-  const exportCtx = useReportsExportContext(period);
-  const label = periodLabel(exportCtx);
 
   const handleToday = () => {
     if (period === "month") setMonth(new Date());
@@ -52,37 +54,37 @@ export function ReportsPeriodNavigator({ period, onPeriodChange }: ReportsPeriod
   };
 
   return (
-    <PageToolbar>
-      <div className="flex shrink-0 items-center rounded-lg border bg-white p-0.5 shadow-sm">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevious}>
-          <ChevronLeft className="h-4 w-4" />
+    <PageToolbar className="ms-auto w-full justify-end sm:w-auto">
+      <div className="flex shrink-0 items-center gap-2">
+        <Button variant="outline" size="icon" onClick={handlePrevious} aria-label="Previous period">
+          <ChevronLeft />
         </Button>
-        <Button variant="ghost" size="sm" className="h-8 px-3 text-xs" onClick={handleToday}>
+        <Button variant="outline" size="sm" onClick={handleToday}>
           Today
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNext}>
-          <ChevronRight className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={handleNext} aria-label="Next period">
+          <ChevronRight />
         </Button>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 rounded-lg border bg-white p-0.5 shadow-sm">
+      <div className="flex shrink-0 items-center gap-2">
         <Button
-          variant={period === "week" ? "secondary" : "ghost"}
+          variant="outline"
           size="sm"
-          className="h-8"
+          className={cn(period === "week" && "bg-slate-100")}
           onClick={() => switchPeriod("week")}
         >
           Week
         </Button>
         <Button
-          variant={period === "month" ? "secondary" : "ghost"}
+          variant="outline"
           size="sm"
-          className="h-8"
+          className={cn(period === "month" && "bg-slate-100")}
           onClick={() => switchPeriod("month")}
         >
           Month
         </Button>
       </div>
-      <p className="shrink-0 text-sm font-medium whitespace-nowrap text-slate-700">{label}</p>
+      {showExport && <ReportsExportMenu period={period} />}
     </PageToolbar>
   );
 }
