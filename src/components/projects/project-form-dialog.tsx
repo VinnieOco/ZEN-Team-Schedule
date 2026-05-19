@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useRef } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +20,11 @@ import { useScheduling } from "@/context/scheduling-context";
 import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
 import { getDepartmentOptions } from "@/lib/team-options";
 import { PROJECT_PHASES } from "@/lib/project-options";
+import {
+  getClientContactFromProjects,
+  groupProjectsByClient,
+  normalizeClientName,
+} from "@/lib/clients";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Project, ProjectFormValues } from "@/types";
 
@@ -32,6 +38,7 @@ const NO_DEPARTMENT = "__none__";
 
 export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDialogProps) {
   const { employees, settings, projects, addProject, updateProject } = useScheduling();
+  const lastPrefilledClientKey = useRef<string | null>(null);
   const departmentOptions = [
     ...new Set([
       ...getDepartmentOptions(settings, employees).filter((d) => d !== UNASSIGNED_DEPARTMENT),
@@ -71,8 +78,23 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
     },
   });
 
+  const clientName = useWatch({ control: form.control, name: "client_name" });
+
+  const clientComboboxOptions = useMemo(
+    () =>
+      groupProjectsByClient(projects, { showInactive: true }).map((client) => ({
+        value: client.displayName,
+        label: client.displayName,
+        keywords: [client.address, client.phone, client.email, client.projects.length > 1 ? `${client.projects.length} projects` : ""]
+          .filter(Boolean)
+          .join(" "),
+      })),
+    [projects],
+  );
+
   useEffect(() => {
     if (!open) return;
+    lastPrefilledClientKey.current = null;
     if (project) {
       form.reset({
         project_name: project.project_name,
@@ -104,6 +126,28 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
     }
   }, [open, project, form]);
 
+  useEffect(() => {
+    if (!open || project) return;
+
+    const key = normalizeClientName(clientName ?? "");
+    if (!key) {
+      lastPrefilledClientKey.current = null;
+      return;
+    }
+    if (key === lastPrefilledClientKey.current) return;
+
+    const contact = getClientContactFromProjects(projects, clientName ?? "");
+    if (!contact) {
+      lastPrefilledClientKey.current = null;
+      return;
+    }
+
+    lastPrefilledClientKey.current = key;
+    if (contact.address) form.setValue("address", contact.address);
+    if (contact.phone) form.setValue("phone", contact.phone);
+    if (contact.email) form.setValue("email", contact.email);
+  }, [open, project, clientName, projects, form]);
+
   const onSubmit = form.handleSubmit((values) => {
     if (project) {
       updateProject(project.id, values);
@@ -127,7 +171,28 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Client name</Label>
-              <Input {...form.register("client_name", { required: true })} />
+              <Controller
+                name="client_name"
+                control={form.control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <SearchableCombobox
+                    options={clientComboboxOptions}
+                    value={field.value ?? ""}
+                    onValueChange={field.onChange}
+                    placeholder="Search or type client name…"
+                    searchPlaceholder="Search clients…"
+                    emptyMessage="No matching clients"
+                    required
+                  />
+                )}
+              />
+              {!project && clientComboboxOptions.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Search existing clients or type a new name. Contact details fill in automatically
+                  for known clients.
+                </p>
+              )}
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Address</Label>

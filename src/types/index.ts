@@ -70,6 +70,16 @@ export interface ProjectNote {
   updated_at: string;
 }
 
+export interface ClientNote {
+  id: string;
+  /** Normalized client name (see normalizeClientName). */
+  client_key: string;
+  body: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AllocationCategory {
   id: string;
   name: string;

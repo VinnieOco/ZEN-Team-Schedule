@@ -8,7 +8,9 @@ import {
   mapCategory,
   mapEmployee,
   mapProject,
+  mapClientNote,
   mapProjectNote,
+  clientNoteToRow,
   mapSettings,
   mapTimeEntry,
   projectNoteToRow,
@@ -23,6 +25,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ClientNote,
   ProjectNote,
   TimeEntry,
 } from "@/types";
@@ -83,6 +86,15 @@ export function createSupabaseRepository(
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map(mapProjectNote);
+    },
+
+    async listClientNotes() {
+      const { data, error } = await supabase
+        .from("client_notes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapClientNote);
     },
 
     async getSettings() {
@@ -177,6 +189,35 @@ export function createSupabaseRepository(
 
     async deleteProjectNote(id: string) {
       const { error } = await supabase.from("project_notes").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async insertClientNote(note: ClientNote) {
+      const { data, error } = await supabase
+        .from("client_notes")
+        .insert(clientNoteToRow(note))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapClientNote(data);
+    },
+
+    async updateClientNote(note: ClientNote) {
+      const { data, error } = await supabase
+        .from("client_notes")
+        .update({
+          body: note.body.trim(),
+          updated_at: note.updated_at,
+        })
+        .eq("id", note.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return mapClientNote(data);
+    },
+
+    async deleteClientNote(id: string) {
+      const { error } = await supabase.from("client_notes").delete().eq("id", id);
       if (error) throw error;
     },
 

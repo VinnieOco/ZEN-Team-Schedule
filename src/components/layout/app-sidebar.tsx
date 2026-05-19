@@ -7,6 +7,7 @@ import {
   CalendarDays,
   FolderKanban,
   LayoutDashboard,
+  Users,
   LogOut,
   Settings,
   Timer,
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays },
   { href: "/time-tracking", label: "Time Tracking", icon: Timer },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/crm", label: "CRM", icon: Users },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

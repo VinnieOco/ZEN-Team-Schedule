@@ -5,6 +5,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ClientNote,
   ProjectNote,
   TimeEntry,
 } from "@/types";
@@ -48,6 +49,15 @@ type ProjectRow = {
 type ProjectNoteRow = {
   id: string;
   project_id: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ClientNoteRow = {
+  id: string;
+  client_key: string;
   body: string;
   created_by: string | null;
   created_at: string;
@@ -158,6 +168,28 @@ export function projectNoteToRow(note: ProjectNote) {
   return {
     id: note.id,
     project_id: note.project_id,
+    body: note.body.trim(),
+    created_by: note.created_by ?? null,
+    created_at: note.created_at,
+    updated_at: note.updated_at,
+  };
+}
+
+export function mapClientNote(row: ClientNoteRow): ClientNote {
+  return {
+    id: row.id,
+    client_key: row.client_key,
+    body: row.body,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function clientNoteToRow(note: ClientNote) {
+  return {
+    id: note.id,
+    client_key: note.client_key.trim().toLowerCase(),
     body: note.body.trim(),
     created_by: note.created_by ?? null,
     created_at: note.created_at,
