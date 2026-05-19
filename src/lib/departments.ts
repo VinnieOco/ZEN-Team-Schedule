@@ -1,4 +1,4 @@
-import type { Employee } from "@/types";
+import type { Employee, Project } from "@/types";
 
 /** Filter value for employees with no department set. */
 export const UNASSIGNED_DEPARTMENT = "__unassigned__";
@@ -45,4 +45,17 @@ export function filterEmployeesByDepartment(
   department: string | null,
 ): Employee[] {
   return employees.filter((e) => employeeMatchesDepartmentFilter(e, department));
+}
+
+export function getProjectDepartmentKey(project: Project): string {
+  const trimmed = project.department?.trim();
+  return trimmed ? trimmed : UNASSIGNED_DEPARTMENT;
+}
+
+export function projectMatchesDepartmentFilter(
+  project: Project,
+  department: string | null,
+): boolean {
+  if (!department) return true;
+  return getProjectDepartmentKey(project) === department;
 }

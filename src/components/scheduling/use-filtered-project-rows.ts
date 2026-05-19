@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useScheduling } from "@/context/scheduling-context";
+import { projectMatchesDepartmentFilter } from "@/lib/departments";
 import {
   filterAllocationsForMonth,
   filterAllocationsForWeek,
@@ -28,6 +29,7 @@ export function useFilteredProjectRows(period: "week" | "month" = "week") {
 
     return projects
       .filter((p) => p.active)
+      .filter((p) => projectMatchesDepartmentFilter(p, filters.department))
       .filter((p) => !filters.projectId || p.id === filters.projectId)
       .filter((p) => {
         if (!q) return true;
