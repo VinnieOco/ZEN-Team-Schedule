@@ -56,6 +56,7 @@ type PanelLayout = {
   top: number;
   left: number;
   width: number;
+  position: "fixed" | "absolute";
 };
 
 /** Search input + max-h-60 list — used to flip panel above trigger when needed */
@@ -63,13 +64,27 @@ const PANEL_ESTIMATED_MAX_HEIGHT = 280;
 const PANEL_GAP = 4;
 const PANEL_Z_INDEX = 200;
 
+function openPanelBelow(triggerRect: DOMRect, containerBottom: number, containerTop: number): boolean {
+  const spaceBelow = containerBottom - triggerRect.bottom - PANEL_GAP;
+  const spaceAbove = triggerRect.top - containerTop - PANEL_GAP;
+  return spaceBelow >= PANEL_ESTIMATED_MAX_HEIGHT || spaceBelow >= spaceAbove;
+}
+
 function fixedPanelTop(triggerRect: DOMRect): number {
-  const spaceBelow = window.innerHeight - triggerRect.bottom - PANEL_GAP;
-  const spaceAbove = triggerRect.top - PANEL_GAP;
-  if (spaceBelow >= PANEL_ESTIMATED_MAX_HEIGHT || spaceBelow >= spaceAbove) {
+  if (openPanelBelow(triggerRect, window.innerHeight, 0)) {
     return triggerRect.bottom + PANEL_GAP;
   }
   return Math.max(PANEL_GAP, triggerRect.top - PANEL_ESTIMATED_MAX_HEIGHT - PANEL_GAP);
+}
+
+function dialogPanelTop(triggerRect: DOMRect, dialogRect: DOMRect): number {
+  if (openPanelBelow(triggerRect, dialogRect.bottom, dialogRect.top)) {
+    return triggerRect.bottom - dialogRect.top + PANEL_GAP;
+  }
+  return Math.max(
+    PANEL_GAP,
+    triggerRect.top - dialogRect.top - PANEL_ESTIMATED_MAX_HEIGHT - PANEL_GAP,
+  );
 }
 
 export function SearchableSelect({
@@ -113,9 +128,25 @@ export function SearchableSelect({
     if (!trigger) return;
 
     const triggerRect = trigger.getBoundingClientRect();
-    // Always portal to body with fixed coords so dialog overflow does not clip the panel.
+    const dialog = trigger.closest('[role="dialog"]') as HTMLElement | null;
+
+    // Inside a dialog, portal into the dialog so Radix focus scope and aria-hidden
+    // do not block keyboard input on the search field (body portaling breaks typing).
+    if (dialog) {
+      const dialogRect = dialog.getBoundingClientRect();
+      setPortalTarget(dialog);
+      setPanelLayout({
+        position: "absolute",
+        top: dialogPanelTop(triggerRect, dialogRect),
+        left: triggerRect.left - dialogRect.left,
+        width: Math.max(triggerRect.width, minPanelWidth),
+      });
+      return;
+    }
+
     setPortalTarget(document.body);
     setPanelLayout({
+      position: "fixed",
       top: fixedPanelTop(triggerRect),
       left: triggerRect.left,
       width: Math.max(triggerRect.width, minPanelWidth),
@@ -154,13 +185,21 @@ export function SearchableSelect({
   }, [open, updatePanelPosition]);
 
   useEffect(() => {
-    if (open) {
-      requestAnimationFrame(() => inputRef.current?.focus());
-    } else {
+    if (!open) {
       setQuery("");
       setPanelLayout(null);
       setPortalTarget(null);
+      return;
     }
+
+    // Focus after mount; retry once so Radix dialog focus scope does not win the race.
+    const focusSearch = () => inputRef.current?.focus({ preventScroll: true });
+    const t0 = window.setTimeout(focusSearch, 0);
+    const t1 = window.setTimeout(focusSearch, 50);
+    return () => {
+      window.clearTimeout(t0);
+      window.clearTimeout(t1);
+    };
   }, [open]);
 
   const triggerSizeClass =
@@ -175,7 +214,7 @@ export function SearchableSelect({
             ref={panelRef}
             data-searchable-select-panel
             style={{
-              position: "fixed",
+              position: panelLayout.position,
               top: panelLayout.top,
               left: panelLayout.left,
               width: panelLayout.width,
@@ -183,6 +222,7 @@ export function SearchableSelect({
             }}
             className="pointer-events-auto rounded-md border bg-white shadow-lg"
             onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           >
             <div className="border-b p-2">
               <div className="relative">
@@ -194,9 +234,9 @@ export function SearchableSelect({
                   placeholder={searchPlaceholder}
                   className={cn("pl-8", size === "sm" ? "h-8 text-xs" : "h-9 text-sm")}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
                     if (e.key === "Escape") {
                       setOpen(false);
-                      e.stopPropagation();
                     }
                   }}
                 />

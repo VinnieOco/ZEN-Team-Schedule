@@ -159,11 +159,11 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-visible sm:max-w-lg">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{project ? "Edit Project" : "Add Project"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-2">
               <Label>Project name</Label>

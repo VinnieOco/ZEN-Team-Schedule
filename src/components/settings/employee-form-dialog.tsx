@@ -110,11 +110,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-visible sm:max-w-lg">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{employee ? "Edit team member" : "Add team member"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="first_name">First name</Label>

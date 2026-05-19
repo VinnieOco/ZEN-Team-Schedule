@@ -190,14 +190,14 @@ export function TimeEntryFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-visible sm:max-w-md">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{entry ? "Edit time entry" : "Log time"}</DialogTitle>
           <DialogDescription>
             Record actual hours worked for a team member on a specific day.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="min-h-0 flex-1 space-y-4 overflow-y-auto">
           <div className="space-y-2">
             <Label>Employee</Label>
             <SearchableSelect
