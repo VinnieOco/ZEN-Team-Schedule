@@ -51,7 +51,7 @@ export function UtilizationView() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         {departmentSummaries.map((summary) => (
           <DepartmentSummaryCard key={summary.departmentKey} summary={summary} />
         ))}

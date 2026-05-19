@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Filter, Plus, Printer } from "lucide-react";
 
+import { PageToolbar } from "@/components/layout/page-toolbar";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import { departmentFilterLabel } from "@/lib/departments";
@@ -78,7 +79,7 @@ export function SchedulingHeader({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
+      <div className="min-w-0">
         <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
           Team Scheduling
         </h1>
@@ -89,8 +90,8 @@ export function SchedulingHeader({
           )}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <div className="flex items-center rounded-lg border bg-white p-0.5 shadow-sm">
+      <PageToolbar className="print:hidden">
+        <div className="flex shrink-0 items-center rounded-lg border bg-white p-0.5 shadow-sm">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevious}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -101,7 +102,7 @@ export function SchedulingHeader({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex items-center gap-0.5 rounded-lg border bg-white p-0.5 shadow-sm">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border bg-white p-0.5 shadow-sm">
           <Button
             variant={calendarView === "week" ? "secondary" : "ghost"}
             size="sm"
@@ -123,24 +124,24 @@ export function SchedulingHeader({
           <Button
             variant="outline"
             size="sm"
+            className={cn("shrink-0", filtersVisible && "border-emerald-300 bg-emerald-50")}
             onClick={onToggleFilters}
-            className={cn(filtersVisible && "border-emerald-300 bg-emerald-50")}
           >
             <Filter className="mr-2 h-4 w-4" />
             Filters
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={() => window.print()}>
+        <Button variant="outline" size="sm" className="hidden shrink-0 sm:inline-flex" onClick={() => window.print()}>
           <Printer className="mr-2 h-4 w-4" />
           Print
         </Button>
         {canEditSchedule && onAddAllocation && (
-          <Button onClick={onAddAllocation} className="shadow-sm">
+          <Button onClick={onAddAllocation} className="shrink-0 shadow-sm">
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Add Allocation</span>
           </Button>
         )}
-      </div>
+      </PageToolbar>
     </div>
   );
 }

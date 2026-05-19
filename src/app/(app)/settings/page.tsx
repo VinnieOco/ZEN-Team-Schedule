@@ -1,5 +1,6 @@
 "use client";
 
+import { AppPage } from "@/components/layout/app-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,8 +26,8 @@ export default function SettingsPage() {
     isSupabaseConfigured() && !localMode && !permissions.editCompanySettings && !authLoading;
 
   return (
-    <div className="space-y-5 p-4 md:space-y-6 md:p-6">
-      <div>
+    <AppPage>
+      <div className="min-w-0">
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {permissions.manageAppAccess
@@ -91,6 +92,6 @@ export default function SettingsPage() {
       {permissions.manageTeamMembers && (
         <TeamMembersCard canEdit={permissions.manageTeamMembers} />
       )}
-    </div>
+    </AppPage>
   );
 }

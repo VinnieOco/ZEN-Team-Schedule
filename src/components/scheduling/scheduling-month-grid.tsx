@@ -139,7 +139,7 @@ export function SchedulingMonthGrid() {
         <span className="lg:hidden"> Swipe horizontally to see all days →</span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
+        <div className="schedule-scroll relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
           <table className="w-full min-w-[1100px] border-collapse text-sm print:min-w-0 print:text-xs">
             <thead>
               <tr className="border-b bg-slate-50 print:bg-white">

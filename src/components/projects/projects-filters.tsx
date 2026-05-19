@@ -73,8 +73,8 @@ export function ProjectsFilters({
   );
 
   return (
-    <div className="space-y-3 rounded-lg border bg-white p-3 shadow-sm">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="min-w-0 space-y-3 rounded-lg border bg-white p-3 shadow-sm">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         <div className="relative min-w-[min(100%,240px)] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

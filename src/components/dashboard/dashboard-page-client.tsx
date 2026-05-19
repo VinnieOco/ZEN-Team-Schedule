@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { ArrowRight } from "lucide-react";
 
 import { PersonalWeekSection } from "@/components/dashboard/personal-week-section";
+import { AppPage } from "@/components/layout/app-page";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -43,18 +43,10 @@ export function DashboardPageClient() {
     : weekLabel;
 
   return (
-    <div className="space-y-5 p-4 md:space-y-6 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{headerSubtitle}</p>
-        </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/scheduling">
-            Open Team Scheduling
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+    <AppPage>
+      <div className="min-w-0">
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{headerSubtitle}</p>
       </div>
 
       {linkProfileBanner}
@@ -69,6 +61,6 @@ export function DashboardPageClient() {
           tab in Team Scheduling.
         </p>
       )}
-    </div>
+    </AppPage>
   );
 }

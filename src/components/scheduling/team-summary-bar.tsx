@@ -80,7 +80,7 @@ export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {item.label}
             </p>
-            <p className={cn("mt-0.5 text-2xl font-bold tabular-nums", item.valueClass)}>
+            <p className={cn("mt-0.5 text-xl font-bold tabular-nums sm:text-2xl", item.valueClass)}>
               {item.value}
             </p>
           </div>

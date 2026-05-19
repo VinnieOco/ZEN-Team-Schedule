@@ -62,7 +62,7 @@ export function WorkloadView() {
         Swipe horizontally to view the full week →
       </p>
 
-      <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+      <div className="schedule-scroll relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
         <table className="w-full min-w-[880px] border-collapse text-sm">
           <thead>
             <tr className="border-b bg-slate-50">

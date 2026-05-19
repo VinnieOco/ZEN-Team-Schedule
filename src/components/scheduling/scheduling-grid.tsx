@@ -5,6 +5,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -60,7 +61,10 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
   const [activeAllocation, setActiveAllocation] = useState<Allocation | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   const openAdd = (employeeId: string, date: string) => {
@@ -146,17 +150,17 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
         <span className="lg:hidden">Swipe horizontally to view the full week →</span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
-          <table className="w-full min-w-[680px] border-collapse text-sm sm:min-w-[880px] lg:min-w-[960px] print:min-w-0 print:text-xs">
+        <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
+          <table className="w-full min-w-[600px] border-collapse text-sm sm:min-w-[880px] lg:min-w-[960px] print:min-w-0 print:text-xs">
             <thead>
               <tr className="border-b bg-slate-50 print:bg-white">
-                <th className="sticky left-0 z-20 min-w-[220px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] print:static print:shadow-none">
+                <th className="sticky left-0 z-20 min-w-[160px] max-w-[200px] border-r bg-slate-50 px-3 py-3 text-left text-xs font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] sm:min-w-[220px] sm:px-4 sm:text-sm print:static print:shadow-none">
                   Team Member
                 </th>
                 {weekDays.map((day) => (
                   <th
                     key={day.toISOString()}
-                    className="min-w-[148px] border-r px-2 py-3 text-center font-medium last:border-r-0"
+                    className="min-w-[112px] border-r px-1.5 py-3 text-center text-xs font-medium last:border-r-0 sm:min-w-[148px] sm:px-2 sm:text-sm"
                   >
                     <div>{formatDayHeader(day)}</div>
                     <div className="text-xs font-normal text-muted-foreground">
@@ -178,7 +182,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
 
                 return (
                   <tr key={employee.id} className="group border-b align-top hover:bg-slate-50/40 print:hover:bg-transparent">
-                    <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50/40 print:static print:shadow-none">
+                    <td className="sticky left-0 z-10 max-w-[200px] border-r bg-white px-3 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50/40 sm:px-4 print:static print:shadow-none">
                       <div className="flex items-start gap-3">
                         <Avatar className="h-9 w-9 shrink-0 print:hidden">
                           <AvatarFallback className="bg-emerald-100 text-xs font-medium text-emerald-800">

@@ -68,7 +68,7 @@ export function ProjectBudgetReport() {
             )}
           </div>
         )}
-        <div className="overflow-x-auto">
+        <div className="scroll-x-contained max-w-full overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

@@ -63,7 +63,7 @@ export function TimeComparisonView() {
         Swipe horizontally to view the full week →
       </p>
 
-      <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+      <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
         <table className="w-full min-w-[960px] border-collapse text-sm">
           <thead>
             <tr className="border-b bg-slate-50">

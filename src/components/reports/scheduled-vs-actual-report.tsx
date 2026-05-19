@@ -68,7 +68,7 @@ export function ScheduledVsActualReport({ period }: ScheduledVsActualReportProps
           </Link>
         </CardDescription>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent className="scroll-x-contained max-w-full overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

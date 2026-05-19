@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { AppPage } from "@/components/layout/app-page";
 import { ProjectBudgetReport } from "@/components/reports/project-budget-report";
 import { ReportsExportMenu } from "@/components/reports/reports-export-menu";
 import { ReportsPeriodNavigator } from "@/components/reports/reports-period-navigator";
@@ -16,9 +17,9 @@ export default function ReportsPage() {
   const { permissions } = usePermissions();
 
   return (
-    <div className="space-y-5 p-4 md:space-y-6 md:p-6">
+    <AppPage>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Team utilization, scheduled vs actual, and project budgets.
@@ -28,9 +29,13 @@ export default function ReportsPage() {
             Uses the same period as Team Scheduling.
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <ReportsPeriodNavigator period={period} onPeriodChange={setPeriod} />
-          {permissions.exportReports && <ReportsExportMenu period={period} />}
+          {permissions.exportReports && (
+            <div className="shrink-0">
+              <ReportsExportMenu period={period} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -38,6 +43,6 @@ export default function ReportsPage() {
       <ScheduledVsActualReport period={period} />
       <TeamUtilizationReport period={period} />
       <ProjectBudgetReport />
-    </div>
+    </AppPage>
   );
 }

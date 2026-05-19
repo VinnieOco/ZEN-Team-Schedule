@@ -2,11 +2,13 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+import { PageToolbar } from "@/components/layout/page-toolbar";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import type { ReportsPeriod } from "@/lib/reports-export";
 import { periodLabel } from "@/lib/reports-export";
 import { useReportsExportContext } from "@/components/reports/use-reports-export-context";
+
 interface ReportsPeriodNavigatorProps {
   period: ReportsPeriod;
   onPeriodChange: (period: ReportsPeriod) => void;
@@ -50,8 +52,8 @@ export function ReportsPeriodNavigator({ period, onPeriodChange }: ReportsPeriod
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center rounded-lg border bg-white p-0.5 shadow-sm">
+    <PageToolbar>
+      <div className="flex shrink-0 items-center rounded-lg border bg-white p-0.5 shadow-sm">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevious}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -62,7 +64,7 @@ export function ReportsPeriodNavigator({ period, onPeriodChange }: ReportsPeriod
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      <div className="flex items-center gap-0.5 rounded-lg border bg-white p-0.5 shadow-sm">
+      <div className="flex shrink-0 items-center gap-0.5 rounded-lg border bg-white p-0.5 shadow-sm">
         <Button
           variant={period === "week" ? "secondary" : "ghost"}
           size="sm"
@@ -80,7 +82,7 @@ export function ReportsPeriodNavigator({ period, onPeriodChange }: ReportsPeriod
           Month
         </Button>
       </div>
-      <p className="text-sm font-medium text-slate-700">{label}</p>
-    </div>
+      <p className="shrink-0 text-sm font-medium whitespace-nowrap text-slate-700">{label}</p>
+    </PageToolbar>
   );
 }

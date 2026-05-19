@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
+import { AppPage } from "@/components/layout/app-page";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
@@ -37,12 +38,12 @@ export default function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="p-6">
+      <AppPage>
         <p className="text-muted-foreground">Project not found.</p>
         <Button variant="ghost" asChild className="mt-2 px-0">
           <Link href="/projects">Back to projects</Link>
         </Button>
-      </div>
+    </AppPage>
     );
   }
 
@@ -59,7 +60,7 @@ export default function ProjectDetailPage() {
     .sort((a, b) => b.allocation_date.localeCompare(a.allocation_date));
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <AppPage className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" asChild>
           <Link href="/projects">
@@ -74,7 +75,7 @@ export default function ProjectDetailPage() {
         <p className="mt-1 text-muted-foreground">{project.client_name}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Department</CardTitle>
@@ -167,6 +168,6 @@ export default function ProjectDetailPage() {
           project={project}
         />
       )}
-    </div>
+    </AppPage>
   );
 }

@@ -89,7 +89,7 @@ export function ProjectsTable() {
           onAction={() => setFilters(defaultProjectFilters())}
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+        <div className="scroll-x-contained rounded-lg border bg-white shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>

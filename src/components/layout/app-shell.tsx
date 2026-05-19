@@ -72,7 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-sm font-semibold text-slate-900">ZEN Team Scheduling</span>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto overscroll-y-contain">{children}</main>
       </div>
     </div>
   );

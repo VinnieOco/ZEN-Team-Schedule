@@ -62,17 +62,55 @@ body {
   );
 }
 
-/* Smooth horizontal scroll on scheduling grid */
-.schedule-scroll {
+/* Page shell: contain layout on small screens (prevents horizontal bounce) */
+.app-page,
+.schedule-page {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Smooth horizontal scroll for wide tables and grids */
+.schedule-scroll,
+.scroll-x-contained {
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  max-width: 100%;
   scrollbar-width: thin;
 }
 
-.schedule-scroll::-webkit-scrollbar {
+.schedule-tabs-scroll,
+.scroll-tabs {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.schedule-tabs-scroll::-webkit-scrollbar,
+.scroll-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.schedule-toolbar-scroll,
+.page-toolbar-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.schedule-toolbar-scroll::-webkit-scrollbar,
+.page-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.schedule-scroll::-webkit-scrollbar,
+.scroll-x-contained::-webkit-scrollbar {
   height: 6px;
 }
 
-.schedule-scroll::-webkit-scrollbar-thumb {
+.schedule-scroll::-webkit-scrollbar-thumb,
+.scroll-x-contained::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }

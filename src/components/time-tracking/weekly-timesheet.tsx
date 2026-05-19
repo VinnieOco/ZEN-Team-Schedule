@@ -372,7 +372,7 @@ export function WeeklyTimesheet({
         </p>
       )}
 
-      <div className="schedule-scroll overflow-x-auto rounded-lg border bg-white shadow-sm">
+      <div className="schedule-scroll relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
         <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
             <tr className="border-b bg-slate-50">

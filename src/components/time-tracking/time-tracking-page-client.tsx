@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { AppPage } from "@/components/layout/app-page";
+import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { SchedulingGridSkeleton } from "@/components/scheduling/scheduling-grid-skeleton";
 import { TimeComparisonView } from "@/components/time-tracking/time-comparison-view";
 import { WeeklyTimesheet } from "@/components/time-tracking/weekly-timesheet";
@@ -11,7 +13,7 @@ import { TimeTrackingHeader } from "@/components/time-tracking/time-tracking-hea
 import { TimeTrackingSummary } from "@/components/time-tracking/time-tracking-summary";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 
 export function TimeTrackingPageClient() {
   const { isLoading } = useScheduling();
@@ -19,21 +21,27 @@ export function TimeTrackingPageClient() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
-    <div className="space-y-5 p-4 md:space-y-6 md:p-6">
+    <AppPage>
       <TimeTrackingHeader canLogTime={canLogTime} onLogTime={() => setDialogOpen(true)} />
-      <Tabs defaultValue="timesheet">
-        <TabsList className="w-full justify-start sm:w-auto">
-          <TabsTrigger value="timesheet">Timesheets</TabsTrigger>
-          <TabsTrigger value="entries">Entries</TabsTrigger>
-          <TabsTrigger value="comparison">Comparison</TabsTrigger>
-        </TabsList>
-        <TabsContent value="timesheet" className="mt-4">
+      <Tabs defaultValue="timesheet" className="min-w-0">
+        <ScrollableTabsList>
+          <TabsTrigger value="timesheet" className="shrink-0 px-3">
+            Timesheets
+          </TabsTrigger>
+          <TabsTrigger value="entries" className="shrink-0 px-3">
+            Entries
+          </TabsTrigger>
+          <TabsTrigger value="comparison" className="shrink-0 px-3">
+            Comparison
+          </TabsTrigger>
+        </ScrollableTabsList>
+        <TabsContent value="timesheet" className="mt-4 min-w-0">
           {isLoading ? <SchedulingGridSkeleton /> : <WeeklyTimesheet />}
         </TabsContent>
-        <TabsContent value="entries" className="mt-4">
+        <TabsContent value="entries" className="mt-4 min-w-0">
           {isLoading ? <SchedulingGridSkeleton /> : <TimeEntriesList />}
         </TabsContent>
-        <TabsContent value="comparison" className="mt-4">
+        <TabsContent value="comparison" className="mt-4 min-w-0">
           {isLoading ? <SchedulingGridSkeleton /> : <TimeComparisonView />}
         </TabsContent>
       </Tabs>
@@ -44,6 +52,6 @@ export function TimeTrackingPageClient() {
         onOpenChange={setDialogOpen}
         employeeId={permissions.logTimeForAnyone ? null : linkedEmployeeId}
       />
-    </div>
+    </AppPage>
   );
 }

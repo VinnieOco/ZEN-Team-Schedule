@@ -20,7 +20,8 @@ import {
 } from "@/components/scheduling/scheduling-header";
 import { SchedulingMonthGrid } from "@/components/scheduling/scheduling-month-grid";
 import { TeamSummaryBar } from "@/components/scheduling/team-summary-bar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 
 export function SchedulingPageClient() {
   const { isLoading } = useScheduling();
@@ -31,8 +32,8 @@ export function SchedulingPageClient() {
   const [calendarView, setCalendarView] = useState<ScheduleCalendarView>("week");
 
   return (
-    <div className="schedule-print-root space-y-5 p-4 md:space-y-6 md:p-6 print:space-y-3 print:p-0">
-      <div className="sticky top-0 z-20 -mx-4 space-y-4 border-b border-slate-200/80 bg-white/95 px-4 pb-4 backdrop-blur-md md:-mx-6 md:space-y-5 md:px-6 md:pb-5 print:static print:border-0 print:bg-white print:backdrop-blur-none">
+    <div className="app-page schedule-print-root min-w-0 max-w-full space-y-4 overflow-x-hidden p-4 md:space-y-6 md:p-6 print:space-y-3 print:p-0">
+      <div className="space-y-4 border-b border-slate-200/80 pb-4 lg:sticky lg:top-0 lg:z-20 lg:-mx-6 lg:bg-white/95 lg:px-6 lg:pb-5 lg:backdrop-blur-md print:static print:border-0 print:bg-white print:backdrop-blur-none">
         <SchedulingHeader
           calendarView={calendarView}
           onCalendarViewChange={setCalendarView}
@@ -53,15 +54,25 @@ export function SchedulingPageClient() {
           <TeamSummaryBar calendarView={calendarView} />
         </div>
       </div>
-      <Tabs defaultValue="schedule" className="print:block">
-        <TabsList className="w-full justify-start sm:w-auto print:hidden">
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="workload">Workload</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="by-project">By Project</TabsTrigger>
-          <TabsTrigger value="utilization">Utilization</TabsTrigger>
-        </TabsList>
-        <TabsContent value="schedule" className="mt-4 space-y-4 print:mt-0 print:block">
+      <Tabs defaultValue="schedule" className="min-w-0 print:block">
+        <ScrollableTabsList className="print:hidden">
+          <TabsTrigger value="schedule" className="shrink-0 px-3">
+            Schedule
+          </TabsTrigger>
+          <TabsTrigger value="workload" className="shrink-0 px-3">
+            Workload
+          </TabsTrigger>
+          <TabsTrigger value="availability" className="shrink-0 px-3">
+            Availability
+          </TabsTrigger>
+          <TabsTrigger value="by-project" className="shrink-0 px-3">
+            By Project
+          </TabsTrigger>
+          <TabsTrigger value="utilization" className="shrink-0 px-3">
+            Utilization
+          </TabsTrigger>
+        </ScrollableTabsList>
+        <TabsContent value="schedule" className="mt-4 min-w-0 space-y-4 print:mt-0 print:block">
           {showFilters && (
             <div className="print:hidden">
               <SchedulingFilters />
@@ -75,7 +86,7 @@ export function SchedulingPageClient() {
             <SchedulingGrid onAddAllocation={() => setAddDialogOpen(true)} />
           )}
         </TabsContent>
-        <TabsContent value="workload" className="mt-4 space-y-4 print:hidden">
+        <TabsContent value="workload" className="mt-4 min-w-0 space-y-4 print:hidden">
           {showFilters && (
             <div className="print:hidden">
               <SchedulingFilters />
@@ -83,7 +94,7 @@ export function SchedulingPageClient() {
           )}
           {isLoading ? <SchedulingGridSkeleton /> : <WorkloadView />}
         </TabsContent>
-        <TabsContent value="availability" className="mt-4 space-y-4 print:hidden">
+        <TabsContent value="availability" className="mt-4 min-w-0 space-y-4 print:hidden">
           {showFilters && (
             <div className="print:hidden">
               <SchedulingFilters />
@@ -91,7 +102,7 @@ export function SchedulingPageClient() {
           )}
           {isLoading ? <SchedulingGridSkeleton /> : <AvailabilityView />}
         </TabsContent>
-        <TabsContent value="by-project" className="mt-4 space-y-4 print:hidden">
+        <TabsContent value="by-project" className="mt-4 min-w-0 space-y-4 print:hidden">
           {showFilters && (
             <div className="print:hidden">
               <SchedulingFilters />
@@ -103,7 +114,7 @@ export function SchedulingPageClient() {
             <ByProjectView calendarView={calendarView} />
           )}
         </TabsContent>
-        <TabsContent value="utilization" className="mt-4 space-y-4 print:hidden">
+        <TabsContent value="utilization" className="mt-4 min-w-0 space-y-4 print:hidden">
           {isLoading ? <SchedulingGridSkeleton /> : <UtilizationView />}
         </TabsContent>
       </Tabs>

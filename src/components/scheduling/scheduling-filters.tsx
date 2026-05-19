@@ -60,8 +60,8 @@ export function SchedulingFilters() {
     Boolean(filters.categoryId);
 
   return (
-    <div className="space-y-3 rounded-lg border bg-white p-3">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="min-w-0 space-y-3 rounded-lg border bg-white p-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         <SearchableSelect
           options={departmentOptions}
           value={filters.department ?? "all"}

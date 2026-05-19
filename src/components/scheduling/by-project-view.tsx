@@ -75,8 +75,8 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
         )}
       </p>
 
-      <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="w-full min-w-[720px] border-collapse text-sm sm:min-w-[960px]">
+      <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
+        <table className="w-full min-w-[560px] border-collapse text-sm sm:min-w-[960px]">
           <thead>
             <tr className="border-b bg-slate-50">
               <th className="sticky left-0 z-20 min-w-[220px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">

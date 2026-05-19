@@ -132,7 +132,7 @@ export function TimeEntriesList() {
                 )}
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="overflow-x-auto rounded-md border">
+                <div className="scroll-x-contained max-w-full overflow-x-auto rounded-md border">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-slate-50 text-left text-xs text-muted-foreground">
