@@ -84,6 +84,11 @@ export function formatDayHeader(date: Date): string {
   return format(date, "EEE M/d");
 }
 
+/** Compact day label for timesheet columns, e.g. "5/18". */
+export function formatTimesheetDayHeader(date: Date): string {
+  return format(date, "M/d");
+}
+
 export function isDateInWeek(dateStr: string, weekStart: Date, settings: CompanySettings): boolean {
   const date = parseISO(dateStr);
   const days = getWeekDays(weekStart, settings);

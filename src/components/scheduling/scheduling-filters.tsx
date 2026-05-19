@@ -1,19 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Search, Settings, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
 import { departmentFilterLabel } from "@/lib/departments";
@@ -25,6 +20,39 @@ export function SchedulingFilters() {
 
   const departments = getDepartmentOptions(settings, employees);
 
+  const departmentOptions = useMemo(
+    () => [
+      { value: "all", label: "All departments" },
+      ...departments.map((dept) => ({
+        value: dept,
+        label: departmentFilterLabel(dept),
+      })),
+    ],
+    [departments],
+  );
+
+  const projectOptions = useMemo(
+    () => [
+      { value: "all", label: "All projects" },
+      ...projects
+        .filter((p) => p.active)
+        .map((p) => ({
+          value: p.id,
+          label: p.project_name,
+          keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
+        })),
+    ],
+    [projects],
+  );
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: "all", label: "All categories" },
+      ...categories.map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [categories],
+  );
+
   const hasActiveFilters =
     Boolean(filters.search) ||
     Boolean(filters.department) ||
@@ -34,22 +62,14 @@ export function SchedulingFilters() {
   return (
     <div className="space-y-3 rounded-lg border bg-white p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Select
+        <SearchableSelect
+          options={departmentOptions}
           value={filters.department ?? "all"}
           onValueChange={(v) => setFilters({ department: v === "all" ? null : v })}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All departments</SelectItem>
-            {departments.map((dept) => (
-              <SelectItem key={dept} value={dept}>
-                {departmentFilterLabel(dept)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Department"
+          searchPlaceholder="Search departments…"
+          className="w-full sm:w-[180px]"
+        />
         <div className="relative min-w-[min(100%,240px)] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -59,40 +79,22 @@ export function SchedulingFilters() {
             onChange={(e) => setFilters({ search: e.target.value })}
           />
         </div>
-        <Select
+        <SearchableSelect
+          options={projectOptions}
           value={filters.projectId ?? "all"}
           onValueChange={(v) => setFilters({ projectId: v === "all" ? null : v })}
-        >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Filter by project" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
-            {projects
-              .filter((p) => p.active)
-              .map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.project_name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-        <Select
+          placeholder="Filter by project"
+          searchPlaceholder="Search projects…"
+          className="w-full sm:w-[200px]"
+        />
+        <SearchableSelect
+          options={categoryOptions}
           value={filters.categoryId ?? "all"}
           onValueChange={(v) => setFilters({ categoryId: v === "all" ? null : v })}
-        >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Filter by category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Filter by category"
+          searchPlaceholder="Search categories…"
+          className="w-full sm:w-[200px]"
+        />
         <div className="flex items-center gap-2">
           <Switch
             id="show-hours"

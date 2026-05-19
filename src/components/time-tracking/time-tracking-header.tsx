@@ -1,24 +1,19 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import { formatWeekRange } from "@/lib/week";
-import { cn } from "@/lib/utils";
 
 interface TimeTrackingHeaderProps {
   canLogTime?: boolean;
   onLogTime: () => void;
-  onToggleFilters?: () => void;
-  filtersVisible?: boolean;
 }
 
 export function TimeTrackingHeader({
   canLogTime = true,
   onLogTime,
-  onToggleFilters,
-  filtersVisible,
 }: TimeTrackingHeaderProps) {
   const { selectedWeekStart, settings, goToPreviousWeek, goToNextWeek, goToToday } = useScheduling();
 
@@ -42,17 +37,6 @@ export function TimeTrackingHeader({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        {onToggleFilters && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleFilters}
-            className={cn(filtersVisible && "border-emerald-300 bg-emerald-50")}
-          >
-            <Filter className="mr-2 h-4 w-4" />
-            Filters
-          </Button>
-        )}
         {canLogTime && (
           <Button onClick={onLogTime} className="shadow-sm">
             <Plus className="h-4 w-4 sm:mr-2" />

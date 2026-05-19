@@ -1,14 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Employee } from "@/types";
 
@@ -39,6 +33,18 @@ export function EmployeeLinkSelect({
 
   const value = linkedEmployeeId ?? UNLINK_VALUE;
 
+  const options = useMemo(
+    () => [
+      { value: UNLINK_VALUE, label: "Not linked" },
+      ...linkable.map((e) => ({
+        value: e.id,
+        label: getEmployeeFullName(e),
+        keywords: [e.email, e.department].filter(Boolean).join(" "),
+      })),
+    ],
+    [linkable],
+  );
+
   const handleChange = async (next: string) => {
     setSaving(true);
     onError?.("");
@@ -67,19 +73,15 @@ export function EmployeeLinkSelect({
   };
 
   return (
-    <Select value={value} disabled={disabled || saving} onValueChange={(v) => void handleChange(v)}>
-      <SelectTrigger className="h-8 max-w-[220px] text-xs">
-        <SelectValue placeholder="Link to schedule…" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={UNLINK_VALUE}>Not linked</SelectItem>
-        {linkable.map((e) => (
-          <SelectItem key={e.id} value={e.id}>
-            {getEmployeeFullName(e)}
-            {e.email ? ` · ${e.email}` : ""}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <SearchableSelect
+      options={options}
+      value={value}
+      onValueChange={(v) => void handleChange(v)}
+      disabled={disabled || saving}
+      placeholder="Link to schedule…"
+      searchPlaceholder="Search team members…"
+      size="sm"
+      className="max-w-[220px]"
+    />
   );
 }

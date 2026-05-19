@@ -1,17 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import { Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
 import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
@@ -49,6 +44,34 @@ export function ProjectsFilters({
 
   const hasActiveFilters = projectFiltersActive(filters);
 
+  const departmentFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All departments" },
+      ...departmentOptions.map((dept) => ({ value: dept, label: dept })),
+    ],
+    [departmentOptions],
+  );
+
+  const phaseFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All phases" },
+      ...PROJECT_PHASES.map((phase) => ({ value: phase, label: phase })),
+    ],
+    [],
+  );
+
+  const leadFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "All leads" },
+      ...leadOptions.map((employee) => ({
+        value: employee.id,
+        label: getEmployeeFullName(employee),
+        keywords: [employee.email, employee.department].filter(Boolean).join(" "),
+      })),
+    ],
+    [leadOptions],
+  );
+
   return (
     <div className="space-y-3 rounded-lg border bg-white p-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
@@ -61,54 +84,30 @@ export function ProjectsFilters({
             onChange={(e) => onChange({ search: e.target.value })}
           />
         </div>
-        <Select
+        <SearchableSelect
+          options={departmentFilterOptions}
           value={filters.department ?? "all"}
           onValueChange={(v) => onChange({ department: v === "all" ? null : v })}
-        >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All departments</SelectItem>
-            {departmentOptions.map((dept) => (
-              <SelectItem key={dept} value={dept}>
-                {dept}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
+          placeholder="Department"
+          searchPlaceholder="Search departments…"
+          className="w-full sm:w-[200px]"
+        />
+        <SearchableSelect
+          options={phaseFilterOptions}
           value={filters.phase ?? "all"}
           onValueChange={(v) => onChange({ phase: v === "all" ? null : v })}
-        >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Phase" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All phases</SelectItem>
-            {PROJECT_PHASES.map((phase) => (
-              <SelectItem key={phase} value={phase}>
-                {phase}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
+          placeholder="Phase"
+          searchPlaceholder="Search phases…"
+          className="w-full sm:w-[200px]"
+        />
+        <SearchableSelect
+          options={leadFilterOptions}
           value={filters.leadEmployeeId ?? "all"}
           onValueChange={(v) => onChange({ leadEmployeeId: v === "all" ? null : v })}
-        >
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Lead designer" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All leads</SelectItem>
-            {leadOptions.map((employee) => (
-              <SelectItem key={employee.id} value={employee.id}>
-                {getEmployeeFullName(employee)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Lead designer"
+          searchPlaceholder="Search leads…"
+          className="w-full sm:w-[200px]"
+        />
         {hasActiveFilters && (
           <Button type="button" variant="outline" size="sm" onClick={onClear}>
             <X className="mr-1.5 h-3.5 w-3.5" />

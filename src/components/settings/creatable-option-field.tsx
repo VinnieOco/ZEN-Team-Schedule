@@ -1,18 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface CreatableOptionFieldProps {
   label: string;
@@ -38,14 +32,14 @@ export function CreatableOptionField({
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
 
-  const selectOptions = (() => {
+  const selectOptions = useMemo(() => {
     const merged = [...options];
     const trimmed = value.trim();
     if (trimmed && !merged.some((o) => o.toLowerCase() === trimmed.toLowerCase())) {
       merged.unshift(trimmed);
     }
-    return merged;
-  })();
+    return merged.map((option) => ({ value: option, label: option }));
+  }, [options, value]);
 
   useEffect(() => {
     if (!adding) setDraft("");
@@ -65,23 +59,15 @@ export function CreatableOptionField({
       <Label>{label}</Label>
       {!adding ? (
         <>
-          <Select
+          <SearchableSelect
             key={`${label}-${value || "empty"}`}
-            value={value || undefined}
+            options={selectOptions}
+            value={value}
             onValueChange={onChange}
             disabled={disabled}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {selectOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={placeholder}
+            searchPlaceholder={`Search ${label.toLowerCase()}…`}
+          />
           {!disabled && (
             <Button
               type="button"

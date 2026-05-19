@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,13 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
@@ -67,6 +61,45 @@ export function TimeEntryFormDialog({
   } = useScheduling();
   const { permissions, linkedEmployeeId } = usePermissions();
   const lockEmployee = !permissions.logTimeForAnyone && linkedEmployeeId != null;
+
+  const employeeOptions = useMemo(
+    () =>
+      employees
+        .filter((e) => e.active)
+        .map((e) => ({
+          value: e.id,
+          label: getEmployeeFullName(e),
+          keywords: [e.department, e.email].filter(Boolean).join(" "),
+        })),
+    [employees],
+  );
+
+  const projectOptions = useMemo(
+    () =>
+      projects
+        .filter((p) => p.active)
+        .map((p) => ({
+          value: p.id,
+          label: p.project_name,
+          keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
+        })),
+    [projects],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      categories.map((c) => ({
+        value: c.id,
+        label: c.name,
+        leading: (
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: c.color }}
+          />
+        ),
+      })),
+    [categories],
+  );
 
   const [useTaskName, setUseTaskName] = useState(false);
 
@@ -167,24 +200,14 @@ export function TimeEntryFormDialog({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Employee</Label>
-            <Select
+            <SearchableSelect
+              options={employeeOptions}
               value={form.watch("employee_id")}
               onValueChange={(v) => form.setValue("employee_id", v)}
               disabled={lockEmployee}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select employee" />
-              </SelectTrigger>
-              <SelectContent>
-                {employees
-                  .filter((e) => e.active)
-                  .map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {getEmployeeFullName(e)}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select employee"
+              searchPlaceholder="Search employees…"
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -203,23 +226,13 @@ export function TimeEntryFormDialog({
           ) : (
             <div className="space-y-2">
               <Label>Project</Label>
-              <Select
+              <SearchableSelect
+                options={projectOptions}
                 value={form.watch("project_id") ?? ""}
                 onValueChange={(v) => form.setValue("project_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects
-                    .filter((p) => p.active)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.project_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select project"
+                searchPlaceholder="Search projects…"
+              />
             </div>
           )}
 
@@ -242,21 +255,13 @@ export function TimeEntryFormDialog({
 
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select
+            <SearchableSelect
+              options={categoryOptions}
               value={form.watch("allocation_category_id")}
               onValueChange={(v) => form.setValue("allocation_category_id", v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select category"
+              searchPlaceholder="Search categories…"
+            />
           </div>
 
           <div className="flex items-center justify-between rounded-md border p-3">

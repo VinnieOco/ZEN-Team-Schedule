@@ -8,13 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Table,
   TableBody,
@@ -30,6 +24,12 @@ import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
 import { inviteSuccessMessage, sendTeamInvite } from "@/lib/auth/invite";
 import type { AppRole } from "@/lib/auth/roles";
+
+const APP_ROLE_OPTIONS = [
+  { value: "member", label: "Member" },
+  { value: "manager", label: "Manager" },
+  { value: "admin", label: "Admin" },
+] as const;
 import { emailsMatch } from "@/lib/auth/email-link";
 import { getEmployeeFullName } from "@/lib/week";
 import { createClient } from "@/lib/supabase/client";
@@ -149,16 +149,12 @@ export function TeamAccessCard() {
           </div>
           <div className="space-y-2 sm:w-40">
             <Label>App role</Label>
-            <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as AppRole)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[...APP_ROLE_OPTIONS]}
+              value={inviteRole}
+              onValueChange={(v) => setInviteRole(v as AppRole)}
+              searchPlaceholder="Search roles…"
+            />
           </div>
           <Button type="submit" disabled={loading} className="sm:mb-0.5">
             <Mail className="mr-2 h-4 w-4" />
@@ -244,20 +240,15 @@ export function TeamAccessCard() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Select
+                    <SearchableSelect
+                      options={[...APP_ROLE_OPTIONS]}
                       value={p.app_role}
                       disabled={roleSavingId === p.id}
                       onValueChange={(v) => void handleRoleChange(p.id, v as AppRole)}
-                    >
-                      <SelectTrigger className="h-8 w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="member">Member</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      searchPlaceholder="Search roles…"
+                      size="sm"
+                      className="w-[120px]"
+                    />
                   </TableCell>
                   <TableCell>
                     <EmployeeLinkSelect

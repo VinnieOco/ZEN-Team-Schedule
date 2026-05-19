@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
@@ -44,6 +38,30 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
       ...projects.map((p) => p.department?.trim()).filter(Boolean) as string[],
     ]),
   ].sort((a, b) => a.localeCompare(b));
+
+  const departmentSelectOptions = useMemo(
+    () => [
+      { value: NO_DEPARTMENT, label: "None" },
+      ...departmentOptions.map((dept) => ({ value: dept, label: dept })),
+    ],
+    [departmentOptions],
+  );
+
+  const phaseSelectOptions = useMemo(
+    () => PROJECT_PHASES.map((phase) => ({ value: phase, label: phase })),
+    [],
+  );
+
+  const leadSelectOptions = useMemo(
+    () =>
+      employees.map((e) => ({
+        value: e.id,
+        label: getEmployeeFullName(e),
+        keywords: [e.email, e.department].filter(Boolean).join(" "),
+      })),
+    [employees],
+  );
+
   const form = useForm<ProjectFormValues>({
     defaultValues: {
       project_name: "",
@@ -129,49 +147,35 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
             </div>
             <div className="space-y-2">
               <Label>Department</Label>
-              <Select
+              <SearchableSelect
+                options={departmentSelectOptions}
                 value={form.watch("department")?.trim() || NO_DEPARTMENT}
                 onValueChange={(v) =>
                   form.setValue("department", v === NO_DEPARTMENT ? undefined : v)
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_DEPARTMENT}>None</SelectItem>
-                  {departmentOptions.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select department"
+                searchPlaceholder="Search departments…"
+              />
             </div>
             <div className="space-y-2">
               <Label>Phase</Label>
-              <Select value={form.watch("phase")} onValueChange={(v) => form.setValue("phase", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PROJECT_PHASES.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={phaseSelectOptions}
+                value={form.watch("phase")}
+                onValueChange={(v) => form.setValue("phase", v)}
+                placeholder="Select phase"
+                searchPlaceholder="Search phases…"
+              />
             </div>
             <div className="space-y-2">
               <Label>Lead designer</Label>
-              <Select
+              <SearchableSelect
+                options={leadSelectOptions}
                 value={form.watch("lead_employee_id") ?? ""}
                 onValueChange={(v) => form.setValue("lead_employee_id", v)}
-              >
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {employees.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>{getEmployeeFullName(e)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select"
+                searchPlaceholder="Search team members…"
+              />
             </div>
             <div className="space-y-2">
               <Label>Project amount</Label>

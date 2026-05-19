@@ -5,7 +5,7 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Calendar, Clock } from "lucide-react";
 
-import { TimeEntryFormDialog } from "@/components/time-tracking/time-entry-form-dialog";
+import { TimesheetDialog } from "@/components/time-tracking/weekly-timesheet-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScheduling } from "@/context/scheduling-context";
@@ -64,10 +64,11 @@ export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWe
         </div>
       </div>
 
-      <TimeEntryFormDialog
+      <TimesheetDialog
+        mode="log"
         open={logTimeOpen}
         onOpenChange={setLogTimeOpen}
-        defaultEmployeeId={employee.id}
+        employeeId={employee.id}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

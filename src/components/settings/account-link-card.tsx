@@ -1,18 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link2, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { emailsMatch } from "@/lib/auth/email-link";
@@ -33,6 +27,16 @@ export function AccountLinkCard() {
   const linkedEmployee = linkedEmployeeId
     ? employees.find((e) => e.id === linkedEmployeeId)
     : null;
+
+  const candidateOptions = useMemo(
+    () =>
+      candidates.map((c) => ({
+        value: c.id,
+        label: `${c.first_name} ${c.last_name}`,
+        keywords: [c.email].filter(Boolean).join(" "),
+      })),
+    [candidates],
+  );
 
   const loadStatus = useCallback(async () => {
     if (!isSupabaseConfigured()) {
@@ -163,18 +167,13 @@ export function AccountLinkCard() {
             {candidates.length > 1 && (
               <div className="space-y-2">
                 <p className="text-sm text-slate-700">Select your schedule team profile:</p>
-                <Select value={selectedId} onValueChange={setSelectedId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose your name" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {candidates.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.first_name} {c.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={candidateOptions}
+                  value={selectedId}
+                  onValueChange={setSelectedId}
+                  placeholder="Choose your name"
+                  searchPlaceholder="Search names…"
+                />
               </div>
             )}
 

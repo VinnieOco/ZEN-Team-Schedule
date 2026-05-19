@@ -148,8 +148,8 @@ export function TimeComparisonView() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Sorted by largest week variance. Log time on the <strong>Entries</strong> tab or use{" "}
-        <strong>Log time</strong> above.
+        Sorted by largest week variance. Log time on the <strong>Timesheet</strong> tab or use{" "}
+        <strong>Log time</strong> above to open the weekly timesheet.
       </p>
     </div>
   );

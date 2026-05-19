@@ -16,13 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
@@ -87,6 +81,45 @@ export function AllocationFormDialog({
   );
 
   const defaultSelectableEmployeeId = selectableEmployees[0]?.id ?? "";
+
+  const employeeOptions = useMemo(
+    () =>
+      selectableEmployees.map((e) => ({
+        value: e.id,
+        label: `${getEmployeeFullName(e)}${
+          !filters.department && e.department ? ` · ${e.department}` : ""
+        }`,
+        keywords: [e.department, e.email].filter(Boolean).join(" "),
+      })),
+    [selectableEmployees, filters.department],
+  );
+
+  const projectOptions = useMemo(
+    () =>
+      projects
+        .filter((p) => p.active)
+        .map((p) => ({
+          value: p.id,
+          label: p.project_name,
+          keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
+        })),
+    [projects],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      categories.map((c) => ({
+        value: c.id,
+        label: c.name,
+        leading: (
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: c.color }}
+          />
+        ),
+      })),
+    [categories],
+  );
 
   const lockEmployee =
     !permissions.editSchedulingForAnyone && selectableEmployees.length === 1;
@@ -218,21 +251,14 @@ export function AllocationFormDialog({
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Employee</Label>
-            <Select
-              value={form.watch("employee_id") || undefined}
+            <SearchableSelect
+              options={employeeOptions}
+              value={form.watch("employee_id") ?? ""}
               onValueChange={(v) => form.setValue("employee_id", v)}
               disabled={lockEmployee}
-            >
-              <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-              <SelectContent>
-                {selectableEmployees.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {getEmployeeFullName(e)}
-                    {!filters.department && e.department ? ` · ${e.department}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select employee"
+              searchPlaceholder="Search employees…"
+            />
           </div>
 
           {!lockProject && (
@@ -253,18 +279,14 @@ export function AllocationFormDialog({
           ) : (
             <div className="space-y-2">
               <Label>Project</Label>
-              <Select
-                value={form.watch("project_id") ?? undefined}
+              <SearchableSelect
+                options={projectOptions}
+                value={form.watch("project_id") ?? ""}
                 onValueChange={(v) => form.setValue("project_id", v)}
                 disabled={lockProject}
-              >
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>
-                  {projects.filter((p) => p.active).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.project_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select project"
+                searchPlaceholder="Search projects…"
+              />
             </div>
           )}
 
@@ -287,17 +309,13 @@ export function AllocationFormDialog({
 
           <div className="space-y-2">
             <Label>Category</Label>
-            <Select
-              value={form.watch("allocation_category_id") || undefined}
+            <SearchableSelect
+              options={categoryOptions}
+              value={form.watch("allocation_category_id") ?? ""}
               onValueChange={(v) => form.setValue("allocation_category_id", v)}
-            >
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select category"
+              searchPlaceholder="Search categories…"
+            />
           </div>
 
           <div className="flex items-center justify-between rounded-md border p-3">
