@@ -97,7 +97,7 @@ export function PersonalWeekSection({ employee, weekStart }: PersonalWeekSection
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-base">Your allocations</CardTitle>
+            <CardTitle className="text-base">Your schedule</CardTitle>
             {weekAllocations.length > 0 && (
               <span className="text-sm font-semibold tabular-nums text-slate-700">
                 {formatProjectHours(allocationsTotal)}h total

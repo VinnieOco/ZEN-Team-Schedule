@@ -138,7 +138,7 @@ export function SchedulingHeader({
         {canEditSchedule && onAddAllocation && (
           <Button onClick={onAddAllocation} className="shrink-0 shadow-sm">
             <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Add Allocation</span>
+            <span className="hidden sm:inline">Add Schedule</span>
           </Button>
         )}
       </PageToolbar>
