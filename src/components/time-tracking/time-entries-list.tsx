@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Clock, Pencil, Search, Trash2 } from "lucide-react";
 
 import { WeeklyTimesheetDialog } from "@/components/time-tracking/weekly-timesheet-dialog";
-import { useFilteredTimeTrackingRows } from "@/components/time-tracking/use-filtered-time-tracking-rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatProjectHours } from "@/lib/project-format";
+import { filterTimeEntriesForWeek } from "@/lib/time-tracking";
 import {
   buildEmployeeTimesheetSummaries,
   filterTimesheetsBySearch,
@@ -22,20 +22,34 @@ import {
 import { formatDateKey, formatWeekRange, getEmployeeFullName, getWeekDays } from "@/lib/week";
 
 export function TimeEntriesList() {
-  const { getProjectById, getCategoryById, getEmployeeById, deleteTimeEntry, settings, selectedWeekStart } =
-    useScheduling();
-  const { canEditEntry, canLogTime, permissions, linkedEmployeeId } = usePermissions();
-  const { weekTimeEntries } = useFilteredTimeTrackingRows();
+  const {
+    getProjectById,
+    getCategoryById,
+    getEmployeeById,
+    deleteTimeEntry,
+    settings,
+    selectedWeekStart,
+    timeEntries,
+  } = useScheduling();
+  const { canEditEntry, canLogTime, permissions, linkedEmployeeId, isManagerOrAdmin } =
+    usePermissions();
 
   const [editEmployeeId, setEditEmployeeId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [entriesSearch, setEntriesSearch] = useState("");
+
+  const weekTimeEntries = useMemo(
+    () => filterTimeEntriesForWeek(timeEntries, selectedWeekStart, settings),
+    [timeEntries, selectedWeekStart, settings],
+  );
 
   const scopedWeekEntries = useMemo(() => {
     if (permissions.logTimeForAnyone) return weekTimeEntries;
     if (!linkedEmployeeId) return [];
     return weekTimeEntries.filter((e) => e.employee_id === linkedEmployeeId);
   }, [weekTimeEntries, permissions.logTimeForAnyone, linkedEmployeeId]);
+
+  const canSearchEntries = isManagerOrAdmin;
 
   const weekDays = useMemo(
     () => getWeekDays(selectedWeekStart, settings),
@@ -53,7 +67,7 @@ export function TimeEntriesList() {
       .filter((t): t is NonNullable<typeof t> => t != null)
       .sort((a, b) => getEmployeeFullName(a.employee).localeCompare(getEmployeeFullName(b.employee)));
 
-    if (!permissions.logTimeForAnyone) return withEmployees;
+    if (!canSearchEntries) return withEmployees;
 
     return filterTimesheetsBySearch(
       withEmployees,
@@ -66,7 +80,7 @@ export function TimeEntriesList() {
     scopedWeekEntries,
     weekDateKeys,
     getEmployeeById,
-    permissions.logTimeForAnyone,
+    canSearchEntries,
     entriesSearch,
     getProjectById,
     getCategoryById,
@@ -99,10 +113,10 @@ export function TimeEntriesList() {
   };
 
   if (timesheets.length === 0) {
-    const hasEntriesSearch = permissions.logTimeForAnyone && entriesSearch.trim().length > 0;
+    const hasEntriesSearch = canSearchEntries && entriesSearch.trim().length > 0;
     return (
       <>
-        {permissions.logTimeForAnyone && (
+        {canSearchEntries && (
           <div className="relative mb-4 max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -135,7 +149,7 @@ export function TimeEntriesList() {
 
   return (
     <>
-      {permissions.logTimeForAnyone && (
+      {canSearchEntries && (
         <div className="relative mb-4 max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

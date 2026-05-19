@@ -192,6 +192,20 @@ function dateSearchTokens(dateKey: string): string[] {
   }
 }
 
+/** Normalize separators so "Acme Kitchen" matches "Acme · Kitchen". */
+function normalizeSearchText(text: string): string {
+  return text.toLowerCase().replace(/[·•|,;/]+/g, " ");
+}
+
+/** Every whitespace-separated token must appear in the haystack. */
+export function matchesTextSearch(haystack: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const normalized = normalizeSearchText(haystack);
+  const tokens = q.split(/\s+/).filter(Boolean);
+  return tokens.every((token) => normalized.includes(token));
+}
+
 export function timesheetRowMatchesSearch(
   row: TimesheetRow,
   weekDateKeys: string[],
@@ -199,8 +213,7 @@ export function timesheetRowMatchesSearch(
   getProjectById: (id: string) => Project | undefined,
   getCategoryById: (id: string) => AllocationCategory | undefined,
 ): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
+  if (!query.trim()) return true;
 
   const jobLabel = getTimesheetLineLabel(row, (id) => {
     const project = getProjectById(id);
@@ -208,12 +221,16 @@ export function timesheetRowMatchesSearch(
       ? { client_name: project.client_name, project_name: project.project_name }
       : undefined;
   });
+  const project = row.project_id ? getProjectById(row.project_id) : undefined;
   const category = getCategoryById(row.allocation_category_id);
   const activeDateKeys = weekDateKeys.filter((dateKey) => (row.hoursByDay[dateKey] ?? 0) > 0);
   const dateText = activeDateKeys.flatMap(dateSearchTokens).join(" ");
 
   const haystack = [
     jobLabel,
+    project?.client_name,
+    project?.project_name,
+    project?.project_number,
     row.task_name,
     category?.name,
     row.notes,
@@ -222,10 +239,9 @@ export function timesheetRowMatchesSearch(
     dateText,
   ]
     .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+    .join(" ");
 
-  return haystack.includes(q);
+  return matchesTextSearch(haystack, query);
 }
 
 export interface TimesheetWithEmployee {
@@ -241,8 +257,7 @@ export function filterTimesheetsBySearch<T extends TimesheetWithEmployee>(
   getProjectById: (id: string) => Project | undefined,
   getCategoryById: (id: string) => AllocationCategory | undefined,
 ): T[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return timesheets;
+  if (!query.trim()) return timesheets;
 
   return timesheets
     .map((timesheet) => {
@@ -253,15 +268,20 @@ export function filterTimesheetsBySearch<T extends TimesheetWithEmployee>(
         timesheet.employee.department,
       ]
         .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+        .join(" ");
 
       const matchingRows = timesheet.rows.filter((row) =>
-        timesheetRowMatchesSearch(row, weekDateKeys, q, getProjectById, getCategoryById),
+        timesheetRowMatchesSearch(row, weekDateKeys, query, getProjectById, getCategoryById),
       );
 
-      if (employeeHaystack.includes(q)) return timesheet;
-      if (matchingRows.length > 0) return { ...timesheet, rows: matchingRows };
+      if (matchesTextSearch(employeeHaystack, query)) return timesheet;
+      if (matchingRows.length > 0) {
+        const totalHours = matchingRows.reduce(
+          (sum, row) => sum + rowTotalHours(row, weekDateKeys),
+          0,
+        );
+        return { ...timesheet, rows: matchingRows, totalHours };
+      }
       return null;
     })
     .filter((timesheet): timesheet is T => timesheet != null);
