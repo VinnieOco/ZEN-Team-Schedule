@@ -13,7 +13,7 @@ import type { EmployeeWeekStats } from "@/types";
 import type { EmployeeMonthStats } from "@/lib/utilization";
 import { employeeMatchesDepartmentFilter } from "@/lib/departments";
 import { getEmployeeFullName, getMonthDays, getMonthStart, getWeekDays } from "@/lib/week";
-import type { Employee } from "@/types";
+import type { Allocation, Employee } from "@/types";
 
 export type FilteredRowsPeriod = "week" | "month";
 
@@ -25,10 +25,26 @@ export interface EmployeeWeekRow {
 interface UseFilteredEmployeeRowsOptions {
   period?: FilteredRowsPeriod;
   sortByUtilization?: boolean;
+  /** When true, apply filters.onlyWithAllocations for Schedule tab grids. */
+  applyOnlyWithAllocations?: boolean;
+}
+
+function employeeHasPeriodAllocation(
+  employeeId: string,
+  periodAllocations: Allocation[],
+  filters: { projectId: string | null; categoryId: string | null },
+): boolean {
+  return periodAllocations.some((a) => {
+    if (a.employee_id !== employeeId) return false;
+    if (filters.projectId && a.project_id !== filters.projectId) return false;
+    if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
+    return true;
+  });
 }
 
 export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions = {}) {
-  const { period = "week", sortByUtilization = false } = options;
+  const { period = "week", sortByUtilization = false, applyOnlyWithAllocations = false } =
+    options;
   const { employees, allocations, settings, selectedWeekStart, filters, clearFilters } =
     useScheduling();
 
@@ -53,12 +69,11 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
       })
       .filter((e) => {
         if (!filters.projectId && !filters.categoryId) return true;
-        return periodAllocations.some((a) => {
-          if (a.employee_id !== e.id) return false;
-          if (filters.projectId && a.project_id !== filters.projectId) return false;
-          if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
-          return true;
-        });
+        return employeeHasPeriodAllocation(e.id, periodAllocations, filters);
+      })
+      .filter((e) => {
+        if (!applyOnlyWithAllocations || !filters.onlyWithAllocations) return true;
+        return employeeHasPeriodAllocation(e.id, periodAllocations, filters);
       })
       .map((employee) => ({
         employee,
@@ -82,6 +97,7 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
     period,
     monthStart,
     sortByUtilization,
+    applyOnlyWithAllocations,
   ]);
 
   return {

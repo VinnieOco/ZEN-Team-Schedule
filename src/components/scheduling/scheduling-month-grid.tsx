@@ -45,7 +45,10 @@ import { cn } from "@/lib/utils";
 export function SchedulingMonthGrid() {
   const { allocations, settings, selectedWeekStart, filters, moveAllocation } = useScheduling();
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
-  const { rows, monthDays, clearFilters } = useFilteredEmployeeRows({ period: "month" });
+  const { rows, monthDays, clearFilters } = useFilteredEmployeeRows({
+    period: "month",
+    applyOnlyWithAllocations: true,
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);

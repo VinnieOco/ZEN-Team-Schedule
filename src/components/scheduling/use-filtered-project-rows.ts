@@ -11,7 +11,16 @@ import {
 import { getEmployeeFullName, getMonthDays, getMonthStart, getWeekDays } from "@/lib/week";
 import type { Project } from "@/types";
 
-export function useFilteredProjectRows(period: "week" | "month" = "week") {
+interface UseFilteredProjectRowsOptions {
+  period?: "week" | "month";
+  /** When true, apply filters.onlyWithAllocations for By Project tab. */
+  applyOnlyWithAllocations?: boolean;
+}
+
+export function useFilteredProjectRows({
+  period = "week",
+  applyOnlyWithAllocations = false,
+}: UseFilteredProjectRowsOptions = {}) {
   const { projects, allocations, employees, settings, selectedWeekStart, filters, clearFilters } =
     useScheduling();
 
@@ -51,8 +60,16 @@ export function useFilteredProjectRows(period: "week" | "month" = "week") {
           return name.includes(q) || employee.role.toLowerCase().includes(q);
         });
       })
+      .filter((p) => {
+        if (!applyOnlyWithAllocations || !filters.onlyWithAllocations) return true;
+        return periodAllocations.some((a) => {
+          if (a.project_id !== p.id) return false;
+          if (filters.categoryId && a.allocation_category_id !== filters.categoryId) return false;
+          return true;
+        });
+      })
       .sort((a, b) => a.project_name.localeCompare(b.project_name));
-  }, [projects, filters, periodAllocations, employees]);
+  }, [projects, filters, periodAllocations, employees, applyOnlyWithAllocations]);
 
   return {
     rows,

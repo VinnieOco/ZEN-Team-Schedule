@@ -14,7 +14,12 @@ import { useScheduling } from "@/context/scheduling-context";
 import { departmentFilterLabel } from "@/lib/departments";
 import { getDepartmentOptions } from "@/lib/team-options";
 
-export function SchedulingFilters() {
+interface SchedulingFiltersProps {
+  /** Show toggle to hide members/projects with no allocations in the period. */
+  showScheduledOnlyToggle?: boolean;
+}
+
+export function SchedulingFilters({ showScheduledOnlyToggle = false }: SchedulingFiltersProps) {
   const { employees, projects, categories, filters, settings, setFilters, clearFilters } =
     useScheduling();
 
@@ -57,7 +62,8 @@ export function SchedulingFilters() {
     Boolean(filters.search) ||
     Boolean(filters.department) ||
     Boolean(filters.projectId) ||
-    Boolean(filters.categoryId);
+    Boolean(filters.categoryId) ||
+    filters.onlyWithAllocations;
 
   return (
     <div className="min-w-0 space-y-3 rounded-lg border bg-white p-3">
@@ -105,6 +111,18 @@ export function SchedulingFilters() {
             Show hours
           </Label>
         </div>
+        {showScheduledOnlyToggle && (
+          <div className="flex items-center gap-2">
+            <Switch
+              id="only-with-allocations"
+              checked={filters.onlyWithAllocations}
+              onCheckedChange={(v) => setFilters({ onlyWithAllocations: v })}
+            />
+            <Label htmlFor="only-with-allocations" className="text-sm whitespace-nowrap">
+              Scheduled only
+            </Label>
+          </div>
+        )}
         <Link
           href="/settings"
           className="flex h-9 w-9 items-center justify-center rounded-md border hover:bg-slate-50"
@@ -162,6 +180,19 @@ export function SchedulingFilters() {
                 className="ml-1 rounded-full p-0.5 hover:bg-slate-200"
                 onClick={() => setFilters({ categoryId: null })}
                 aria-label="Clear category filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.onlyWithAllocations && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              Scheduled only
+              <button
+                type="button"
+                className="ml-1 rounded-full p-0.5 hover:bg-slate-200"
+                onClick={() => setFilters({ onlyWithAllocations: false })}
+                aria-label="Show all members and projects"
               >
                 <X className="h-3 w-3" />
               </button>

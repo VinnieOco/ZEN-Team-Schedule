@@ -222,6 +222,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     projectId: null,
     categoryId: null,
     showHours: true,
+    onlyWithAllocations: false,
   });
 
   const refreshData = useCallback(async () => {
@@ -361,6 +362,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectId: null,
       categoryId: null,
       showHours: true,
+      onlyWithAllocations: false,
     });
   }, []);
 

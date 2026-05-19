@@ -75,7 +75,7 @@ export function SchedulingPageClient() {
         <TabsContent value="schedule" className="mt-4 min-w-0 space-y-4 print:mt-0 print:block">
           {showFilters && (
             <div className="print:hidden">
-              <SchedulingFilters />
+              <SchedulingFilters showScheduledOnlyToggle />
             </div>
           )}
           {isLoading ? (
@@ -105,7 +105,7 @@ export function SchedulingPageClient() {
         <TabsContent value="by-project" className="mt-4 min-w-0 space-y-4 print:hidden">
           {showFilters && (
             <div className="print:hidden">
-              <SchedulingFilters />
+              <SchedulingFilters showScheduledOnlyToggle />
             </div>
           )}
           {isLoading ? (

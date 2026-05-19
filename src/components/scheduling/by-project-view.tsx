@@ -20,7 +20,10 @@ interface ByProjectViewProps {
 export function ByProjectView({ calendarView }: ByProjectViewProps) {
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
   const period = calendarView === "month" ? "month" : "week";
-  const { rows, periodDays, periodAllocations, clearFilters } = useFilteredProjectRows(period);
+  const { rows, periodDays, periodAllocations, clearFilters } = useFilteredProjectRows({
+    period,
+    applyOnlyWithAllocations: true,
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);

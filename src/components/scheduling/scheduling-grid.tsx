@@ -52,6 +52,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
   const { rows, weekDays, weekAllocations, clearFilters } = useFilteredEmployeeRows({
     period: "week",
+    applyOnlyWithAllocations: true,
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);
