@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,7 @@ export function WeeklyTimesheet({
     getCategoryById,
     getProjectById,
   } = useScheduling();
-  const { permissions, linkedEmployeeId, canEditEntry } = usePermissions();
+  const { permissions, linkedEmployeeId, canEditEntry, authLoading } = usePermissions();
 
   const weekDays = useMemo(
     () => getWeekDays(selectedWeekStart, settings),
@@ -85,12 +85,8 @@ export function WeeklyTimesheet({
     [employees],
   );
 
-  const defaultEmployeeId =
-    linkedEmployeeId && activeEmployees.some((e) => e.id === linkedEmployeeId)
-      ? linkedEmployeeId
-      : (activeEmployees[0]?.id ?? "");
-
-  const [employeeId, setEmployeeId] = useState(fixedEmployeeId ?? defaultEmployeeId);
+  const [employeeId, setEmployeeId] = useState(() => fixedEmployeeId ?? "");
+  const hasInitializedEmployee = useRef(Boolean(fixedEmployeeId));
   const [rows, setRows] = useState<TimesheetRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -120,12 +116,35 @@ export function WeeklyTimesheet({
   useEffect(() => {
     if (fixedEmployeeId) {
       setEmployeeId(fixedEmployeeId);
+      hasInitializedEmployee.current = true;
       return;
     }
+
     if (lockEmployee && linkedEmployeeId) {
       setEmployeeId(linkedEmployeeId);
+      hasInitializedEmployee.current = true;
+      return;
     }
-  }, [fixedEmployeeId, lockEmployee, linkedEmployeeId]);
+
+    if (hasInitializedEmployee.current) return;
+
+    // Wait for login + employee link before defaulting to the first name in the list.
+    if (authLoading) return;
+
+    if (
+      linkedEmployeeId &&
+      activeEmployees.some((e) => e.id === linkedEmployeeId)
+    ) {
+      setEmployeeId(linkedEmployeeId);
+      hasInitializedEmployee.current = true;
+      return;
+    }
+
+    if (activeEmployees.length > 0) {
+      setEmployeeId(activeEmployees[0]!.id);
+      hasInitializedEmployee.current = true;
+    }
+  }, [fixedEmployeeId, lockEmployee, linkedEmployeeId, activeEmployees, authLoading]);
 
   const updateRow = (rowKey: string, patch: Partial<TimesheetRow>) => {
     const row = rows.find((r) => r.key === rowKey);
