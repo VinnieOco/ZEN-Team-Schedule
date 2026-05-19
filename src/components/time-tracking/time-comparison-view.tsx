@@ -7,6 +7,7 @@ import { useFilteredTimeTrackingRows } from "@/components/time-tracking/use-filt
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   dayTimeVarianceCellClass,
   getEmployeeDayActualHours,
@@ -24,22 +25,47 @@ import { cn } from "@/lib/utils";
 
 export function TimeComparisonView() {
   const { allocations, timeEntries } = useScheduling();
+  const { permissions, linkedEmployeeId } = usePermissions();
   const { rows, weekDays, clearFilters } = useFilteredTimeTrackingRows();
 
   const sortedRows = useMemo(() => {
-    return [...rows].sort(
+    const scoped = permissions.logTimeForAnyone
+      ? rows
+      : linkedEmployeeId
+        ? rows.filter((row) => row.employee.id === linkedEmployeeId)
+        : [];
+
+    return [...scoped].sort(
       (a, b) => Math.abs(b.stats.varianceHours) - Math.abs(a.stats.varianceHours),
     );
-  }, [rows]);
+  }, [rows, permissions.logTimeForAnyone, linkedEmployeeId]);
+
+  if (!permissions.logTimeForAnyone && !linkedEmployeeId) {
+    return (
+      <EmptyState
+        icon={Users}
+        title="Link your schedule profile"
+        description="Connect your login to your team member record in Settings to compare your scheduled vs actual hours."
+      />
+    );
+  }
 
   if (sortedRows.length === 0) {
     return (
       <EmptyState
         icon={Users}
-        title="No team members match your filters"
-        description="Adjust filters or clear them to compare scheduled vs actual hours."
-        actionLabel="Clear filters"
-        onAction={clearFilters}
+        title={
+          permissions.logTimeForAnyone
+            ? "No team members match your filters"
+            : "No comparison data for this week"
+        }
+        description={
+          permissions.logTimeForAnyone
+            ? "Adjust filters or clear them to compare scheduled vs actual hours."
+            : "You have no scheduled or logged hours for this week yet."
+        }
+        actionLabel={permissions.logTimeForAnyone ? "Clear filters" : undefined}
+        onAction={permissions.logTimeForAnyone ? clearFilters : undefined}
       />
     );
   }
@@ -148,8 +174,9 @@ export function TimeComparisonView() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Sorted by largest week variance. Log time on the <strong>Timesheet</strong> tab or use{" "}
-        <strong>Log time</strong> above to open the weekly timesheet.
+        {permissions.logTimeForAnyone
+          ? "Sorted by largest week variance. Log time on the Timesheet tab or use Log time above."
+          : "Your scheduled vs actual hours for this week. Log time on the Timesheet tab or use Log time above."}
       </p>
     </div>
   );

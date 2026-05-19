@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { PageToolbar } from "@/components/layout/page-toolbar";
+import { WeekNavigator } from "@/components/layout/week-navigator";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import { formatWeekRange } from "@/lib/week";
@@ -16,7 +17,7 @@ export function TimeTrackingHeader({
   canLogTime = true,
   onLogTime,
 }: TimeTrackingHeaderProps) {
-  const { selectedWeekStart, settings, goToPreviousWeek, goToNextWeek, goToToday } = useScheduling();
+  const { selectedWeekStart, settings } = useScheduling();
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -27,17 +28,7 @@ export function TimeTrackingHeader({
         </p>
       </div>
       <PageToolbar>
-        <div className="flex shrink-0 items-center rounded-lg border bg-white p-0.5 shadow-sm">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 px-3 text-xs" onClick={goToToday}>
-            Today
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextWeek}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <WeekNavigator />
         {canLogTime && (
           <Button onClick={onLogTime} className="shrink-0 shadow-sm">
             <Plus className="h-4 w-4 sm:mr-2" />

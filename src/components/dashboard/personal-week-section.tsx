@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 import { Calendar, Clock } from "lucide-react";
 
 import { LoggedHoursPieChart } from "@/components/dashboard/logged-hours-pie-chart";
+import { WeekNavigator } from "@/components/layout/week-navigator";
 import { TimesheetDialog } from "@/components/time-tracking/weekly-timesheet-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +62,7 @@ export function PersonalWeekSection({ employee, weekStart }: PersonalWeekSection
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <WeekNavigator variant="outline" />
           <Button variant="outline" size="sm" asChild>
             <Link href="/scheduling">
               <Calendar className="mr-2 h-3.5 w-3.5" />
