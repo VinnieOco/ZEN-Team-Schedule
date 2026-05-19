@@ -9,6 +9,7 @@ import { SchedulingGrid } from "@/components/scheduling/scheduling-grid";
 import { SchedulingGridSkeleton } from "@/components/scheduling/scheduling-grid-skeleton";
 import { AvailabilityView } from "@/components/scheduling/availability-view";
 import { ByProjectView } from "@/components/scheduling/by-project-view";
+import { UtilizationView } from "@/components/scheduling/utilization-view";
 import { WorkloadView } from "@/components/scheduling/workload-view";
 import { SchedulingMemberBanner } from "@/components/scheduling/scheduling-member-banner";
 import { useScheduling } from "@/context/scheduling-context";
@@ -58,6 +59,7 @@ export function SchedulingPageClient() {
           <TabsTrigger value="workload">Workload</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="by-project">By Project</TabsTrigger>
+          <TabsTrigger value="utilization">Utilization</TabsTrigger>
         </TabsList>
         <TabsContent value="schedule" className="mt-4 space-y-4 print:mt-0 print:block">
           {showFilters && (
@@ -100,6 +102,9 @@ export function SchedulingPageClient() {
           ) : (
             <ByProjectView calendarView={calendarView} />
           )}
+        </TabsContent>
+        <TabsContent value="utilization" className="mt-4 space-y-4 print:hidden">
+          {isLoading ? <SchedulingGridSkeleton /> : <UtilizationView />}
         </TabsContent>
       </Tabs>
       <CapacityAlerts calendarView={calendarView} />

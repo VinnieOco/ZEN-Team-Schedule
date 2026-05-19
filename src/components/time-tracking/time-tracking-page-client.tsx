@@ -21,7 +21,6 @@ export function TimeTrackingPageClient() {
   return (
     <div className="space-y-5 p-4 md:space-y-6 md:p-6">
       <TimeTrackingHeader canLogTime={canLogTime} onLogTime={() => setDialogOpen(true)} />
-      <TimeTrackingSummary />
       <Tabs defaultValue="timesheet">
         <TabsList className="w-full justify-start sm:w-auto">
           <TabsTrigger value="timesheet">Timesheets</TabsTrigger>
@@ -38,6 +37,7 @@ export function TimeTrackingPageClient() {
           {isLoading ? <SchedulingGridSkeleton /> : <TimeComparisonView />}
         </TabsContent>
       </Tabs>
+      <TimeTrackingSummary />
       <TimesheetDialog
         mode="log"
         open={dialogOpen}

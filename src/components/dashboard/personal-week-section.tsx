@@ -1,29 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Calendar, Clock } from "lucide-react";
 
+import { LoggedHoursPieChart } from "@/components/dashboard/logged-hours-pie-chart";
 import { TimesheetDialog } from "@/components/time-tracking/weekly-timesheet-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { filterTimeEntriesForWeek, varianceColorClass, varianceLabel } from "@/lib/time-tracking";
+import { getLoggedHoursByProject } from "@/lib/logged-hours-by-project";
+import { formatProjectHours } from "@/lib/project-format";
+import { filterTimeEntriesForWeek } from "@/lib/time-tracking";
 import { filterAllocationsForWeek } from "@/lib/utilization";
-import type { PersonalWeekSummary } from "@/lib/dashboard";
-import { utilizationStatusColor } from "@/lib/utilization";
-import { cn } from "@/lib/utils";
 import type { Employee } from "@/types";
 
 interface PersonalWeekSectionProps {
   employee: Employee;
-  summary: PersonalWeekSummary;
   weekStart: Date;
 }
 
-export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWeekSectionProps) {
+export function PersonalWeekSection({ employee, weekStart }: PersonalWeekSectionProps) {
   const { allocations, timeEntries, settings, getProjectById, getCategoryById } =
     useScheduling();
   const { canLogTime } = usePermissions();
@@ -37,7 +36,20 @@ export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWe
     .filter((e) => e.employee_id === employee.id)
     .sort((a, b) => b.entry_date.localeCompare(a.entry_date));
 
-  const { schedule, time } = summary;
+  const loggedHoursByProject = useMemo(
+    () => getLoggedHoursByProject(weekEntries, getProjectById),
+    [weekEntries, getProjectById],
+  );
+
+  const allocationsTotal = useMemo(
+    () => weekAllocations.reduce((sum, a) => sum + a.hours, 0),
+    [weekAllocations],
+  );
+
+  const timeEntriesTotal = useMemo(
+    () => weekEntries.reduce((sum, e) => sum + e.hours, 0),
+    [weekEntries],
+  );
 
   return (
     <section className="space-y-4">
@@ -71,66 +83,24 @@ export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWe
         employeeId={employee.id}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Utilization
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p
-              className={cn(
-                "text-3xl font-bold tabular-nums",
-                utilizationStatusColor(schedule.status),
-              )}
-            >
-              {schedule.utilizationPercent}%
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {schedule.scheduledHours}h / {schedule.weeklyCapacity}h capacity
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Scheduled
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{schedule.scheduledHours}h</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {schedule.billableHours}h billable · {schedule.nonBillableHours}h non-billable
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Logged</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{time.actualHours}h</p>
-            <p className="mt-1 text-xs text-muted-foreground">actual hours this week</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Variance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={cn("text-3xl font-bold tabular-nums", varianceColorClass(time.varianceHours))}>
-              {varianceLabel(time.varianceHours)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">actual vs scheduled</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Logged hours by project</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoggedHoursPieChart slices={loggedHoursByProject} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-base">Your allocations</CardTitle>
+            {weekAllocations.length > 0 && (
+              <span className="text-sm font-semibold tabular-nums text-slate-700">
+                {formatProjectHours(allocationsTotal)}h total
+              </span>
+            )}
           </CardHeader>
           <CardContent>
             {weekAllocations.length === 0 ? (
@@ -163,8 +133,13 @@ export function PersonalWeekSection({ employee, summary, weekStart }: PersonalWe
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-base">Your time entries</CardTitle>
+            {weekEntries.length > 0 && (
+              <span className="text-sm font-semibold tabular-nums text-slate-700">
+                {formatProjectHours(timeEntriesTotal)}h total
+              </span>
+            )}
           </CardHeader>
           <CardContent>
             {weekEntries.length === 0 ? (
