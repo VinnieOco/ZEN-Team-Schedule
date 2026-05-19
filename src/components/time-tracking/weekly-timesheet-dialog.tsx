@@ -48,19 +48,25 @@ export function TimesheetDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="relative max-h-[92vh] max-w-[min(96vw,1100px)] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        {showTimesheet && (
-          <WeeklyTimesheet
-            fixedEmployeeId={employeeId ?? undefined}
-            editMode={isEdit}
-            embedded
-            onSaved={() => onOpenChange(false)}
-          />
-        )}
+      <DialogContent className="max-h-[92vh] max-w-[min(96vw,1100px)] gap-0 overflow-hidden p-0 sm:max-w-[min(96vw,1100px)]">
+        <div className="shrink-0 border-b px-4 pb-4 pt-4 sm:px-6 sm:pt-6">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
+          {showTimesheet ? (
+            <WeeklyTimesheet
+              fixedEmployeeId={employeeId ?? undefined}
+              editMode={isEdit}
+              embedded
+              onSaved={() => onOpenChange(false)}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Select a team member to edit.</p>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,7 +19,6 @@ import { cn } from "@/lib/utils";
 export interface SearchableSelectOption {
   value: string;
   label: string;
-  /** Extra text included when filtering (e.g. client name, email). */
   keywords?: string;
   leading?: ReactNode;
   disabled?: boolean;
@@ -52,6 +52,13 @@ function filterOptions(
   return options.filter((option) => optionSearchText(option).includes(q));
 }
 
+type PanelLayout = {
+  top: number;
+  left: number;
+  width: number;
+  position: "fixed" | "absolute";
+};
+
 export function SearchableSelect({
   options,
   value,
@@ -68,18 +75,18 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [panelRect, setPanelRect] = useState<{
-    top: number;
-    left: number;
-    width: number;
-    position: "fixed" | "absolute";
-  } | null>(null);
-  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  const [panelLayout, setPanelLayout] = useState<PanelLayout | null>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const selected = useMemo(
     () => options.find((option) => option.value === value),
@@ -97,16 +104,16 @@ export function SearchableSelect({
 
     if (dialog) {
       const dialogRect = dialog.getBoundingClientRect();
-      setPortalContainer(dialog);
-      setPanelRect({
+      setPortalTarget(dialog);
+      setPanelLayout({
         position: "absolute",
         top: triggerRect.bottom - dialogRect.top + 4,
         left: triggerRect.left - dialogRect.left,
         width: Math.max(triggerRect.width, minPanelWidth),
       });
     } else {
-      setPortalContainer(null);
-      setPanelRect({
+      setPortalTarget(document.body);
+      setPanelLayout({
         position: "fixed",
         top: triggerRect.bottom + 4,
         left: triggerRect.left,
@@ -115,10 +122,15 @@ export function SearchableSelect({
     }
   }, [minPanelWidth]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     updatePanelPosition();
-    const onPointerDown = (event: MouseEvent) => {
+  }, [open, updatePanelPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (
         containerRef.current?.contains(target) ||
@@ -128,12 +140,14 @@ export function SearchableSelect({
       }
       setOpen(false);
     };
+
     const onReposition = () => updatePanelPosition();
-    document.addEventListener("mousedown", onPointerDown);
+
+    document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("resize", onReposition);
     window.addEventListener("scroll", onReposition, true);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
@@ -144,8 +158,8 @@ export function SearchableSelect({
       requestAnimationFrame(() => inputRef.current?.focus());
     } else {
       setQuery("");
-      setPanelRect(null);
-      setPortalContainer(null);
+      setPanelLayout(null);
+      setPortalTarget(null);
     }
   }, [open]);
 
@@ -155,18 +169,20 @@ export function SearchableSelect({
       : "h-9 px-3 py-2 text-sm";
 
   const panel =
-    open && panelRect
+    mounted && open && panelLayout && portalTarget
       ? createPortal(
           <div
             ref={panelRef}
+            data-searchable-select-panel
             style={{
-              position: panelRect.position,
-              top: panelRect.top,
-              left: panelRect.left,
-              width: panelRect.width,
-              zIndex: 10000,
+              position: panelLayout.position,
+              top: panelLayout.top,
+              left: panelLayout.left,
+              width: panelLayout.width,
+              zIndex: 100,
             }}
-            className="pointer-events-auto rounded-md border bg-white shadow-md"
+            className="pointer-events-auto rounded-md border bg-white shadow-lg"
+            onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="border-b p-2">
               <div className="relative">
@@ -223,7 +239,7 @@ export function SearchableSelect({
               )}
             </ul>
           </div>,
-          portalContainer ?? document.body,
+          portalTarget,
         )
       : null;
 
@@ -237,13 +253,11 @@ export function SearchableSelect({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={listId}
-        onClick={() => {
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
           if (disabled) return;
-          setOpen((prev) => {
-            const next = !prev;
-            if (next) updatePanelPosition();
-            return next;
-          });
+          setOpen((prev) => !prev);
         }}
         className={cn(
           "flex w-full items-center justify-between gap-1 rounded-md border border-input bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",

@@ -209,7 +209,8 @@ export function WeeklyTimesheet({
           setSaving(false);
           return;
         }
-        if (!row.class_code?.trim()) {
+        const configuredClasses = resolveClassCodes(settings);
+        if (configuredClasses.length > 0 && !row.class_code?.trim()) {
           setSaveMessage("Select a class for each line with hours.");
           setSaving(false);
           return;
@@ -242,6 +243,8 @@ export function WeeklyTimesheet({
         );
       }
       onSaved?.();
+    } catch {
+      setSaveMessage("Could not save timesheet. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
