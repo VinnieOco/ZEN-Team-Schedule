@@ -1,6 +1,7 @@
 import type {
   Allocation,
   AllocationCategory,
+  Client,
   CompanySettings,
   Employee,
   Project,
@@ -17,6 +18,9 @@ export interface SchedulingRepository {
   listTimeEntries(): Promise<TimeEntry[]>;
   listProjectNotes(): Promise<ProjectNote[]>;
   listClientNotes(): Promise<ClientNote[]>;
+  listClients(): Promise<Client[]>;
+  upsertClient(client: Client): Promise<Client>;
+  updateClient(client: Client): Promise<Client>;
   getSettings(): Promise<CompanySettings>;
   upsertAllocation(allocation: Allocation): Promise<Allocation>;
   deleteAllocation(id: string): Promise<void>;

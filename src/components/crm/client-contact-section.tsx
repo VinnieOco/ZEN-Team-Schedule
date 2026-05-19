@@ -149,11 +149,15 @@ export function ClientContactSection({
               placeholder="name@company.com"
             />
           </div>
-          {projectCount > 1 && (
+          {projectCount > 1 ? (
             <p className="text-xs text-muted-foreground">
               Saving updates contact info on all {projectCount} projects for this client.
             </p>
-          )}
+          ) : projectCount === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Saving stores contact info on this client for future projects.
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save contact"}

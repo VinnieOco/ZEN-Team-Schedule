@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Search, Users, X } from "lucide-react";
+import { ExternalLink, Plus, Search, Users, X } from "lucide-react";
+
+import { ClientFormDialog } from "@/components/crm/client-form-dialog";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -18,7 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
-import { clientRouteKey, groupProjectsByClient } from "@/lib/clients";
+import { usePermissions } from "@/hooks/use-permissions";
+import { buildClientSummaries, clientRouteKey } from "@/lib/clients";
 import {
   clientFiltersActive,
   defaultClientFilters,
@@ -36,12 +39,15 @@ function ClientsTableSkeleton() {
 }
 
 export function ClientsTable() {
-  const { projects, isLoading } = useScheduling();
+  const { projects, clients, isLoading } = useScheduling();
+  const { permissions } = usePermissions();
   const [filters, setFilters] = useState<ClientFilters>(defaultClientFilters);
+  const [addClientOpen, setAddClientOpen] = useState(false);
 
   const allClients = useMemo(
-    () => groupProjectsByClient(projects, { showInactive: filters.showInactive }),
-    [projects, filters.showInactive],
+    () =>
+      buildClientSummaries(projects, clients, { showInactive: filters.showInactive }),
+    [projects, clients, filters.showInactive],
   );
 
   const visibleClients = useMemo(
@@ -80,6 +86,12 @@ export function ClientsTable() {
               Clear
             </Button>
           )}
+          {permissions.editProjects && (
+            <Button type="button" size="sm" onClick={() => setAddClientOpen(true)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Add client
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
           <div className="flex items-center gap-2">
@@ -104,10 +116,26 @@ export function ClientsTable() {
       {visibleClients.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No clients match your filters"
-          description="Try a different search or clear filters. Clients are grouped from project client names."
-          actionLabel="Clear filters"
-          onAction={() => setFilters(defaultClientFilters())}
+          title={totalCount === 0 ? "No clients yet" : "No clients match your filters"}
+          description={
+            totalCount === 0
+              ? "Add a client here or when creating a project. Clients stay linked across CRM and Projects."
+              : "Try a different search or clear filters."
+          }
+          actionLabel={
+            totalCount === 0 && permissions.editProjects
+              ? "Add client"
+              : hasActiveFilters
+                ? "Clear filters"
+                : undefined
+          }
+          onAction={
+            totalCount === 0 && permissions.editProjects
+              ? () => setAddClientOpen(true)
+              : hasActiveFilters
+                ? () => setFilters(defaultClientFilters())
+                : undefined
+          }
         />
       ) : (
         <div className="scroll-x-contained rounded-lg border bg-white shadow-sm">
@@ -178,9 +206,11 @@ export function ClientsTable() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Clients are grouped by name from your projects. Open a client to see all linked projects
-        and contact details.
+        Clients are shared with Projects. Add clients here or from the Add Project dialog; contact
+        info and notes stay linked by name.
       </p>
+
+      <ClientFormDialog open={addClientOpen} onOpenChange={setAddClientOpen} />
     </div>
   );
 }

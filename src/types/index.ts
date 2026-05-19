@@ -70,6 +70,22 @@ export interface ProjectNote {
   updated_at: string;
 }
 
+/** CRM client registry entry (synced with project client_name by normalized key). */
+export interface Client {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface ClientFormValues {
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
 export interface ClientNote {
   id: string;
   /** Normalized client name (see normalizeClientName). */

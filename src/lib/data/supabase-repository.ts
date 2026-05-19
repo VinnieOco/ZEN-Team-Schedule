@@ -8,9 +8,11 @@ import {
   mapCategory,
   mapEmployee,
   mapProject,
+  mapClient,
   mapClientNote,
   mapProjectNote,
   clientNoteToRow,
+  clientToRow,
   mapSettings,
   mapTimeEntry,
   projectNoteToRow,
@@ -22,6 +24,7 @@ import type { SchedulingRepository } from "@/lib/repository";
 import type {
   Allocation,
   AllocationCategory,
+  Client,
   CompanySettings,
   Employee,
   Project,
@@ -95,6 +98,36 @@ export function createSupabaseRepository(
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map(mapClientNote);
+    },
+
+    async listClients() {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []).map(mapClient);
+    },
+
+    async upsertClient(client: Client) {
+      const { data, error } = await supabase
+        .from("clients")
+        .upsert(clientToRow(client))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapClient(data);
+    },
+
+    async updateClient(client: Client) {
+      const { data, error } = await supabase
+        .from("clients")
+        .update(clientToRow(client))
+        .eq("id", client.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return mapClient(data);
     },
 
     async getSettings() {

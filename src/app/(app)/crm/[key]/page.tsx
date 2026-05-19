@@ -21,13 +21,13 @@ import { formatProjectAmount } from "@/lib/project-format";
 export default function ClientDetailPage() {
   const params = useParams();
   const routeKey = params.key as string;
-  const { projects, isLoading } = useScheduling();
+  const { projects, clients, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [showInactive, setShowInactive] = useState(true);
 
   const client = useMemo(
-    () => findClientByRouteKey(projects, routeKey),
-    [projects, routeKey],
+    () => findClientByRouteKey(projects, routeKey, clients),
+    [projects, routeKey, clients],
   );
 
   if (isLoading) {

@@ -1,4 +1,4 @@
-import type { Project } from "@/types";
+import type { Client, Project } from "@/types";
 
 export interface ClientSummary {
   /** Normalized name used for grouping and route lookup */
@@ -60,6 +60,96 @@ function resolveContactFields(projects: Project[]): Pick<
   };
 }
 
+function trimContactField(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+/** Build registry rows for project client names not yet in the clients table. */
+export function hydrateClientsFromProjects(
+  projects: Project[],
+  registry: Client[] = [],
+): Client[] {
+  const byKey = new Map(
+    registry.map((client) => [normalizeClientName(client.name), client]),
+  );
+
+  for (const project of projects) {
+    const key = normalizeClientName(project.client_name ?? "");
+    if (!key || byKey.has(key)) continue;
+    byKey.set(key, {
+      id: crypto.randomUUID(),
+      name: project.client_name.trim(),
+      address: trimContactField(project.address),
+      phone: trimContactField(project.phone),
+      email: trimContactField(project.email),
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** CRM list: project groupings plus registry-only clients (no projects yet). */
+export function buildClientSummaries(
+  projects: Project[],
+  registry: Client[] = [],
+  options?: { showInactive?: boolean },
+): ClientSummary[] {
+  const summaries = groupProjectsByClient(projects, options);
+  const byKey = new Map(summaries.map((summary) => [summary.key, summary]));
+
+  for (const client of registry) {
+    const key = normalizeClientName(client.name);
+    if (!key) continue;
+
+    const existing = byKey.get(key);
+    if (existing) {
+      if (!existing.address && !existing.phone && !existing.email) {
+        byKey.set(key, {
+          ...existing,
+          address: client.address,
+          phone: client.phone,
+          email: client.email,
+        });
+      }
+      continue;
+    }
+
+    byKey.set(key, {
+      key,
+      displayName: client.name.trim(),
+      projects: [],
+      activeProjectCount: 0,
+      totalBudgetedHours: 0,
+      totalProjectAmount: 0,
+      address: client.address,
+      phone: client.phone,
+      email: client.email,
+      contactVaries: false,
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+export function clientComboboxOptions(
+  projects: Project[],
+  registry: Client[] = [],
+): { value: string; label: string; keywords?: string }[] {
+  return buildClientSummaries(projects, registry, { showInactive: true }).map((client) => ({
+    value: client.displayName,
+    label: client.displayName,
+    keywords: [
+      client.address,
+      client.phone,
+      client.email,
+      client.projects.length > 1 ? `${client.projects.length} projects` : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  }));
+}
+
 export function groupProjectsByClient(
   projects: Project[],
   options?: { showInactive?: boolean },
@@ -110,9 +200,16 @@ export interface ClientContactFields {
   email?: string;
 }
 
-function trimContactField(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed || undefined;
+export function withClientRegistryContact(
+  client: Client,
+  contact: ClientContactFields,
+): Client {
+  return {
+    ...client,
+    address: trimContactField(contact.address),
+    phone: trimContactField(contact.phone),
+    email: trimContactField(contact.email),
+  };
 }
 
 /** Apply shared contact fields to a project (other project fields unchanged). */
@@ -152,9 +249,42 @@ export function getClientContactFromProjects(
   return { address, phone, email };
 }
 
+export function getClientContactFromRegistry(
+  registry: Client[],
+  clientName: string,
+): ClientContactFields | undefined {
+  const key = normalizeClientName(clientName);
+  if (!key) return undefined;
+
+  const client = registry.find((c) => normalizeClientName(c.name) === key);
+  if (!client) return undefined;
+
+  const contact = {
+    address: client.address,
+    phone: client.phone,
+    email: client.email,
+  };
+  if (!contact.address && !contact.phone && !contact.email) return undefined;
+  return contact;
+}
+
+/** Contact from projects first, then CRM client registry. */
+export function getClientContact(
+  projects: Project[],
+  registry: Client[],
+  clientName: string,
+  options?: { excludeProjectId?: string },
+): ClientContactFields | undefined {
+  return (
+    getClientContactFromProjects(projects, clientName, options) ??
+    getClientContactFromRegistry(registry, clientName)
+  );
+}
+
 export function findClientByRouteKey(
   projects: Project[],
   routeKey: string,
+  registry: Client[] = [],
 ): ClientSummary | undefined {
   const name = clientNameFromRouteKey(routeKey);
   const key = normalizeClientName(name);
@@ -163,7 +293,32 @@ export function findClientByRouteKey(
   const clientProjects = projects.filter(
     (p) => normalizeClientName(p.client_name ?? "") === key,
   );
-  if (clientProjects.length === 0) return undefined;
+  if (clientProjects.length > 0) {
+    return groupProjectsByClient(clientProjects, { showInactive: true })[0];
+  }
 
-  return groupProjectsByClient(clientProjects, { showInactive: true })[0];
+  const client = registry.find((c) => normalizeClientName(c.name) === key);
+  if (!client) return undefined;
+
+  return {
+    key,
+    displayName: client.name.trim(),
+    projects: [],
+    activeProjectCount: 0,
+    totalBudgetedHours: 0,
+    totalProjectAmount: 0,
+    address: client.address,
+    phone: client.phone,
+    email: client.email,
+    contactVaries: false,
+  };
+}
+
+export function findRegistryClientByName(
+  registry: Client[],
+  clientName: string,
+): Client | undefined {
+  const key = normalizeClientName(clientName);
+  if (!key) return undefined;
+  return registry.find((c) => normalizeClientName(c.name) === key);
 }

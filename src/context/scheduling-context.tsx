@@ -30,9 +30,12 @@ import {
   normalizeCompanySettings,
 } from "@/lib/team-options";
 import {
+  findRegistryClientByName,
+  hydrateClientsFromProjects,
   normalizeClientName,
   projectsForClientKey,
   withClientContact,
+  withClientRegistryContact,
   type ClientContactFields,
 } from "@/lib/clients";
 import { projectFromFormValues } from "@/lib/project-form";
@@ -45,7 +48,9 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  Client,
   ClientNote,
+  ClientFormValues,
   ProjectNote,
   EmployeeFormValues,
   ProjectFormValues,
@@ -61,6 +66,7 @@ type DataSource = "local" | "supabase";
 interface PersistedState {
   employees: Employee[];
   projects: Project[];
+  clients?: Client[];
   projectNotes?: ProjectNote[];
   clientNotes?: ClientNote[];
   categories?: AllocationCategory[];
@@ -75,6 +81,7 @@ interface SchedulingContextValue {
   error: string | null;
   employees: Employee[];
   projects: Project[];
+  clients: Client[];
   projectNotes: ProjectNote[];
   clientNotes: ClientNote[];
   categories: AllocationCategory[];
@@ -102,7 +109,8 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => void;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
-  /** Sync address, phone, and email to every project for this client key. */
+  addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
+  /** Sync address, phone, and email to registry + every project for this client key. */
   updateClientContact: (clientKey: string, contact: ClientContactFields) => void;
   addProjectNote: (projectId: string, body: string) => void;
   updateProjectNote: (id: string, body: string) => void;
@@ -199,6 +207,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>(
     useSupabase ? [] : (persisted?.projects ?? seedProjects),
   );
+  const [clients, setClients] = useState<Client[]>(() => {
+    if (useSupabase) return [];
+    return hydrateClientsFromProjects(
+      persisted?.projects ?? seedProjects,
+      persisted?.clients ?? [],
+    );
+  });
   const [projectNotes, setProjectNotes] = useState<ProjectNote[]>(
     useSupabase ? [] : (persisted?.projectNotes ?? []),
   );
@@ -259,8 +274,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         clientNotesData = [];
       }
 
+      let clientsData: Client[] = [];
+      try {
+        clientsData = await repo.listClients();
+      } catch {
+        clientsData = hydrateClientsFromProjects(proj, []);
+      }
+
       setEmployees(emp);
       setProjects(proj);
+      setClients(hydrateClientsFromProjects(proj, clientsData));
       setProjectNotes(
         [...notes].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
@@ -294,6 +317,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     const payload: PersistedState = {
       employees,
       projects,
+      clients,
       projectNotes,
       clientNotes,
       categories,
@@ -306,6 +330,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     useSupabase,
     employees,
     projects,
+    clients,
     projectNotes,
     clientNotes,
     categories,
@@ -550,8 +575,83 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  const ensureClientInRegistry = useCallback(
+    (clientName: string, contact?: ClientContactFields) => {
+      const name = clientName.trim();
+      const key = normalizeClientName(name);
+      if (!key) return;
+
+      setClients((prev) => {
+        if (findRegistryClientByName(prev, name)) return prev;
+
+        const client: Client = withClientRegistryContact(
+          { id: generateId(), name },
+          contact ?? {},
+        );
+        const snapshot = prev;
+        const next = [...prev, client].sort((a, b) => a.name.localeCompare(b.name));
+
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertClient(client),
+            () => setClients(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setClients((current) =>
+                current.map((c) => (c.id === client.id ? saved : c)),
+              );
+            }
+          });
+        }
+
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const addClient = useCallback(
+    (values: ClientFormValues): Client | { ok: false; message: string } => {
+      const name = values.name.trim();
+      const key = normalizeClientName(name);
+      if (!key) {
+        return { ok: false, message: "Client name is required" };
+      }
+      if (findRegistryClientByName(clients, name)) {
+        return { ok: false, message: "A client with this name already exists" };
+      }
+
+      const client: Client = withClientRegistryContact({ id: generateId(), name }, values);
+      setClients((prev) => {
+        const snapshot = prev;
+        const next = [...prev, client].sort((a, b) => a.name.localeCompare(b.name));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertClient(client),
+            () => setClients(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setClients((current) =>
+                current.map((c) => (c.id === client.id ? saved : c)),
+              );
+            }
+          });
+        }
+        return next;
+      });
+      return client;
+    },
+    [clients, persistAsync],
+  );
+
   const addProject = useCallback(
     (values: ProjectFormValues): Project => {
+      ensureClientInRegistry(values.client_name, {
+        address: values.address,
+        phone: values.phone,
+        email: values.email,
+      });
+
       const project = projectFromFormValues(values, {
         id: generateId(),
         active: true,
@@ -566,7 +666,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
       return project;
     },
-    [projects, persistAsync],
+    [projects, persistAsync, ensureClientInRegistry],
   );
 
   const updateProject = useCallback(
@@ -600,6 +700,38 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const key = normalizeClientName(clientKey);
       if (!key) return;
 
+      const matchingProjects = projectsForClientKey(projects, key);
+      const displayName = matchingProjects[0]?.client_name?.trim();
+      if (displayName && !findRegistryClientByName(clients, displayName)) {
+        ensureClientInRegistry(displayName, contact);
+      } else {
+        setClients((prev) => {
+          const snapshot = prev;
+          const registryMatch =
+            findRegistryClientByName(prev, displayName ?? clientKey) ??
+            prev.find((c) => normalizeClientName(c.name) === key);
+          if (!registryMatch) return prev;
+
+          const updatedClient = withClientRegistryContact(registryMatch, contact);
+          const next = prev.map((c) => (c.id === registryMatch.id ? updatedClient : c));
+
+          if (repoRef.current) {
+            void persistAsync(
+              () => repoRef.current!.updateClient(updatedClient),
+              () => setClients(snapshot),
+            ).then((saved) => {
+              if (saved) {
+                setClients((current) =>
+                  current.map((c) => (c.id === registryMatch.id ? saved : c)),
+                );
+              }
+            });
+          }
+
+          return next;
+        });
+      }
+
       setProjects((prev) => {
         const snapshot = prev;
         const matching = projectsForClientKey(prev, key);
@@ -623,7 +755,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [persistAsync],
+    [projects, clients, persistAsync, ensureClientInRegistry],
   );
 
   const addProjectNote = useCallback(
@@ -1030,6 +1162,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       error,
       employees,
       projects,
+      clients,
       projectNotes,
       clientNotes,
       categories,
@@ -1057,6 +1190,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      addClient,
       updateClientContact,
       addProjectNote,
       updateProjectNote,
@@ -1082,6 +1216,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       error,
       employees,
       projects,
+      clients,
       projectNotes,
       clientNotes,
       categories,
@@ -1109,6 +1244,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      addClient,
       updateClientContact,
       addProjectNote,
       updateProjectNote,

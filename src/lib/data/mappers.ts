@@ -1,7 +1,9 @@
 import { normalizeCompanySettings } from "@/lib/team-options";
+import { normalizeClientName } from "@/lib/clients";
 import type {
   Allocation,
   AllocationCategory,
+  Client,
   CompanySettings,
   Employee,
   Project,
@@ -53,6 +55,15 @@ type ProjectNoteRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type ClientRow = {
+  id: string;
+  name: string;
+  normalized_key: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
 };
 
 type ClientNoteRow = {
@@ -172,6 +183,27 @@ export function projectNoteToRow(note: ProjectNote) {
     created_by: note.created_by ?? null,
     created_at: note.created_at,
     updated_at: note.updated_at,
+  };
+}
+
+export function mapClient(row: ClientRow): Client {
+  return {
+    id: row.id,
+    name: row.name,
+    address: row.address?.trim() || undefined,
+    phone: row.phone?.trim() || undefined,
+    email: row.email?.trim() || undefined,
+  };
+}
+
+export function clientToRow(client: Client) {
+  return {
+    id: client.id,
+    name: client.name.trim(),
+    normalized_key: normalizeClientName(client.name),
+    address: client.address?.trim() || null,
+    phone: client.phone?.trim() || null,
+    email: client.email?.trim() || null,
   };
 }
 

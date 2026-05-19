@@ -21,8 +21,8 @@ import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
 import { getDepartmentOptions } from "@/lib/team-options";
 import { PROJECT_PHASES } from "@/lib/project-options";
 import {
-  getClientContactFromProjects,
-  groupProjectsByClient,
+  clientComboboxOptions,
+  getClientContact,
   normalizeClientName,
 } from "@/lib/clients";
 import { getEmployeeFullName } from "@/lib/week";
@@ -37,7 +37,7 @@ interface ProjectFormDialogProps {
 const NO_DEPARTMENT = "__none__";
 
 export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDialogProps) {
-  const { employees, settings, projects, addProject, updateProject } = useScheduling();
+  const { employees, settings, projects, clients, addProject, updateProject } = useScheduling();
   const lastPrefilledClientKey = useRef<string | null>(null);
   const departmentOptions = [
     ...new Set([
@@ -80,16 +80,9 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
 
   const clientName = useWatch({ control: form.control, name: "client_name" });
 
-  const clientComboboxOptions = useMemo(
-    () =>
-      groupProjectsByClient(projects, { showInactive: true }).map((client) => ({
-        value: client.displayName,
-        label: client.displayName,
-        keywords: [client.address, client.phone, client.email, client.projects.length > 1 ? `${client.projects.length} projects` : ""]
-          .filter(Boolean)
-          .join(" "),
-      })),
-    [projects],
+  const clientOptions = useMemo(
+    () => clientComboboxOptions(projects, clients),
+    [projects, clients],
   );
 
   useEffect(() => {
@@ -136,7 +129,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
     }
     if (key === lastPrefilledClientKey.current) return;
 
-    const contact = getClientContactFromProjects(projects, clientName ?? "");
+    const contact = getClientContact(projects, clients, clientName ?? "");
     if (!contact) {
       lastPrefilledClientKey.current = null;
       return;
@@ -146,7 +139,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
     if (contact.address) form.setValue("address", contact.address);
     if (contact.phone) form.setValue("phone", contact.phone);
     if (contact.email) form.setValue("email", contact.email);
-  }, [open, project, clientName, projects, form]);
+  }, [open, project, clientName, projects, clients, form]);
 
   const onSubmit = form.handleSubmit((values) => {
     if (project) {
@@ -177,20 +170,21 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
                 rules={{ required: true }}
                 render={({ field }) => (
                   <SearchableCombobox
-                    options={clientComboboxOptions}
+                    options={clientOptions}
                     value={field.value ?? ""}
                     onValueChange={field.onChange}
                     placeholder="Search or type client name…"
                     searchPlaceholder="Search clients…"
                     emptyMessage="No matching clients"
+                    customOptionLabel={(query) => `Add new client "${query}"`}
                     required
                   />
                 )}
               />
-              {!project && clientComboboxOptions.length > 0 && (
+              {!project && (
                 <p className="text-xs text-muted-foreground">
-                  Search existing clients or type a new name. Contact details fill in automatically
-                  for known clients.
+                  Search existing clients or choose Add new client in the list. Contact details fill
+                  in automatically for known clients.
                 </p>
               )}
             </div>
