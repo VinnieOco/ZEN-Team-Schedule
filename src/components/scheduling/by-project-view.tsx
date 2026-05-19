@@ -10,6 +10,7 @@ import type { ScheduleCalendarView } from "@/components/scheduling/scheduling-he
 import { useFilteredProjectRows } from "@/components/scheduling/use-filtered-project-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePermissions } from "@/hooks/use-permissions";
+import { formatProjectHours } from "@/lib/project-format";
 import { formatDateKey, formatDayHeader } from "@/lib/week";
 import type { Allocation } from "@/types";
 
@@ -55,6 +56,38 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
     }
     return map;
   }, [rows, periodAllocations]);
+
+  const visibleProjectIds = useMemo(() => new Set(rows.map((p) => p.id)), [rows]);
+
+  const dayTotals = useMemo(
+    () =>
+      periodDays.map((day) => {
+        const dateKey = formatDateKey(day);
+        const dayAllocs = periodAllocations.filter(
+          (a) =>
+            a.allocation_date === dateKey &&
+            a.project_id != null &&
+            visibleProjectIds.has(a.project_id),
+        );
+        return {
+          dateKey,
+          employeeCount: new Set(dayAllocs.map((a) => a.employee_id)).size,
+          totalHours: Math.round(dayAllocs.reduce((sum, a) => sum + a.hours, 0) * 10) / 10,
+        };
+      }),
+    [periodDays, periodAllocations, visibleProjectIds],
+  );
+
+  const periodTotals = useMemo(() => {
+    const scoped = periodAllocations.filter(
+      (a) => a.project_id != null && visibleProjectIds.has(a.project_id),
+    );
+    return {
+      employeeCount: new Set(scoped.map((a) => a.employee_id)).size,
+      totalHours:
+        Math.round(scoped.reduce((sum, a) => sum + a.hours, 0) * 10) / 10,
+    };
+  }, [periodAllocations, visibleProjectIds]);
 
   if (rows.length === 0) {
     return (
@@ -141,6 +174,38 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
               );
             })}
           </tbody>
+          <tfoot>
+            <tr className="border-t-2 bg-slate-100">
+              <td className="sticky left-0 z-20 border-r bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                Totals
+              </td>
+              {dayTotals.map(({ dateKey, employeeCount, totalHours }) => (
+                <td
+                  key={dateKey}
+                  className="border-r px-2 py-2.5 text-center text-xs last:border-r-0"
+                >
+                  <p className="font-semibold text-slate-800">
+                    {employeeCount}{" "}
+                    {employeeCount === 1 ? "employee" : "employees"}
+                  </p>
+                  <p className="mt-0.5 tabular-nums text-muted-foreground">
+                    {totalHours > 0 ? `${formatProjectHours(totalHours)}h scheduled` : "—"}
+                  </p>
+                </td>
+              ))}
+              <td className="bg-slate-100 px-3 py-2.5 text-center text-xs">
+                <p className="font-semibold text-slate-800">
+                  {periodTotals.employeeCount}{" "}
+                  {periodTotals.employeeCount === 1 ? "employee" : "employees"}
+                </p>
+                <p className="mt-0.5 tabular-nums text-muted-foreground">
+                  {periodTotals.totalHours > 0
+                    ? `${formatProjectHours(periodTotals.totalHours)}h scheduled`
+                    : "—"}
+                </p>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

@@ -6,6 +6,7 @@ import { Users } from "lucide-react";
 import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatProjectHours } from "@/lib/project-format";
 import { dayAvailabilityCellClass, getEmployeeDayHours } from "@/lib/utilization";
 import {
   formatDateKey,
@@ -15,8 +16,14 @@ import {
 } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
+function roundHours(hours: number): number {
+  return Math.round(hours * 10) / 10;
+}
+
 export function AvailabilityView() {
-  const { rows, weekDays, allocations, clearFilters } = useFilteredEmployeeRows({ period: "week" });
+  const { rows, weekDays, weekAllocations, clearFilters } = useFilteredEmployeeRows({
+    period: "week",
+  });
 
   const sortedRows = useMemo(() => {
     const remainingHours = (stats: (typeof rows)[number]["stats"]) =>
@@ -24,6 +31,31 @@ export function AvailabilityView() {
       stats.scheduledHours;
     return [...rows].sort((a, b) => remainingHours(b.stats) - remainingHours(a.stats));
   }, [rows]);
+
+  const dayOpenTotals = useMemo(
+    () =>
+      weekDays.map((day) => {
+        const dateKey = formatDateKey(day);
+        const openHours = sortedRows.reduce((sum, { employee }) => {
+          const scheduled = getEmployeeDayHours(weekAllocations, employee.id, day);
+          return sum + (employee.daily_capacity_hours - scheduled);
+        }, 0);
+        return { dateKey, openHours: roundHours(openHours) };
+      }),
+    [weekDays, weekAllocations, sortedRows],
+  );
+
+  const weekOpenTotal = useMemo(
+    () =>
+      roundHours(
+        sortedRows.reduce((sum, { stats }) => {
+          const capacity =
+            "weeklyCapacity" in stats ? stats.weeklyCapacity : stats.monthlyCapacity;
+          return sum + (capacity - stats.scheduledHours);
+        }, 0),
+      ),
+    [sortedRows],
+  );
 
   if (sortedRows.length === 0) {
     return (
@@ -112,7 +144,7 @@ export function AvailabilityView() {
                     </div>
                   </td>
                   {weekDays.map((day) => {
-                    const scheduled = getEmployeeDayHours(allocations, employee.id, day);
+                    const scheduled = getEmployeeDayHours(weekAllocations, employee.id, day);
                     const cap = employee.daily_capacity_hours;
                     const remaining = Math.round((cap - scheduled) * 10) / 10;
                     return (
@@ -147,6 +179,32 @@ export function AvailabilityView() {
               );
             })}
           </tbody>
+          <tfoot>
+            <tr className="border-t-2 bg-slate-100">
+              <td className="sticky left-0 z-20 border-r bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                Totals
+              </td>
+              {dayOpenTotals.map(({ dateKey, openHours }) => (
+                <td
+                  key={dateKey}
+                  className={cn(
+                    "border-r px-2 py-2.5 text-center text-xs font-semibold tabular-nums last:border-r-0",
+                    openHours < 0 ? "text-red-600" : "text-slate-800",
+                  )}
+                >
+                  {openHours !== 0 ? `${formatProjectHours(openHours)}h open` : "—"}
+                </td>
+              ))}
+              <td
+                className={cn(
+                  "bg-slate-100 px-3 py-2.5 text-center text-xs font-semibold tabular-nums",
+                  weekOpenTotal < 0 ? "text-red-600" : "text-slate-800",
+                )}
+              >
+                {weekOpenTotal !== 0 ? `${formatProjectHours(weekOpenTotal)}h open` : "—"}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

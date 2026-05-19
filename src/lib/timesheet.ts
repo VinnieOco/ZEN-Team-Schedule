@@ -1,5 +1,7 @@
-import type { TimeEntry, TimeEntryFormValues } from "@/types";
-import { formatDateKey } from "@/lib/week";
+import { format, parseISO } from "date-fns";
+
+import type { AllocationCategory, Employee, Project, TimeEntry, TimeEntryFormValues } from "@/types";
+import { getEmployeeFullName } from "@/lib/week";
 
 export const TIMESHEET_HOUR_STEP = 0.25;
 
@@ -173,6 +175,96 @@ export function getTimesheetLineLabel(
   if (!row.project_id) return "—";
   const project = getProjectName(row.project_id);
   return project ? `${project.client_name} · ${project.project_name}` : "—";
+}
+
+function dateSearchTokens(dateKey: string): string[] {
+  try {
+    const date = parseISO(dateKey);
+    return [
+      dateKey,
+      format(date, "M/d/yyyy"),
+      format(date, "MMM d"),
+      format(date, "EEE M/d"),
+      format(date, "EEEE"),
+    ];
+  } catch {
+    return [dateKey];
+  }
+}
+
+export function timesheetRowMatchesSearch(
+  row: TimesheetRow,
+  weekDateKeys: string[],
+  query: string,
+  getProjectById: (id: string) => Project | undefined,
+  getCategoryById: (id: string) => AllocationCategory | undefined,
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const jobLabel = getTimesheetLineLabel(row, (id) => {
+    const project = getProjectById(id);
+    return project
+      ? { client_name: project.client_name, project_name: project.project_name }
+      : undefined;
+  });
+  const category = getCategoryById(row.allocation_category_id);
+  const activeDateKeys = weekDateKeys.filter((dateKey) => (row.hoursByDay[dateKey] ?? 0) > 0);
+  const dateText = activeDateKeys.flatMap(dateSearchTokens).join(" ");
+
+  const haystack = [
+    jobLabel,
+    row.task_name,
+    category?.name,
+    row.notes,
+    row.class_code,
+    row.phase,
+    dateText,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(q);
+}
+
+export interface TimesheetWithEmployee {
+  employee: Employee;
+  rows: TimesheetRow[];
+}
+
+/** Filter weekly timesheets by employee name/role or line fields (job, class, project, date, notes). */
+export function filterTimesheetsBySearch<T extends TimesheetWithEmployee>(
+  timesheets: T[],
+  query: string,
+  weekDateKeys: string[],
+  getProjectById: (id: string) => Project | undefined,
+  getCategoryById: (id: string) => AllocationCategory | undefined,
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return timesheets;
+
+  return timesheets
+    .map((timesheet) => {
+      const employeeHaystack = [
+        getEmployeeFullName(timesheet.employee),
+        timesheet.employee.role,
+        timesheet.employee.email,
+        timesheet.employee.department,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchingRows = timesheet.rows.filter((row) =>
+        timesheetRowMatchesSearch(row, weekDateKeys, q, getProjectById, getCategoryById),
+      );
+
+      if (employeeHaystack.includes(q)) return timesheet;
+      if (matchingRows.length > 0) return { ...timesheet, rows: matchingRows };
+      return null;
+    })
+    .filter((timesheet): timesheet is T => timesheet != null);
 }
 
 /** Parse and snap hours to 0.25 increments. */

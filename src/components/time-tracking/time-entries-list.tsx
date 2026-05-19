@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Clock, Pencil, Trash2 } from "lucide-react";
+import { Clock, Pencil, Search, Trash2 } from "lucide-react";
 
 import { WeeklyTimesheetDialog } from "@/components/time-tracking/weekly-timesheet-dialog";
 import { useFilteredTimeTrackingRows } from "@/components/time-tracking/use-filtered-time-tracking-rows";
@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatProjectHours } from "@/lib/project-format";
 import {
   buildEmployeeTimesheetSummaries,
+  filterTimesheetsBySearch,
   getTimesheetLineLabel,
   rowTotalHours,
 } from "@/lib/timesheet";
@@ -22,11 +24,18 @@ import { formatDateKey, formatWeekRange, getEmployeeFullName, getWeekDays } from
 export function TimeEntriesList() {
   const { getProjectById, getCategoryById, getEmployeeById, deleteTimeEntry, settings, selectedWeekStart } =
     useScheduling();
-  const { canEditEntry, canLogTime } = usePermissions();
-  const { weekTimeEntries, clearFilters } = useFilteredTimeTrackingRows();
+  const { canEditEntry, canLogTime, permissions, linkedEmployeeId } = usePermissions();
+  const { weekTimeEntries } = useFilteredTimeTrackingRows();
 
   const [editEmployeeId, setEditEmployeeId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [entriesSearch, setEntriesSearch] = useState("");
+
+  const scopedWeekEntries = useMemo(() => {
+    if (permissions.logTimeForAnyone) return weekTimeEntries;
+    if (!linkedEmployeeId) return [];
+    return weekTimeEntries.filter((e) => e.employee_id === linkedEmployeeId);
+  }, [weekTimeEntries, permissions.logTimeForAnyone, linkedEmployeeId]);
 
   const weekDays = useMemo(
     () => getWeekDays(selectedWeekStart, settings),
@@ -35,15 +44,33 @@ export function TimeEntriesList() {
   const weekDateKeys = useMemo(() => weekDays.map(formatDateKey), [weekDays]);
 
   const timesheets = useMemo(() => {
-    const summaries = buildEmployeeTimesheetSummaries(weekTimeEntries, weekDateKeys);
-    return summaries
+    const summaries = buildEmployeeTimesheetSummaries(scopedWeekEntries, weekDateKeys);
+    const withEmployees = summaries
       .map((summary) => {
         const employee = getEmployeeById(summary.employeeId);
         return employee ? { ...summary, employee } : null;
       })
       .filter((t): t is NonNullable<typeof t> => t != null)
       .sort((a, b) => getEmployeeFullName(a.employee).localeCompare(getEmployeeFullName(b.employee)));
-  }, [weekTimeEntries, weekDateKeys, getEmployeeById]);
+
+    if (!permissions.logTimeForAnyone) return withEmployees;
+
+    return filterTimesheetsBySearch(
+      withEmployees,
+      entriesSearch,
+      weekDateKeys,
+      getProjectById,
+      getCategoryById,
+    );
+  }, [
+    scopedWeekEntries,
+    weekDateKeys,
+    getEmployeeById,
+    permissions.logTimeForAnyone,
+    entriesSearch,
+    getProjectById,
+    getCategoryById,
+  ]);
 
   const weekLabel = formatWeekRange(selectedWeekStart, settings);
 
@@ -72,14 +99,30 @@ export function TimeEntriesList() {
   };
 
   if (timesheets.length === 0) {
+    const hasEntriesSearch = permissions.logTimeForAnyone && entriesSearch.trim().length > 0;
     return (
       <>
+        {permissions.logTimeForAnyone && (
+          <div className="relative mb-4 max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search name, job, class, project, date, notes…"
+              value={entriesSearch}
+              onChange={(e) => setEntriesSearch(e.target.value)}
+            />
+          </div>
+        )}
         <EmptyState
           icon={Clock}
-          title="No timesheets match your filters"
-          description="Try another search or clear filters to see time logged this week."
-          actionLabel="Clear filters"
-          onAction={clearFilters}
+          title={hasEntriesSearch ? "No entries match your search" : "No timesheets this week"}
+          description={
+            hasEntriesSearch
+              ? "Try a different name, project, date, or note."
+              : "No time has been logged for this week yet."
+          }
+          actionLabel={hasEntriesSearch ? "Clear search" : undefined}
+          onAction={hasEntriesSearch ? () => setEntriesSearch("") : undefined}
         />
         <WeeklyTimesheetDialog
           open={dialogOpen}
@@ -92,6 +135,17 @@ export function TimeEntriesList() {
 
   return (
     <>
+      {permissions.logTimeForAnyone && (
+        <div className="relative mb-4 max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search name, job, class, project, date, notes…"
+            value={entriesSearch}
+            onChange={(e) => setEntriesSearch(e.target.value)}
+          />
+        </div>
+      )}
       <p className="mb-3 text-sm text-muted-foreground">
         Time is grouped by weekly timesheet ({weekLabel}). Select <span className="font-medium">Edit timesheet</span> to change the full week at once.
       </p>

@@ -1,13 +1,17 @@
 "use client";
 
+import { useMemo } from "react";
 import { Users } from "lucide-react";
 
 import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatProjectHours } from "@/lib/project-format";
 import {
   dayWorkloadCellClass,
+  getDayScheduleTotals,
   getEmployeeDayHours,
+  getPeriodScheduleTotals,
   utilizationStatusBg,
   utilizationStatusColor,
 } from "@/lib/utilization";
@@ -20,10 +24,29 @@ import {
 import { cn } from "@/lib/utils";
 
 export function WorkloadView() {
-  const { rows, weekDays, allocations, clearFilters } = useFilteredEmployeeRows({
+  const { rows, weekDays, allocations, weekAllocations, clearFilters } = useFilteredEmployeeRows({
     period: "week",
     sortByUtilization: true,
   });
+
+  const visibleEmployeeIds = useMemo(() => rows.map((r) => r.employee.id), [rows]);
+
+  const dayTotals = useMemo(
+    () =>
+      weekDays.map((day) => {
+        const dateKey = formatDateKey(day);
+        return {
+          dateKey,
+          ...getDayScheduleTotals(visibleEmployeeIds, weekAllocations, dateKey),
+        };
+      }),
+    [weekDays, weekAllocations, visibleEmployeeIds],
+  );
+
+  const weekTotals = useMemo(
+    () => getPeriodScheduleTotals(visibleEmployeeIds, weekAllocations),
+    [visibleEmployeeIds, weekAllocations],
+  );
 
   if (rows.length === 0) {
     return (
@@ -155,6 +178,24 @@ export function WorkloadView() {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr className="border-t-2 bg-slate-100">
+              <td className="sticky left-0 z-20 border-r bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                Totals
+              </td>
+              {dayTotals.map(({ dateKey, totalHours }) => (
+                <td
+                  key={dateKey}
+                  className="border-r px-2 py-2.5 text-center text-xs font-semibold tabular-nums text-slate-800 last:border-r-0"
+                >
+                  {totalHours > 0 ? `${formatProjectHours(totalHours)}h` : "—"}
+                </td>
+              ))}
+              <td className="bg-slate-100 px-3 py-2.5 text-center text-xs font-semibold tabular-nums text-slate-800">
+                {weekTotals.totalHours > 0 ? `${formatProjectHours(weekTotals.totalHours)}h` : "—"}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 

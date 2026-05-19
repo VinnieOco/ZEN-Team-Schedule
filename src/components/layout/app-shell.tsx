@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -8,8 +8,38 @@ import { ZenLogo } from "@/components/layout/zen-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const SIDEBAR_COLLAPSED_KEY = "zen-sidebar-collapsed";
+
+function readSidebarCollapsed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarReady, setSidebarReady] = useState(false);
+
+  useEffect(() => {
+    setSidebarCollapsed(readSidebarCollapsed());
+    setSidebarReady(true);
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -26,8 +56,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-white">
-      <div className="hidden lg:flex print:hidden">
-        <AppSidebar />
+      <div
+        className={cn(
+          "hidden shrink-0 lg:flex print:hidden",
+          sidebarReady && "transition-[width] duration-200 ease-out",
+          sidebarCollapsed ? "w-16" : "w-64",
+        )}
+      >
+        <AppSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapsed}
+          showCollapseToggle
+        />
       </div>
 
       {mobileNavOpen && (
