@@ -102,6 +102,8 @@ export interface TimeEntry {
   phase?: string;
   task_name?: string;
   notes?: string;
+  /** Time-tracking class code (configured in Settings). */
+  class_code?: string;
 }
 
 export interface CompanySettings {
@@ -114,6 +116,8 @@ export interface CompanySettings {
   job_roles: string[];
   /** Configurable departments for schedule team members. */
   departments: string[];
+  /** Class codes for log-time timesheets. */
+  class_codes: string[];
 }
 
 export interface EmployeeWeekStats {
@@ -172,6 +176,7 @@ export interface TimeEntryFormValues {
   is_billable: boolean;
   phase?: string;
   notes?: string;
+  class_code?: string;
 }
 
 export interface EmployeeWeekTimeStats {

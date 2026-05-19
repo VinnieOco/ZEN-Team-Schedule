@@ -165,6 +165,7 @@ function buildTimeEntry(values: TimeEntryFormValues, id?: string): TimeEntry {
     phase: values.phase,
     task_name: values.task_name || undefined,
     notes: values.notes,
+    class_code: values.class_code?.trim() || undefined,
   };
 }
 

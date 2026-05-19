@@ -72,7 +72,9 @@ export function SearchableSelect({
     top: number;
     left: number;
     width: number;
+    position: "fixed" | "absolute";
   } | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -87,13 +89,30 @@ export function SearchableSelect({
   const filtered = useMemo(() => filterOptions(options, query), [options, query]);
 
   const updatePanelPosition = useCallback(() => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setPanelRect({
-      top: rect.bottom + 4,
-      left: rect.left,
-      width: Math.max(rect.width, minPanelWidth),
-    });
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const dialog = trigger.closest('[role="dialog"]') as HTMLElement | null;
+
+    if (dialog) {
+      const dialogRect = dialog.getBoundingClientRect();
+      setPortalContainer(dialog);
+      setPanelRect({
+        position: "absolute",
+        top: triggerRect.bottom - dialogRect.top + 4,
+        left: triggerRect.left - dialogRect.left,
+        width: Math.max(triggerRect.width, minPanelWidth),
+      });
+    } else {
+      setPortalContainer(null);
+      setPanelRect({
+        position: "fixed",
+        top: triggerRect.bottom + 4,
+        left: triggerRect.left,
+        width: Math.max(triggerRect.width, minPanelWidth),
+      });
+    }
   }, [minPanelWidth]);
 
   useEffect(() => {
@@ -126,6 +145,7 @@ export function SearchableSelect({
     } else {
       setQuery("");
       setPanelRect(null);
+      setPortalContainer(null);
     }
   }, [open]);
 
@@ -140,13 +160,13 @@ export function SearchableSelect({
           <div
             ref={panelRef}
             style={{
-              position: "fixed",
+              position: panelRect.position,
               top: panelRect.top,
               left: panelRect.left,
               width: panelRect.width,
               zIndex: 10000,
             }}
-            className="rounded-md border bg-white shadow-md"
+            className="pointer-events-auto rounded-md border bg-white shadow-md"
           >
             <div className="border-b p-2">
               <div className="relative">
@@ -203,7 +223,7 @@ export function SearchableSelect({
               )}
             </ul>
           </div>,
-          document.body,
+          portalContainer ?? document.body,
         )
       : null;
 

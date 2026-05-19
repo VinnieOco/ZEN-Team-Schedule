@@ -12,6 +12,7 @@ import { CategorySearchSelect } from "@/components/time-tracking/category-search
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatProjectHours } from "@/lib/project-format";
+import { getClassCodeOptions, resolveClassCodes } from "@/lib/time-class-options";
 import {
   createEmptyTimesheetRow,
   dayTotalHours,
@@ -98,7 +99,10 @@ export function WeeklyTimesheet({
     !editMode && !permissions.logTimeForAnyone && linkedEmployeeId != null;
   const canEdit = employeeId ? canEditEntry(employeeId) : false;
 
+  /** Saved rows are read-only on the log-timesheet screen; edit mode unlocks all fields. */
   const isRowLocked = (row: TimesheetRow) => !editMode && isTimesheetRowLocked(row);
+  const canEditRowMetadata = (row: TimesheetRow) => canEdit && (editMode || !isTimesheetRowLocked(row));
+  const canEditRowHours = (row: TimesheetRow) => canEdit && !isRowLocked(row);
 
   const weekEntries = useMemo(() => {
     const forWeek = filterTimeEntriesForWeek(timeEntries, selectedWeekStart, settings);
@@ -125,7 +129,9 @@ export function WeeklyTimesheet({
 
   const updateRow = (rowKey: string, patch: Partial<TimesheetRow>) => {
     const row = rows.find((r) => r.key === rowKey);
-    if (row && isRowLocked(row)) return;
+    if (!row) return;
+    const metadataOnly = !("hoursByDay" in patch) && !("entryIdsByDay" in patch);
+    if (metadataOnly ? !canEditRowMetadata(row) : isRowLocked(row)) return;
     setRows((prev) =>
       prev.map((r) => (r.key === rowKey ? { ...r, ...patch, key: r.key } : r)),
     );
@@ -150,12 +156,15 @@ export function WeeklyTimesheet({
     setCellHours(rowKey, dateKey, value);
   };
 
+  const defaultRowClassCode = resolveClassCodes(settings)[0] ?? "";
+
   const addRow = () => {
     setRows((prev) => [
       ...prev,
       createEmptyTimesheetRow(weekDateKeys, {
         allocation_category_id: "",
         is_billable: true,
+        class_code: defaultRowClassCode,
       }),
     ]);
     setSaveMessage(null);
@@ -180,7 +189,7 @@ export function WeeklyTimesheet({
 
     try {
       for (const row of rows) {
-        if (isRowLocked(row)) continue;
+        if (!editMode && isRowLocked(row)) continue;
 
         const hasHours = weekDateKeys.some((d) => (row.hoursByDay[d] ?? 0) > 0);
 
@@ -197,6 +206,11 @@ export function WeeklyTimesheet({
         }
         if (!row.allocation_category_id) {
           setSaveMessage("Select a category for each line with hours.");
+          setSaving(false);
+          return;
+        }
+        if (!row.class_code?.trim()) {
+          setSaveMessage("Select a class for each line with hours.");
           setSaving(false);
           return;
         }
@@ -253,18 +267,34 @@ export function WeeklyTimesheet({
     [activeEmployees],
   );
 
-  const jobSelectOptions = useMemo(
-    () => [
-      { value: UNSELECTED_PROJECT, label: "Select job…" },
-      ...activeProjects.map((p) => ({
+  const classSelectOptions = useMemo(() => {
+    const codes = getClassCodeOptions(
+      settings,
+      rows.map((r) => r.class_code?.trim() ?? "").filter(Boolean),
+    );
+    return codes.map((code) => ({ value: code, label: code }));
+  }, [settings, rows]);
+
+  const jobSelectOptions = useMemo(() => {
+    const activeIds = new Set(activeProjects.map((p) => p.id));
+    const inactiveFromRows = rows
+      .map((r) => (r.project_id && !activeIds.has(r.project_id) ? getProjectById(r.project_id) : null))
+      .filter((p): p is NonNullable<typeof p> => p != null);
+
+    const projectOptions = [...activeProjects, ...inactiveFromRows]
+      .sort((a, b) => a.project_name.localeCompare(b.project_name))
+      .map((p) => ({
         value: p.id,
-        label: `${p.client_name} · ${p.project_name}`,
+        label: `${p.client_name} · ${p.project_name}${!p.active ? " (inactive)" : ""}`,
         keywords: [p.client_name, p.project_name, p.project_number].filter(Boolean).join(" "),
-      })),
+      }));
+
+    return [
+      { value: UNSELECTED_PROJECT, label: "Select job…" },
+      ...projectOptions,
       { value: TASK_PROJECT_VALUE, label: "Non-project time" },
-    ],
-    [activeProjects],
-  );
+    ];
+  }, [activeProjects, rows, getProjectById]);
 
   if (!employeeId || activeEmployees.length === 0) {
     return (
@@ -373,7 +403,7 @@ export function WeeklyTimesheet({
       )}
 
       <div className="schedule-scroll relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="w-full min-w-[900px] border-collapse text-sm">
+        <table className="w-full min-w-[1020px] border-collapse text-sm">
           <thead>
             <tr className="border-b bg-slate-50">
               <th className="sticky left-0 z-20 min-w-[200px] border-r bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -384,6 +414,9 @@ export function WeeklyTimesheet({
               </th>
               <th className="min-w-[120px] border-r px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Notes
+              </th>
+              <th className="min-w-[100px] border-r px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Class
               </th>
               {weekDays.map((day) => (
                 <th
@@ -406,7 +439,7 @@ export function WeeklyTimesheet({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={weekDays.length + 5 + (canEdit ? 1 : 0)}
+                  colSpan={weekDays.length + 6 + (canEdit ? 1 : 0)}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
                   No time logged this week. Add a line to start your timesheet.
@@ -416,7 +449,8 @@ export function WeeklyTimesheet({
               rows.map((row) => {
                 const rowTotal = rowTotalHours(row, weekDateKeys);
                 const locked = isRowLocked(row);
-                const rowEditable = canEdit && !locked;
+                const metadataEditable = canEditRowMetadata(row);
+                const hoursEditable = canEditRowHours(row);
                 const project = row.project_id ? getProjectById(row.project_id) : null;
                 const category = getCategoryById(row.allocation_category_id);
                 const jobLabel = row.is_non_project
@@ -441,14 +475,14 @@ export function WeeklyTimesheet({
                         locked ? "bg-slate-100" : "bg-white",
                       )}
                     >
-                      {locked ? (
+                      {!metadataEditable ? (
                         <p className="text-xs font-medium leading-snug">{jobLabel}</p>
                       ) : (
                         <>
                       <SearchableSelect
                         options={jobSelectOptions}
                         value={rowJobSelectValue(row)}
-                        disabled={!rowEditable}
+                        disabled={!metadataEditable}
                         size="sm"
                         placeholder="Select job"
                         searchPlaceholder="Search jobs…"
@@ -480,7 +514,7 @@ export function WeeklyTimesheet({
                           className="mt-1 h-8 text-xs"
                           placeholder="Task (PTO, Admin…)"
                           value={row.task_name}
-                          disabled={!rowEditable}
+                          disabled={!metadataEditable}
                           onChange={(e) =>
                             updateRow(row.key, {
                               task_name: e.target.value,
@@ -494,13 +528,13 @@ export function WeeklyTimesheet({
                       )}
                     </td>
                     <td className="border-r px-2 py-2">
-                      {locked ? (
+                      {!metadataEditable ? (
                         <p className="text-xs">{category?.name ?? "—"}</p>
                       ) : (
                       <CategorySearchSelect
                         categories={categories}
                         value={row.allocation_category_id}
-                        disabled={!rowEditable}
+                        disabled={!metadataEditable}
                         onValueChange={(v) => {
                           const cat = getCategoryById(v);
                           updateRow(row.key, {
@@ -512,21 +546,41 @@ export function WeeklyTimesheet({
                       )}
                     </td>
                     <td className="border-r px-2 py-2">
-                      {locked ? (
+                      {!metadataEditable ? (
                         <p className="text-xs text-muted-foreground">{row.notes?.trim() || "—"}</p>
                       ) : (
                         <Input
                           className="h-8 text-xs"
                           placeholder="Notes"
                           value={row.notes ?? ""}
-                          disabled={!rowEditable}
+                          disabled={!metadataEditable}
                           onChange={(e) => updateRow(row.key, { notes: e.target.value })}
+                        />
+                      )}
+                    </td>
+                    <td className="border-r px-2 py-2">
+                      {!metadataEditable ? (
+                        <p className="text-xs font-medium">{row.class_code?.trim() || "—"}</p>
+                      ) : classSelectOptions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Add class codes in Settings.
+                        </p>
+                      ) : (
+                        <SearchableSelect
+                          options={classSelectOptions}
+                          value={row.class_code?.trim() ?? ""}
+                          disabled={!metadataEditable}
+                          size="sm"
+                          placeholder="Select class"
+                          searchPlaceholder="Search class codes…"
+                          emptyMessage="No class codes found"
+                          onValueChange={(v) => updateRow(row.key, { class_code: v })}
                         />
                       )}
                     </td>
                     {weekDateKeys.map((dateKey) => (
                       <td key={dateKey} className="border-r px-1 py-2 last:border-r-0">
-                        {locked ? (
+                        {!hoursEditable ? (
                           <p className="text-center text-xs font-medium tabular-nums">
                             {row.hoursByDay[dateKey]
                               ? formatProjectHours(row.hoursByDay[dateKey])
@@ -544,7 +598,7 @@ export function WeeklyTimesheet({
                                 ? String(row.hoursByDay[dateKey])
                                 : ""
                             }
-                            disabled={!rowEditable}
+                            disabled={!hoursEditable}
                             onChange={(e) => setCellHours(row.key, dateKey, e.target.value)}
                             onBlur={(e) => commitCellHours(row.key, dateKey, e.target.value)}
                           />
@@ -565,12 +619,12 @@ export function WeeklyTimesheet({
                         locked ? "bg-slate-100" : "bg-slate-50/50",
                       )}
                     >
-                      {locked ? (
+                      {!metadataEditable ? (
                         <span className="text-xs">{row.is_billable ? "Yes" : "No"}</span>
                       ) : (
                         <Switch
                           checked={row.is_billable}
-                          disabled={!rowEditable}
+                          disabled={!metadataEditable}
                           onCheckedChange={(v) => updateRow(row.key, { is_billable: v })}
                           aria-label="Billable"
                         />
@@ -600,7 +654,7 @@ export function WeeklyTimesheet({
           <tfoot>
             <tr className="border-t-2 bg-slate-100">
               <td
-                colSpan={3}
+                colSpan={4}
                 className="sticky left-0 z-10 border-r bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]"
               >
                 Totals

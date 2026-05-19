@@ -8,7 +8,8 @@ insert into public.company_settings (
   workweek_start_day,
   include_weekends,
   job_roles,
-  departments
+  departments,
+  class_codes
 )
 values (
   '00000000-0000-0000-0000-000000000001',
@@ -26,7 +27,8 @@ values (
     "Estimator",
     "Construction PM"
   ]'::jsonb,
-  '["Design", "Estimating"]'::jsonb
+  '["Design", "Estimating"]'::jsonb,
+  '[]'::jsonb
 )
 on conflict (id) do update set
   default_daily_capacity = excluded.default_daily_capacity,
@@ -34,7 +36,8 @@ on conflict (id) do update set
   workweek_start_day = excluded.workweek_start_day,
   include_weekends = excluded.include_weekends,
   job_roles = excluded.job_roles,
-  departments = excluded.departments;
+  departments = excluded.departments,
+  class_codes = excluded.class_codes;
 
 insert into public.employees (id, first_name, last_name, role, email, weekly_capacity_hours, daily_capacity_hours, department, active) values
   ('11111111-1111-1111-1111-111111111101', 'Haipeng', 'Zhu', 'Senior Landscape Designer', 'haipeng@zenlandscape.com', 40, 8, 'Design', true),

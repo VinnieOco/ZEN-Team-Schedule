@@ -13,6 +13,7 @@ export interface TimesheetRow {
   is_billable: boolean;
   phase?: string;
   notes?: string;
+  class_code?: string;
   hoursByDay: Record<string, number>;
   entryIdsByDay: Record<string, string | undefined>;
 }
@@ -22,9 +23,11 @@ export function timesheetRowKey(parts: {
   task_name: string;
   allocation_category_id: string;
   is_billable: boolean;
+  class_code?: string;
 }): string {
   const projectPart = parts.project_id ?? `task:${parts.task_name.trim().toLowerCase()}`;
-  return `${projectPart}:${parts.allocation_category_id}:${parts.is_billable ? "1" : "0"}`;
+  const classPart = (parts.class_code ?? "").trim().toLowerCase();
+  return `${projectPart}:${parts.allocation_category_id}:${parts.is_billable ? "1" : "0"}:${classPart}`;
 }
 
 export function entriesToTimesheetRows(
@@ -39,6 +42,7 @@ export function entriesToTimesheetRows(
       task_name: entry.task_name ?? "",
       allocation_category_id: entry.allocation_category_id,
       is_billable: entry.is_billable,
+      class_code: entry.class_code,
     });
 
     let row = map.get(key);
@@ -52,6 +56,7 @@ export function entriesToTimesheetRows(
         is_billable: entry.is_billable,
         phase: entry.phase,
         notes: entry.notes,
+        class_code: entry.class_code,
         hoursByDay: Object.fromEntries(weekDateKeys.map((d) => [d, 0])),
         entryIdsByDay: Object.fromEntries(weekDateKeys.map((d) => [d, undefined])),
       };
@@ -60,6 +65,7 @@ export function entriesToTimesheetRows(
 
     if (entry.notes && !row.notes) row.notes = entry.notes;
     if (entry.phase && !row.phase) row.phase = entry.phase;
+    if (entry.class_code && !row.class_code) row.class_code = entry.class_code;
 
     row.hoursByDay[entry.entry_date] = entry.hours;
     row.entryIdsByDay[entry.entry_date] = entry.id;
@@ -77,6 +83,7 @@ export function createEmptyTimesheetRow(
   defaults: {
     allocation_category_id: string;
     is_billable: boolean;
+    class_code?: string;
   },
 ): TimesheetRow {
   const key = `new-${crypto.randomUUID()}`;
@@ -88,6 +95,7 @@ export function createEmptyTimesheetRow(
     allocation_category_id: defaults.allocation_category_id,
     is_billable: defaults.is_billable,
     notes: "",
+    class_code: defaults.class_code ?? "",
     hoursByDay: Object.fromEntries(weekDateKeys.map((d) => [d, 0])),
     entryIdsByDay: Object.fromEntries(weekDateKeys.map((d) => [d, undefined])),
   };
@@ -126,6 +134,7 @@ export function rowToFormValues(
     is_billable: row.is_billable,
     phase: row.phase,
     notes: row.notes,
+    class_code: row.class_code?.trim() || undefined,
   };
 }
 

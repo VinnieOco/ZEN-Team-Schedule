@@ -139,6 +139,7 @@ export function TimeEntriesList() {
                         <th className="px-3 py-2 font-medium">Job</th>
                         <th className="px-3 py-2 font-medium">Category</th>
                         <th className="hidden px-3 py-2 font-medium sm:table-cell">Notes</th>
+                        <th className="hidden px-3 py-2 font-medium md:table-cell">Class</th>
                         <th className="px-3 py-2 text-right font-medium">Hours</th>
                       </tr>
                     </thead>
@@ -167,6 +168,9 @@ export function TimeEntriesList() {
                             </td>
                             <td className="hidden max-w-[200px] truncate px-3 py-2 text-muted-foreground sm:table-cell">
                               {row.notes?.trim() || "—"}
+                            </td>
+                            <td className="hidden px-3 py-2 font-medium text-muted-foreground md:table-cell">
+                              {row.class_code?.trim() || "—"}
                             </td>
                             <td className="px-3 py-2 text-right font-semibold tabular-nums">
                               {formatProjectHours(lineTotal)}h

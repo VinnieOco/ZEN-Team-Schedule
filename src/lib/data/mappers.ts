@@ -86,6 +86,7 @@ type TimeEntryRow = {
   phase: string | null;
   task_name: string | null;
   notes: string | null;
+  class_code: string | null;
 };
 
 type SettingsRow = {
@@ -96,6 +97,7 @@ type SettingsRow = {
   include_weekends: boolean;
   job_roles?: string[] | null;
   departments?: string[] | null;
+  class_codes?: string[] | null;
 };
 
 export function mapEmployee(row: EmployeeRow): Employee {
@@ -200,6 +202,7 @@ export function mapTimeEntry(row: TimeEntryRow): TimeEntry {
     phase: row.phase ?? undefined,
     task_name: row.task_name ?? undefined,
     notes: row.notes ?? undefined,
+    class_code: row.class_code?.trim() || undefined,
   };
 }
 
@@ -212,6 +215,7 @@ export function mapSettings(row: SettingsRow): CompanySettings {
     include_weekends: row.include_weekends,
     job_roles: Array.isArray(row.job_roles) ? row.job_roles.map(String) : [],
     departments: Array.isArray(row.departments) ? row.departments.map(String) : [],
+    class_codes: Array.isArray(row.class_codes) ? row.class_codes.map(String) : [],
   });
 }
 
@@ -292,6 +296,7 @@ export function timeEntryToRow(entry: TimeEntry) {
     phase: entry.phase ?? null,
     task_name: entry.task_name ?? null,
     notes: entry.notes ?? null,
+    class_code: entry.class_code?.trim() || null,
   };
 }
 
@@ -305,5 +310,6 @@ export function settingsToRow(settings: CompanySettings) {
     include_weekends: normalized.include_weekends,
     job_roles: normalized.job_roles,
     departments: normalized.departments,
+    class_codes: normalized.class_codes,
   };
 }

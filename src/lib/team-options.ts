@@ -1,4 +1,5 @@
 import { listDepartmentsFromEmployees } from "@/lib/departments";
+import { resolveClassCodes } from "@/lib/time-class-options";
 import type { CompanySettings, Employee } from "@/types";
 import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES } from "@/types";
 
@@ -62,5 +63,6 @@ export function normalizeCompanySettings(settings: CompanySettings): CompanySett
     ...settings,
     job_roles: resolveJobRoles(settings),
     departments: resolveDepartments(settings),
+    class_codes: resolveClassCodes(settings),
   };
 }

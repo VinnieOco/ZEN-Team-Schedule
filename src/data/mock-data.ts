@@ -19,6 +19,7 @@ export const companySettings: CompanySettings = {
   include_weekends: false,
   job_roles: [...DEFAULT_JOB_ROLES],
   departments: [...DEFAULT_DEPARTMENTS],
+  class_codes: [],
 };
 
 export const employees: Employee[] = [

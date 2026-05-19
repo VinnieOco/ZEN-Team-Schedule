@@ -12,6 +12,7 @@ import { TeamAccessCard } from "@/components/settings/team-access-card";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
 import { CategoriesCard } from "@/components/settings/categories-card";
 import { TeamOptionsCard } from "@/components/settings/team-options-card";
+import { TimeClassCodesCard } from "@/components/settings/time-class-codes-card";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -88,6 +89,9 @@ export default function SettingsPage() {
       </Card>
 
       <CategoriesCard canEdit={permissions.editCompanySettings} />
+      {permissions.editCompanySettings && (
+        <TimeClassCodesCard canEdit={permissions.editCompanySettings} />
+      )}
       {permissions.manageTeamOptions && <TeamOptionsCard canEdit={permissions.manageTeamOptions} />}
       {permissions.manageTeamMembers && (
         <TeamMembersCard canEdit={permissions.manageTeamMembers} />
