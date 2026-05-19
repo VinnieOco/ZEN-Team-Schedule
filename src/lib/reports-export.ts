@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 import { downloadCsv, rowsToCsv } from "@/lib/csv-export";
 import {
@@ -22,6 +22,7 @@ import type {
   CompanySettings,
   Employee,
   Project,
+  ProjectNote,
   TimeEntry,
 } from "@/types";
 
@@ -36,6 +37,7 @@ export interface ReportsExportContext {
   categories: AllocationCategory[];
   allocations: Allocation[];
   timeEntries: TimeEntry[];
+  projectNotes: ProjectNote[];
   getEmployeeById: (id: string) => Employee | undefined;
   getProjectById: (id: string) => Project | undefined;
   getCategoryById: (id: string) => AllocationCategory | undefined;
@@ -65,6 +67,31 @@ function periodAllocations(ctx: ReportsExportContext): Allocation[] {
     getWeekStart(ctx.periodStart, ctx.settings),
     ctx.settings,
   );
+}
+
+const RECENT_PROJECT_NOTES = 3;
+
+function noteCreatedAtMs(note: ProjectNote): number {
+  return new Date(note.created_at).getTime();
+}
+
+function recentProjectNotes(
+  notes: ProjectNote[],
+  projectId: string,
+  limit = RECENT_PROJECT_NOTES,
+): ProjectNote[] {
+  return notes
+    .filter((n) => n.project_id === projectId)
+    .sort((a, b) => noteCreatedAtMs(b) - noteCreatedAtMs(a))
+    .slice(0, limit);
+}
+
+function formatNoteExportDate(iso: string): string {
+  try {
+    return format(parseISO(iso), "yyyy-MM-dd");
+  } catch {
+    return iso;
+  }
 }
 
 function periodTimeEntries(ctx: ReportsExportContext): TimeEntry[] {
@@ -245,6 +272,42 @@ export function exportAllocationsDetailCsv(ctx: ReportsExportContext): void {
   downloadCsv(`allocations_${periodFileSuffix(ctx)}.csv`, csv);
 }
 
+export function exportProjectTeamNotesCsv(ctx: ReportsExportContext): void {
+  const sortedProjects = [...ctx.projects].sort((a, b) => {
+    const client = a.client_name.localeCompare(b.client_name);
+    if (client !== 0) return client;
+    return a.project_name.localeCompare(b.project_name);
+  });
+
+  const noteHeaders = Array.from({ length: RECENT_PROJECT_NOTES }, (_, i) => {
+    const n = i + 1;
+    return [`Note ${n} date`, `Note ${n}`];
+  }).flat();
+
+  const rows = sortedProjects.map((project) => {
+    const notes = recentProjectNotes(ctx.projectNotes, project.id);
+    const noteCells = Array.from({ length: RECENT_PROJECT_NOTES }, (_, i) => {
+      const note = notes[i];
+      if (!note) return ["", ""];
+      return [formatNoteExportDate(note.created_at), note.body.trim()];
+    }).flat();
+
+    return [
+      project.project_name,
+      project.client_name,
+      project.department?.trim() ?? "",
+      project.active ? "Yes" : "No",
+      ...noteCells,
+    ];
+  });
+
+  const csv = rowsToCsv(
+    ["Project", "Client", "Department", "Active", ...noteHeaders],
+    rows,
+  );
+  downloadCsv(`project-team-notes_${format(new Date(), "yyyy-MM-dd")}.csv`, csv);
+}
+
 export function exportTimeEntriesDetailCsv(ctx: ReportsExportContext): void {
   const entries = periodTimeEntries(ctx).sort((a, b) => a.entry_date.localeCompare(b.entry_date));
   const rows = entries.map((e) => {
@@ -283,6 +346,7 @@ export function exportAllReportsCsv(ctx: ReportsExportContext): void {
   exportTeamUtilizationCsv(ctx);
   exportProjectBudgetCsv(ctx);
   exportScheduledVsActualCsv(ctx);
+  exportProjectTeamNotesCsv(ctx);
   exportAllocationsDetailCsv(ctx);
   exportTimeEntriesDetailCsv(ctx);
 }

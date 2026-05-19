@@ -16,6 +16,7 @@ import {
   exportAllReportsCsv,
   exportAllocationsDetailCsv,
   exportProjectBudgetCsv,
+  exportProjectTeamNotesCsv,
   exportScheduledVsActualCsv,
   exportTeamUtilizationCsv,
   exportTimeEntriesDetailCsv,
@@ -47,6 +48,9 @@ export function ReportsExportMenu({ period }: ReportsExportMenuProps) {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => exportProjectBudgetCsv(ctx)}>
           Project budget
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => exportProjectTeamNotesCsv(ctx)}>
+          Project team notes (3 most recent)
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => exportAllocationsDetailCsv(ctx)}>
