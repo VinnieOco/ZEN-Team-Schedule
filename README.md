@@ -65,7 +65,8 @@ After `npm run db:setup` (includes profiles, permissions, and manager migrations
 |------|------------|
 | **Admin** | Full access — scheduling, projects, time tracking, reports (export), all Settings including **Team access** (invites, roles, login links) |
 | **Manager** | Same as admin for day-to-day work; **cannot** invite users or change app roles (no Team access section) |
-| **Member** | View/edit **team schedule**; view projects and reports; log **own** time only; Settings is read-only (company defaults, category list) |
+| **Office Team** | View/edit **team schedule**; CRM, projects, and reports (view); log **own** time only; Settings is read-only (company defaults, category list) |
+| **Crew Team** | View **team schedule** (no edits); **time tracking** only for own hours; no CRM, projects, reports, or Settings |
 
 See **Settings → App roles** (admins only) for the full matrix.
 
@@ -80,7 +81,7 @@ See **Settings → App roles** (admins only) for the full matrix.
 
 **Invite email (Supabase):** Authentication → [Email Templates](https://supabase.com/dashboard/project/_/auth/templates) → **Invite user** — customize subject/body (mention ZEN Team Scheduling and that the link sets their password). Ensure **Redirect URLs** include `https://your-domain.com/**` and `https://your-domain.com/auth/callback`.
 
-**Login ↔ schedule team:** Members need their app login linked to a row on **Schedule team** to log time.
+**Login ↔ schedule team:** Office Team users need their app login linked to a row on **Schedule team** to log time.
 
 - **Automatic:** Matching emails link when you save the team row or profile.
 - **Self-service:** **Settings → Schedule profile link** → **Link my account**.

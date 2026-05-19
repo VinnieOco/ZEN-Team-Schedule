@@ -15,6 +15,7 @@ import { TeamOptionsCard } from "@/components/settings/team-options-card";
 import { TimeClassCodesCard } from "@/components/settings/time-class-codes-card";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
+import { getAppRoleLabel } from "@/lib/auth/roles";
 import { usePermissions } from "@/hooks/use-permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -37,7 +38,7 @@ export default function SettingsPage() {
               ? "Company defaults, schedule team, and team options. App access is admin-only."
               : "Company defaults (view only)."}
           {isSupabaseConfigured() && profile && !authLoading && (
-            <span className="ml-1 capitalize">· App role: {profile.app_role}</span>
+            <span className="ml-1">· App role: {getAppRoleLabel(profile.app_role)}</span>
           )}
         </p>
         {showMemberBanner && <MemberAccessBanner linkedEmployeeId={linkedEmployeeId} />}

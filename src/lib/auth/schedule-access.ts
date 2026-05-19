@@ -12,7 +12,7 @@ export function canEditAllocation(
   getEmployeeById: (id: string) => Employee | undefined,
 ): boolean {
   if (permissions.editSchedulingForAnyone) return true;
-  if (!linkedEmployeeId) return false;
+  if (!permissions.editScheduling || !linkedEmployeeId) return false;
 
   const linked = getEmployeeById(linkedEmployeeId);
   if (!linked) return false;
@@ -36,6 +36,6 @@ export function canEditAnySchedule(
   linkedEmployeeId: string | null,
 ): boolean {
   if (permissions.editSchedulingForAnyone) return true;
-  if (!linkedEmployeeId) return false;
+  if (!permissions.editScheduling || !linkedEmployeeId) return false;
   return role === "member" || role === "manager";
 }

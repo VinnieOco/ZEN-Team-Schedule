@@ -17,8 +17,8 @@ export function MemberPermissionsCard() {
       <CardHeader>
         <CardTitle>App roles</CardTitle>
         <CardDescription>
-          What each app role can do. Link schedule team members to logins so members can log their own
-          time.
+          What each app role can do. Link schedule team members to logins so office team users can log
+          their own time.
         </CardDescription>
       </CardHeader>
       <CardContent className="scroll-x-contained max-w-full overflow-x-auto">
@@ -28,7 +28,8 @@ export function MemberPermissionsCard() {
               <TableHead>Area</TableHead>
               <TableHead>Admin</TableHead>
               <TableHead>Manager</TableHead>
-              <TableHead>Member</TableHead>
+              <TableHead>Office Team</TableHead>
+              <TableHead>Crew Team</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -38,6 +39,7 @@ export function MemberPermissionsCard() {
                 <TableCell className="text-muted-foreground">{row.admin}</TableCell>
                 <TableCell className="text-muted-foreground">{row.manager}</TableCell>
                 <TableCell className="text-muted-foreground">{row.member}</TableCell>
+                <TableCell className="text-muted-foreground">{row.crew}</TableCell>
               </TableRow>
             ))}
           </TableBody>

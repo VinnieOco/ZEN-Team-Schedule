@@ -7,7 +7,7 @@ interface MemberAccessBannerProps {
 export function MemberAccessBanner({ linkedEmployeeId }: MemberAccessBannerProps) {
   return (
     <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-      <p className="font-medium">Member access</p>
+      <p className="font-medium">Office Team access</p>
       <p className="mt-1 text-amber-800/90">
         You can view the full team schedule and reports, edit allocations on your own row, and view
         projects. Project edits, CSV exports, and team management require an admin or manager.

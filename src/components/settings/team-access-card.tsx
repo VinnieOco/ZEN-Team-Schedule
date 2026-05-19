@@ -23,13 +23,7 @@ import { UserAccessActions } from "@/components/settings/user-access-actions";
 import { useAuth } from "@/context/auth-context";
 import { useScheduling } from "@/context/scheduling-context";
 import { inviteSuccessMessage, sendTeamInvite } from "@/lib/auth/invite";
-import type { AppRole } from "@/lib/auth/roles";
-
-const APP_ROLE_OPTIONS = [
-  { value: "member", label: "Member" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Admin" },
-] as const;
+import { APP_ROLE_SELECT_OPTIONS, type AppRole } from "@/lib/auth/roles";
 import { emailsMatch } from "@/lib/auth/email-link";
 import { getEmployeeFullName } from "@/lib/week";
 import { createClient } from "@/lib/supabase/client";
@@ -150,7 +144,7 @@ export function TeamAccessCard() {
           <div className="space-y-2 sm:w-40">
             <Label>App role</Label>
             <SearchableSelect
-              options={[...APP_ROLE_OPTIONS]}
+              options={[...APP_ROLE_SELECT_OPTIONS]}
               value={inviteRole}
               onValueChange={(v) => setInviteRole(v as AppRole)}
               searchPlaceholder="Search roles…"
@@ -241,7 +235,7 @@ export function TeamAccessCard() {
                   </TableCell>
                   <TableCell>
                     <SearchableSelect
-                      options={[...APP_ROLE_OPTIONS]}
+                      options={[...APP_ROLE_SELECT_OPTIONS]}
                       value={p.app_role}
                       disabled={roleSavingId === p.id}
                       onValueChange={(v) => void handleRoleChange(p.id, v as AppRole)}

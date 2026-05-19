@@ -2,34 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3,
-  CalendarDays,
-  FolderKanban,
-  LayoutDashboard,
-  Users,
-  LogOut,
-  Settings,
-  Timer,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import { ZenLogo } from "@/components/layout/zen-logo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
+import { getVisibleNavItems } from "@/lib/auth/nav-items";
+import { getAppRoleLabel } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays },
-  { href: "/time-tracking", label: "Time Tracking", icon: Timer },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/crm", label: "CRM", icon: Users },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 interface AppSidebarProps {
   onNavigate?: () => void;
@@ -38,6 +22,8 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const pathname = usePathname();
   const { profile } = useAuth();
+  const { permissions } = usePermissions();
+  const navItems = getVisibleNavItems(permissions);
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
@@ -48,7 +34,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
             <p className="text-sm font-semibold tracking-wide">ZEN</p>
             <p className="text-xs text-slate-400">Team Scheduling</p>
             {isSupabaseConfigured() && profile && (
-              <p className="mt-0.5 text-[10px] capitalize text-slate-500">{profile.app_role}</p>
+              <p className="mt-0.5 text-[10px] text-slate-500">{getAppRoleLabel(profile.app_role)}</p>
             )}
           </div>
         </div>
