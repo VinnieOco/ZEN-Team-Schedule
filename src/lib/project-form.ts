@@ -32,6 +32,7 @@ export function projectFromFormValues(
     budgeted_design_hours: budgeted,
     contract_date: optionalText(values.contract_date),
     target_completion_date: optionalText(values.target_completion_date),
+    estimating_completion_date: optionalText(values.estimating_completion_date),
     design_amount: optionalAmount(values.design_amount),
     estimate_value: optionalAmount(values.estimate_value),
     scope_of_work: optionalText(values.scope_of_work),

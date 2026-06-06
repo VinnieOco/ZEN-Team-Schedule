@@ -46,7 +46,8 @@ export function ClientProjectsTable({
             <TableHead>Department</TableHead>
             <TableHead>Phase</TableHead>
             <TableHead>Lead</TableHead>
-            <TableHead>Target</TableHead>
+            <TableHead>Design completion</TableHead>
+            <TableHead>Est. completion</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -85,6 +86,11 @@ export function ClientProjectsTable({
                 <TableCell>
                   {project.target_completion_date
                     ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
+                    : "—"}
+                </TableCell>
+                <TableCell>
+                  {project.estimating_completion_date
+                    ? format(parseISO(project.estimating_completion_date), "MMM d, yyyy")
                     : "—"}
                 </TableCell>
               </TableRow>

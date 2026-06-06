@@ -106,6 +106,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
         budgeted_design_hours: project.budgeted_design_hours,
         contract_date: project.contract_date,
         target_completion_date: project.target_completion_date,
+        estimating_completion_date: project.estimating_completion_date,
         design_amount: getProjectDesignAmount(project),
         estimate_value: getProjectEstimateValue(project),
         scope_of_work: project.scope_of_work,
@@ -127,6 +128,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
         budgeted_design_hours: defaults?.budgeted_design_hours ?? 80,
         contract_date: defaults?.contract_date,
         target_completion_date: defaults?.target_completion_date,
+        estimating_completion_date: defaults?.estimating_completion_date,
         design_amount: defaults?.design_amount,
         estimate_value: defaults?.estimate_value,
         scope_of_work: defaults?.scope_of_work ?? "",
@@ -326,8 +328,12 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
               <Input type="date" {...form.register("contract_date")} />
             </div>
             <div className="space-y-2">
-              <Label>Target completion</Label>
+              <Label>Design completion</Label>
               <Input type="date" {...form.register("target_completion_date")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Estimating completion</Label>
+              <Input type="date" {...form.register("estimating_completion_date")} />
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Scope of work</Label>

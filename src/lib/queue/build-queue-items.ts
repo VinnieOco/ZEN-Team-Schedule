@@ -120,7 +120,7 @@ export function buildEstimatingQueueItems(
         ? getEmployeeById(project.lead_estimator_id)
         : undefined;
       const missingDocuments = estimatingMissingDocs(project);
-      const bidDueDate = project.target_completion_date ?? project.contract_date;
+      const bidDueDate = project.estimating_completion_date;
 
       return {
         kind: "estimating" as const,

@@ -85,7 +85,7 @@ export function QueueCardContent({ item, compact, canRemove, onRemove }: QueueCa
         )}
         {dueLabel && (
           <div className="flex justify-between gap-2">
-            <dt>{item.kind === "estimating" ? "Bid due" : "Due"}</dt>
+            <dt>{item.kind === "estimating" ? "Est. completion" : "Design completion"}</dt>
             <dd className="font-medium text-slate-700">{dueLabel}</dd>
           </div>
         )}

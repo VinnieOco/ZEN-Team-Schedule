@@ -111,7 +111,8 @@ export function ProjectsTable() {
                 <TableHead className="text-right">Design Amount</TableHead>
                 <TableHead className="text-right">Estimate Amount</TableHead>
                 <TableHead className="text-right">COs</TableHead>
-                <TableHead>Target Date</TableHead>
+                <TableHead>Design Completion</TableHead>
+                <TableHead>Est. Completion</TableHead>
                 {permissions.editProjects && <TableHead />}
               </TableRow>
             </TableHeader>
@@ -201,6 +202,11 @@ export function ProjectsTable() {
                     <TableCell>
                       {project.target_completion_date
                         ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {project.estimating_completion_date
+                        ? format(parseISO(project.estimating_completion_date), "MMM d, yyyy")
                         : "—"}
                     </TableCell>
                     {permissions.editProjects && (

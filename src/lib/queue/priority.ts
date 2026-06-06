@@ -83,7 +83,7 @@ export function calculateEstimatingPriority(
   hoursUsed: number,
   budgetHours: number,
 ): number {
-  const bidDue = project.target_completion_date ?? project.contract_date;
+  const bidDue = project.estimating_completion_date;
   const estimateValue = getProjectEstimateValue(project) ?? getProjectDesignAmount(project) ?? 0;
   const score =
     scheduleUrgencyScore(bidDue) * 0.35 +

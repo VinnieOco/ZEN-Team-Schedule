@@ -136,19 +136,27 @@ export function ProjectDetailsCard({
                   </span>
                 )}
               </InfoField>
+              <InfoField label="Design completion">
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                  {project.target_completion_date
+                    ? format(parseISO(project.target_completion_date), "MMMM d, yyyy")
+                    : "—"}
+                </span>
+              </InfoField>
+              <InfoField label="Estimating completion">
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                  {project.estimating_completion_date
+                    ? format(parseISO(project.estimating_completion_date), "MMMM d, yyyy")
+                    : "—"}
+                </span>
+              </InfoField>
               <InfoField label="Contract date">
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
                   {project.contract_date
                     ? format(parseISO(project.contract_date), "MMMM d, yyyy")
-                    : "—"}
-                </span>
-              </InfoField>
-              <InfoField label="Target completion">
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  {project.target_completion_date
-                    ? format(parseISO(project.target_completion_date), "MMMM d, yyyy")
                     : "—"}
                 </span>
               </InfoField>

@@ -54,7 +54,9 @@ export interface Project {
   estimate_value?: number;
   start_date?: string;
   contract_date?: string;
+  /** Design completion target (DB: target_completion_date). */
   target_completion_date?: string;
+  estimating_completion_date?: string;
   scope_of_work?: string;
   address?: string;
   phone?: string;
@@ -236,6 +238,7 @@ export interface ProjectFormValues {
   budgeted_design_hours: number;
   contract_date?: string;
   target_completion_date?: string;
+  estimating_completion_date?: string;
   design_amount?: number;
   estimate_value?: number;
   scope_of_work?: string;
