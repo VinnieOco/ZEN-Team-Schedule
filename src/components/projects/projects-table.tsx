@@ -104,6 +104,7 @@ export function ProjectsTable() {
                 <TableHead>Department</TableHead>
                 <TableHead>Phase</TableHead>
                 <TableHead>Lead Designer</TableHead>
+                <TableHead>Lead Estimator</TableHead>
                 <TableHead className="text-right">Budgeted Hrs</TableHead>
                 <TableHead className="text-right">Actual Hrs</TableHead>
                 <TableHead className="text-right">Remaining Hrs</TableHead>
@@ -134,6 +135,9 @@ export function ProjectsTable() {
                   : getProjectEstimateValue(project);
                 const lead = project.lead_employee_id
                   ? getEmployeeById(project.lead_employee_id)
+                  : null;
+                const leadEstimator = project.lead_estimator_id
+                  ? getEmployeeById(project.lead_estimator_id)
                   : null;
                 const changeOrderCount = isParentProject(project)
                   ? getChangeOrdersForParent(projects, project.id).length
@@ -172,6 +176,7 @@ export function ProjectsTable() {
                     <TableCell>{formatProjectDepartment(project.department)}</TableCell>
                     <TableCell>{project.phase}</TableCell>
                     <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>
+                    <TableCell>{leadEstimator ? getEmployeeFullName(leadEstimator) : "—"}</TableCell>
                     <TableCell className="text-right">
                       {formatProjectHours(budgetedHours)}
                     </TableCell>
