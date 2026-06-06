@@ -25,6 +25,7 @@ import {
   filterProjects,
   type ProjectFilters,
 } from "@/lib/filter-projects";
+import { getChangeOrdersForParent, isChangeOrder, isParentProject } from "@/lib/change-orders";
 import { formatProjectAmount, formatProjectDepartment, formatProjectHours, getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getProjectActualHours } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
@@ -44,8 +45,13 @@ export function ProjectsTable() {
   );
 
   const totalCount = useMemo(
-    () => projects.filter((p) => filters.showInactive || p.active).length,
-    [projects, filters.showInactive],
+    () =>
+      projects.filter((p) => {
+        if (!filters.showInactive && !p.active) return false;
+        if (!filters.showChangeOrders && isChangeOrder(p)) return false;
+        return true;
+      }).length,
+    [projects, filters.showInactive, filters.showChangeOrders],
   );
 
   const updateFilters = (partial: Partial<ProjectFilters>) => {
@@ -103,6 +109,7 @@ export function ProjectsTable() {
                 <TableHead className="text-right">Remaining Hrs</TableHead>
                 <TableHead className="text-right">Design Amount</TableHead>
                 <TableHead className="text-right">Estimate Amount</TableHead>
+                <TableHead className="text-right">COs</TableHead>
                 <TableHead>Target Date</TableHead>
                 {permissions.editProjects && <TableHead />}
               </TableRow>
@@ -113,6 +120,9 @@ export function ProjectsTable() {
                 const remaining = project.budgeted_design_hours - actual;
                 const lead = project.lead_employee_id
                   ? getEmployeeById(project.lead_employee_id)
+                  : null;
+                const changeOrderCount = isParentProject(project)
+                  ? getChangeOrdersForParent(projects, project.id).length
                   : null;
 
                 return (
@@ -131,6 +141,11 @@ export function ProjectsTable() {
                         )}
                       >
                         {project.project_name}
+                        {isChangeOrder(project) && (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">
+                            CO
+                          </span>
+                        )}
                         {!project.active && (
                           <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
                             Inactive
@@ -160,6 +175,9 @@ export function ProjectsTable() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatProjectAmount(getProjectEstimateValue(project))}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {changeOrderCount != null && changeOrderCount > 0 ? changeOrderCount : "—"}
                     </TableCell>
                     <TableCell>
                       {project.target_completion_date

@@ -1,3 +1,4 @@
+import { isChangeOrder } from "@/lib/change-orders";
 import { isEstimatingProject } from "@/lib/queue/stages";
 import type { QueueKind } from "@/lib/queue/types";
 import type { Project } from "@/types";
@@ -64,6 +65,7 @@ function removeExcluded(kind: QueueKind, projectId: string): void {
 export function isInDesignQueue(project: Project): boolean {
   if (isExcluded("design", project.id)) return false;
   if (isMember("design", project.id)) return true;
+  if (isChangeOrder(project)) return false;
   return !isEstimatingProject(project.department, project.phase);
 }
 
@@ -71,6 +73,7 @@ export function isInDesignQueue(project: Project): boolean {
 export function isInEstimatingQueue(project: Project): boolean {
   if (isExcluded("estimating", project.id)) return false;
   if (isMember("estimating", project.id)) return true;
+  if (isChangeOrder(project)) return false;
   return isEstimatingProject(project.department, project.phase);
 }
 

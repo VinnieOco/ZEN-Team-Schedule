@@ -37,5 +37,7 @@ export function projectFromFormValues(
     address: optionalText(values.address),
     phone: optionalText(values.phone),
     email: optionalText(values.email),
+    parent_project_id: optionalText(values.parent_project_id),
+    is_change_order: values.is_change_order ?? base.is_change_order ?? false,
   };
 }

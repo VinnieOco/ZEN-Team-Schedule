@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
+import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
 import { AppPage } from "@/components/layout/app-page";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
+import { getParentProject, isChangeOrder, isParentProject } from "@/lib/change-orders";
 import { formatProjectDepartment, formatProjectHours } from "@/lib/project-format";
 import { getProjectActualHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
@@ -54,6 +56,7 @@ export default function ProjectDetailPage() {
       ? Math.round((actual / project.budgeted_design_hours) * 100)
       : 0;
   const lead = project.lead_employee_id ? getEmployeeById(project.lead_employee_id) : null;
+  const parentProject = isChangeOrder(project) ? getParentProject(projects, project) : undefined;
 
   const projectAllocations = allocations
     .filter((a) => a.project_id === project.id)
@@ -73,6 +76,22 @@ export default function ProjectDetailPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{project.project_name}</h1>
         <p className="mt-1 text-muted-foreground">{project.client_name}</p>
+        {parentProject && (
+          <p className="mt-2 text-sm">
+            <span className="rounded-md bg-amber-100 px-2 py-0.5 font-medium text-amber-900">
+              Change order
+            </span>
+            <span className="ml-2 text-muted-foreground">
+              for{" "}
+              <Link
+                href={`/projects/${parentProject.id}`}
+                className="font-medium text-emerald-700 hover:underline"
+              >
+                {parentProject.project_name}
+              </Link>
+            </span>
+          </p>
+        )}
       </div>
 
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -120,6 +139,10 @@ export default function ProjectDetailPage() {
         canEdit={permissions.editProjects}
         onEdit={() => setEditDialogOpen(true)}
       />
+
+      {isParentProject(project) && (
+        <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
+      )}
 
       <ProjectNotesSection project={project} />
 

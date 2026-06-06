@@ -17,6 +17,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { isChangeOrder } from "@/lib/change-orders";
 import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
 import { getDepartmentOptions } from "@/lib/team-options";
 import { PROJECT_PHASES } from "@/lib/project-options";
@@ -81,6 +82,9 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
     },
   });
 
+  const isCreatingChangeOrder = !project && Boolean(defaults?.is_change_order);
+  const lockClientFields = Boolean(project && isChangeOrder(project)) || isCreatingChangeOrder;
+
   const clientName = useWatch({ control: form.control, name: "client_name" });
 
   const clientOptions = useMemo(
@@ -108,11 +112,13 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
         phone: project.phone,
         email: project.email,
         active: project.active,
+        parent_project_id: project.parent_project_id,
+        is_change_order: project.is_change_order,
       });
     } else {
       form.reset({
-        project_name: "",
-        client_name: "",
+        project_name: defaults?.project_name ?? "",
+        client_name: defaults?.client_name ?? "",
         phase: defaults?.phase ?? "Concept",
         department: defaults?.department,
         lead_employee_id: defaults?.lead_employee_id,
@@ -126,12 +132,14 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
         phone: defaults?.phone ?? "",
         email: defaults?.email ?? "",
         active: defaults?.active ?? true,
+        parent_project_id: defaults?.parent_project_id,
+        is_change_order: defaults?.is_change_order,
       });
     }
   }, [open, project, form, defaults]);
 
   useEffect(() => {
-    if (!open || project) return;
+    if (!open || project || lockClientFields) return;
 
     const key = normalizeClientName(clientName ?? "");
     if (!key) {
@@ -150,7 +158,14 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
     if (contact.address) form.setValue("address", contact.address);
     if (contact.phone) form.setValue("phone", contact.phone);
     if (contact.email) form.setValue("email", contact.email);
-  }, [open, project, clientName, projects, clients, form]);
+  }, [open, project, clientName, projects, clients, form, lockClientFields]);
+
+  const dialogTitle = project
+    ? "Edit Project"
+    : isCreatingChangeOrder
+      ? "Add change order"
+      : "Add Project";
+  const submitLabel = project ? "Save" : isCreatingChangeOrder ? "Add change order" : "Add project";
 
   const onSubmit = form.handleSubmit((values) => {
     if (project) {
@@ -165,9 +180,14 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col overflow-visible sm:max-w-lg">
         <DialogHeader className="shrink-0">
-          <DialogTitle>{project ? "Edit Project" : "Add Project"}</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+          {lockClientFields && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Client details are inherited from the parent project and cannot be changed here.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-2">
               <Label>Project name</Label>
@@ -175,24 +195,28 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Client name</Label>
-              <Controller
-                name="client_name"
-                control={form.control}
-                rules={{ required: true }}
-                render={({ field }) => (
-                  <SearchableCombobox
-                    options={clientOptions}
-                    value={field.value ?? ""}
-                    onValueChange={field.onChange}
-                    placeholder="Search or type client name…"
-                    searchPlaceholder="Search clients…"
-                    emptyMessage="No matching clients"
-                    customOptionLabel={(query) => `Add new client "${query}"`}
-                    required
-                  />
-                )}
-              />
-              {!project && (
+              {lockClientFields ? (
+                <Input value={form.watch("client_name") ?? ""} readOnly disabled />
+              ) : (
+                <Controller
+                  name="client_name"
+                  control={form.control}
+                  rules={{ required: true }}
+                  render={({ field }) => (
+                    <SearchableCombobox
+                      options={clientOptions}
+                      value={field.value ?? ""}
+                      onValueChange={field.onChange}
+                      placeholder="Search or type client name…"
+                      searchPlaceholder="Search clients…"
+                      emptyMessage="No matching clients"
+                      customOptionLabel={(query) => `Add new client "${query}"`}
+                      required
+                    />
+                  )}
+                />
+              )}
+              {!project && !lockClientFields && (
                 <p className="text-xs text-muted-foreground">
                   Search existing clients or choose Add new client in the list. Contact details fill
                   in automatically for known clients.
@@ -205,15 +229,29 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
                 {...form.register("address")}
                 rows={2}
                 placeholder="Street, city, state, ZIP"
+                readOnly={lockClientFields}
+                disabled={lockClientFields}
               />
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>
-              <Input type="tel" {...form.register("phone")} placeholder="(555) 555-5555" />
+              <Input
+                type="tel"
+                {...form.register("phone")}
+                placeholder="(555) 555-5555"
+                readOnly={lockClientFields}
+                disabled={lockClientFields}
+              />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input type="email" {...form.register("email")} placeholder="client@example.com" />
+              <Input
+                type="email"
+                {...form.register("email")}
+                placeholder="client@example.com"
+                readOnly={lockClientFields}
+                disabled={lockClientFields}
+              />
             </div>
             <div className="space-y-2">
               <Label>Department</Label>
@@ -307,7 +345,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">{project ? "Save" : "Add project"}</Button>
+            <Button type="submit">{submitLabel}</Button>
           </div>
         </form>
       </DialogContent>

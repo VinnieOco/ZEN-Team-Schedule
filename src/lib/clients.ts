@@ -1,3 +1,4 @@
+import { isParentProject } from "@/lib/change-orders";
 import type { Client, Project } from "@/types";
 import { getProjectDesignAmount } from "@/lib/project-format";
 
@@ -76,6 +77,7 @@ export function hydrateClientsFromProjects(
   );
 
   for (const project of projects) {
+    if (!isParentProject(project)) continue;
     const key = normalizeClientName(project.client_name ?? "");
     if (!key || byKey.has(key)) continue;
     byKey.set(key, {
@@ -182,7 +184,7 @@ export function groupProjectsByClient(
       key,
       displayName,
       projects: sorted,
-      activeProjectCount: sorted.filter((p) => p.active).length,
+      activeProjectCount: sorted.filter((p) => p.active && isParentProject(p)).length,
       totalBudgetedHours: sorted.reduce((sum, p) => sum + p.budgeted_design_hours, 0),
       totalProjectAmount: sorted.reduce(
         (sum, p) => sum + (getProjectDesignAmount(p) ?? 0),

@@ -1,3 +1,4 @@
+import { isChangeOrder } from "@/lib/change-orders";
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Employee, Project } from "@/types";
@@ -8,6 +9,7 @@ export interface ProjectFilters {
   phase: string | null;
   leadEmployeeId: string | null;
   showInactive: boolean;
+  showChangeOrders: boolean;
 }
 
 export const defaultProjectFilters = (): ProjectFilters => ({
@@ -16,6 +18,7 @@ export const defaultProjectFilters = (): ProjectFilters => ({
   phase: null,
   leadEmployeeId: null,
   showInactive: false,
+  showChangeOrders: false,
 });
 
 export function projectFiltersActive(filters: ProjectFilters): boolean {
@@ -24,7 +27,8 @@ export function projectFiltersActive(filters: ProjectFilters): boolean {
     Boolean(filters.department) ||
     Boolean(filters.phase) ||
     Boolean(filters.leadEmployeeId) ||
-    filters.showInactive
+    filters.showInactive ||
+    filters.showChangeOrders
   );
 }
 
@@ -37,6 +41,7 @@ export function filterProjects(
 
   return projects.filter((project) => {
     if (!filters.showInactive && !project.active) return false;
+    if (!filters.showChangeOrders && isChangeOrder(project)) return false;
     if (filters.department && (project.department?.trim() ?? "") !== filters.department) {
       return false;
     }

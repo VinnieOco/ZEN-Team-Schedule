@@ -60,6 +60,9 @@ export interface Project {
   email?: string;
   notes?: string;
   active: boolean;
+  /** Parent project when this row is a change order. */
+  parent_project_id?: string;
+  is_change_order?: boolean;
 }
 
 export interface ProjectNote {
@@ -238,6 +241,8 @@ export interface ProjectFormValues {
   phone?: string;
   email?: string;
   active?: boolean;
+  parent_project_id?: string;
+  is_change_order?: boolean;
 }
 
 export interface EmployeeFormValues {

@@ -47,6 +47,8 @@ type ProjectRow = {
   email: string | null;
   notes: string | null;
   active: boolean;
+  parent_project_id: string | null;
+  is_change_order: boolean;
 };
 
 type ProjectNoteRow = {
@@ -162,6 +164,8 @@ export function mapProject(row: ProjectRow): Project {
     email: row.email ?? undefined,
     notes: row.notes ?? undefined,
     active: row.active,
+    parent_project_id: row.parent_project_id ?? undefined,
+    is_change_order: row.is_change_order,
   };
 }
 
@@ -322,6 +326,8 @@ export function projectToRow(project: Project) {
     email: project.email ?? null,
     notes: project.notes ?? null,
     active: project.active,
+    parent_project_id: project.parent_project_id ?? null,
+    is_change_order: project.is_change_order ?? false,
   };
 }
 

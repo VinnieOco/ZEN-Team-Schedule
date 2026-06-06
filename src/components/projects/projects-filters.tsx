@@ -116,15 +116,27 @@ export function ProjectsFilters({
         )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-inactive-projects"
-            checked={filters.showInactive}
-            onCheckedChange={(v) => onChange({ showInactive: v })}
-          />
-          <Label htmlFor="show-inactive-projects" className="text-sm font-normal">
-            Show inactive projects
-          </Label>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-inactive-projects"
+              checked={filters.showInactive}
+              onCheckedChange={(v) => onChange({ showInactive: v })}
+            />
+            <Label htmlFor="show-inactive-projects" className="text-sm font-normal">
+              Show inactive projects
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-change-orders"
+              checked={filters.showChangeOrders}
+              onCheckedChange={(v) => onChange({ showChangeOrders: v })}
+            />
+            <Label htmlFor="show-change-orders" className="text-sm font-normal">
+              Show change orders
+            </Label>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Showing {resultCount} of {totalCount} project{totalCount === 1 ? "" : "s"}
