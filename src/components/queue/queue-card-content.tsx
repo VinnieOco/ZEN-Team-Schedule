@@ -79,7 +79,7 @@ export function QueueCardContent({ item, compact, canRemove, onRemove }: QueueCa
       <dl className="space-y-0.5 text-[10px] text-muted-foreground">
         {leadName && (
           <div className="flex justify-between gap-2">
-            <dt>Lead</dt>
+            <dt>{item.kind === "estimating" ? "Lead estimator" : "Lead designer"}</dt>
             <dd className="font-medium text-slate-700">{leadName}</dd>
           </div>
         )}

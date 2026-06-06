@@ -22,6 +22,8 @@ export interface SearchableSelectOption {
   keywords?: string;
   leading?: ReactNode;
   disabled?: boolean;
+  /** Non-selectable section label for grouped lists (e.g. parent project with COs). */
+  isGroupHeader?: boolean;
 }
 
 export interface SearchableSelectProps {
@@ -49,7 +51,43 @@ function filterOptions(
 ): SearchableSelectOption[] {
   const q = query.trim().toLowerCase();
   if (!q) return options;
-  return options.filter((option) => optionSearchText(option).includes(q));
+
+  const hasGroups = options.some((option) => option.isGroupHeader);
+  if (!hasGroups) {
+    return options.filter((option) => optionSearchText(option).includes(q));
+  }
+
+  const filtered: SearchableSelectOption[] = [];
+  let index = 0;
+
+  while (index < options.length) {
+    const option = options[index];
+    if (option.isGroupHeader) {
+      const header = option;
+      const children: SearchableSelectOption[] = [];
+      index += 1;
+      while (index < options.length && !options[index].isGroupHeader) {
+        children.push(options[index]);
+        index += 1;
+      }
+      const headerMatches = optionSearchText(header).includes(q);
+      const matchingChildren = children.filter((child) =>
+        optionSearchText(child).includes(q),
+      );
+      if (headerMatches || matchingChildren.length > 0) {
+        filtered.push(header);
+        filtered.push(...(headerMatches ? children : matchingChildren));
+      }
+      continue;
+    }
+
+    if (optionSearchText(option).includes(q)) {
+      filtered.push(option);
+    }
+    index += 1;
+  }
+
+  return filtered;
 }
 
 type PanelLayout = {
@@ -117,7 +155,7 @@ export function SearchableSelect({
   }, []);
 
   const selected = useMemo(
-    () => options.find((option) => option.value === value),
+    () => options.find((option) => option.value === value && !option.isGroupHeader),
     [options, value],
   );
 
@@ -250,32 +288,45 @@ export function SearchableSelect({
               {filtered.length === 0 ? (
                 <li className="px-2 py-2 text-sm text-muted-foreground">{emptyMessage}</li>
               ) : (
-                filtered.map((option) => (
-                  <li key={option.value}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={value === option.value}
-                      disabled={option.disabled}
+                filtered.map((option) =>
+                  option.isGroupHeader ? (
+                    <li
+                      key={option.value}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50",
-                        size === "sm" ? "text-xs" : "text-sm",
-                        value === option.value && "bg-slate-100",
+                        "px-2 py-1.5 font-semibold text-muted-foreground",
+                        size === "sm" ? "text-[11px] uppercase tracking-wide" : "text-xs uppercase tracking-wide",
                       )}
-                      onClick={() => {
-                        if (option.disabled) return;
-                        onValueChange(option.value);
-                        setOpen(false);
-                      }}
                     >
-                      {option.leading}
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      {value === option.value && (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-slate-700" />
-                      )}
-                    </button>
-                  </li>
-                ))
+                      {option.label}
+                    </li>
+                  ) : (
+                    <li key={option.value}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={value === option.value}
+                        disabled={option.disabled}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50",
+                          size === "sm" ? "text-xs" : "text-sm",
+                          value === option.value && "bg-slate-100",
+                          option.label.startsWith("↳") && "pl-4",
+                        )}
+                        onClick={() => {
+                          if (option.disabled) return;
+                          onValueChange(option.value);
+                          setOpen(false);
+                        }}
+                      >
+                        {option.leading}
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        {value === option.value && (
+                          <Check className="h-3.5 w-3.5 shrink-0 text-slate-700" />
+                        )}
+                      </button>
+                    </li>
+                  ),
+                )
               )}
             </ul>
           </div>,

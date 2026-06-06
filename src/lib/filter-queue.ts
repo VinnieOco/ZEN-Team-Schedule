@@ -44,6 +44,7 @@ function matchesQueueFilters(item: QueueItem, filters: QueueFilters): boolean {
     item.project.department,
     item.project.phase,
     item.leadName,
+    item.leadSearchText,
   ]
     .filter(Boolean)
     .join(" ")

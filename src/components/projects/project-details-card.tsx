@@ -7,12 +7,15 @@ import { Building2, Calendar, Mail, MapPin, Pencil, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Employee, Project } from "@/types";
+import type { ProjectBudgetRollup } from "@/lib/change-orders";
 import { formatProjectAmount, formatProjectDepartment, getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 
 interface ProjectDetailsCardProps {
   project: Project;
   lead: Employee | null | undefined;
+  leadEstimator?: Employee | null | undefined;
+  budgetRollup?: ProjectBudgetRollup;
   canEdit: boolean;
   onEdit: () => void;
 }
@@ -44,9 +47,15 @@ function InfoField({ label, children }: { label: string; children: ReactNode }) 
 export function ProjectDetailsCard({
   project,
   lead,
+  leadEstimator,
+  budgetRollup,
   canEdit,
   onEdit,
 }: ProjectDetailsCardProps) {
+  const designAmount = budgetRollup?.totalDesignAmount ?? getProjectDesignAmount(project);
+  const estimateAmount = budgetRollup?.totalEstimateAmount ?? getProjectEstimateValue(project);
+  const showRollup = Boolean(budgetRollup && budgetRollup.changeOrderCount > 0);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b pb-4">
@@ -105,14 +114,27 @@ export function ProjectDetailsCard({
               <InfoField label="Lead designer">
                 {lead ? getEmployeeFullName(lead) : "—"}
               </InfoField>
+              <InfoField label="Lead estimator">
+                {leadEstimator ? getEmployeeFullName(leadEstimator) : "—"}
+              </InfoField>
               <InfoField label="Department">
                 {formatProjectDepartment(project.department)}
               </InfoField>
               <InfoField label="Design amount">
-                {formatProjectAmount(getProjectDesignAmount(project))}
+                {formatProjectAmount(designAmount)}
+                {showRollup && budgetRollup && budgetRollup.changeOrderDesignAmount > 0 && (
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                    incl. {formatProjectAmount(budgetRollup.changeOrderDesignAmount)} from COs
+                  </span>
+                )}
               </InfoField>
               <InfoField label="Estimate amount">
-                {formatProjectAmount(getProjectEstimateValue(project))}
+                {formatProjectAmount(estimateAmount)}
+                {showRollup && budgetRollup && budgetRollup.changeOrderEstimateAmount > 0 && (
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                    incl. {formatProjectAmount(budgetRollup.changeOrderEstimateAmount)} from COs
+                  </span>
+                )}
               </InfoField>
               <InfoField label="Contract date">
                 <span className="inline-flex items-center gap-1.5">

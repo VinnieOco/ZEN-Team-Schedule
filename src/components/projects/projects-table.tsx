@@ -25,7 +25,7 @@ import {
   filterProjects,
   type ProjectFilters,
 } from "@/lib/filter-projects";
-import { getChangeOrdersForParent, isChangeOrder, isParentProject } from "@/lib/change-orders";
+import { getChangeOrdersForParent, getProjectBudgetRollup, getProjectHoursRollup, hasChangeOrderRollup, isChangeOrder, isParentProject } from "@/lib/change-orders";
 import { formatProjectAmount, formatProjectDepartment, formatProjectHours, getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getProjectActualHours } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
@@ -116,8 +116,22 @@ export function ProjectsTable() {
             </TableHeader>
             <TableBody>
               {visibleProjects.map((project) => {
-                const actual = getProjectActualHours(timeEntries, project.id);
-                const remaining = project.budgeted_design_hours - actual;
+                const budgetRollup = getProjectBudgetRollup(projects, project);
+                const hoursRollup = getProjectHoursRollup(projects, project, timeEntries);
+                const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
+                const actual = showRollup
+                  ? hoursRollup.totalActualHours
+                  : getProjectActualHours(timeEntries, project.id);
+                const budgetedHours = showRollup
+                  ? budgetRollup.totalBudgetHours
+                  : project.budgeted_design_hours;
+                const remaining = budgetedHours - actual;
+                const designAmount = showRollup
+                  ? budgetRollup.totalDesignAmount
+                  : getProjectDesignAmount(project);
+                const estimateAmount = showRollup
+                  ? budgetRollup.totalEstimateAmount
+                  : getProjectEstimateValue(project);
                 const lead = project.lead_employee_id
                   ? getEmployeeById(project.lead_employee_id)
                   : null;
@@ -159,7 +173,7 @@ export function ProjectsTable() {
                     <TableCell>{project.phase}</TableCell>
                     <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>
                     <TableCell className="text-right">
-                      {formatProjectHours(project.budgeted_design_hours)}
+                      {formatProjectHours(budgetedHours)}
                     </TableCell>
                     <TableCell className="text-right">{formatProjectHours(actual)}</TableCell>
                     <TableCell
@@ -171,10 +185,10 @@ export function ProjectsTable() {
                       {formatProjectHours(remaining)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatProjectAmount(getProjectDesignAmount(project))}
+                      {formatProjectAmount(designAmount)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatProjectAmount(getProjectEstimateValue(project))}
+                      {formatProjectAmount(estimateAmount)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {changeOrderCount != null && changeOrderCount > 0 ? changeOrderCount : "—"}
@@ -208,6 +222,7 @@ export function ProjectsTable() {
 
       <p className="text-xs text-muted-foreground">
         Actual hours reflect all time logged on this project. Remaining is budgeted minus actual.
+        Parent project rows include change order totals when COs exist.
       </p>
       {permissions.editProjects && (
         <ProjectFormDialog

@@ -102,6 +102,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
         department: project.department,
         phase: project.phase,
         lead_employee_id: project.lead_employee_id,
+        lead_estimator_id: project.lead_estimator_id,
         budgeted_design_hours: project.budgeted_design_hours,
         contract_date: project.contract_date,
         target_completion_date: project.target_completion_date,
@@ -122,6 +123,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
         phase: defaults?.phase ?? "Concept",
         department: defaults?.department,
         lead_employee_id: defaults?.lead_employee_id,
+        lead_estimator_id: defaults?.lead_estimator_id,
         budgeted_design_hours: defaults?.budgeted_design_hours ?? 80,
         contract_date: defaults?.contract_date,
         target_completion_date: defaults?.target_completion_date,
@@ -280,7 +282,17 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
               <SearchableSelect
                 options={leadSelectOptions}
                 value={form.watch("lead_employee_id") ?? ""}
-                onValueChange={(v) => form.setValue("lead_employee_id", v)}
+                onValueChange={(v) => form.setValue("lead_employee_id", v || undefined)}
+                placeholder="Select"
+                searchPlaceholder="Search team members…"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Lead estimator</Label>
+              <SearchableSelect
+                options={leadSelectOptions}
+                value={form.watch("lead_estimator_id") ?? ""}
+                onValueChange={(v) => form.setValue("lead_estimator_id", v || undefined)}
                 placeholder="Select"
                 searchPlaceholder="Search team members…"
               />

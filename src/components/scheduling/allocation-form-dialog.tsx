@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { employeeMatchesDepartmentFilter } from "@/lib/departments";
+import { buildGroupedProjectSelectOptions } from "@/lib/project-picker-options";
 import { validateAllocationHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Allocation, AllocationFormValues } from "@/types";
@@ -96,13 +97,9 @@ export function AllocationFormDialog({
 
   const projectOptions = useMemo(
     () =>
-      projects
-        .filter((p) => p.active)
-        .map((p) => ({
-          value: p.id,
-          label: p.project_name,
-          keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
-        })),
+      buildGroupedProjectSelectOptions(projects, {
+        formatParentLabel: (project) => project.project_name,
+      }),
     [projects],
   );
 

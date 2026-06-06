@@ -23,7 +23,15 @@ import {
   getProjectActualHours,
   getProjectScheduledHours,
 } from "@/lib/utilization";
+import { getEmployeeFullName } from "@/lib/week";
 import type { Allocation, Employee, Project, TimeEntry } from "@/types";
+
+function leadSearchText(employee: Employee | undefined): string | undefined {
+  if (!employee) return undefined;
+  return [getEmployeeFullName(employee), employee.email, employee.department]
+    .filter(Boolean)
+    .join(" ");
+}
 
 function projectMetrics(
   project: Project,
@@ -80,7 +88,8 @@ export function buildDesignQueueItems(
         ),
         dueDate: project.target_completion_date,
         metrics,
-        leadName: lead ? `${lead.first_name} ${lead.last_name}` : undefined,
+        leadName: lead ? getEmployeeFullName(lead) : undefined,
+        leadSearchText: leadSearchText(lead),
         estimatedValue: getProjectDesignAmount(project),
       };
     })
@@ -107,8 +116,8 @@ export function buildEstimatingQueueItems(
         stage = normalizeEstimatingStage(override.stage);
       }
 
-      const lead = project.lead_employee_id
-        ? getEmployeeById(project.lead_employee_id)
+      const lead = project.lead_estimator_id
+        ? getEmployeeById(project.lead_estimator_id)
         : undefined;
       const missingDocuments = estimatingMissingDocs(project);
       const bidDueDate = project.target_completion_date ?? project.contract_date;
@@ -126,7 +135,8 @@ export function buildEstimatingQueueItems(
         ),
         bidDueDate,
         metrics,
-        leadName: lead ? `${lead.first_name} ${lead.last_name}` : undefined,
+        leadName: lead ? getEmployeeFullName(lead) : undefined,
+        leadSearchText: leadSearchText(lead),
         estimatedValue: getProjectEstimateValue(project) ?? getProjectDesignAmount(project),
         missingDocuments,
         followUpStatus:

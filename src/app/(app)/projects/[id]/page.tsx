@@ -23,7 +23,14 @@ import {
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { getParentProject, isChangeOrder, isParentProject } from "@/lib/change-orders";
+import {
+  getParentProject,
+  getProjectBudgetRollup,
+  getProjectHoursRollup,
+  hasChangeOrderRollup,
+  isChangeOrder,
+  isParentProject,
+} from "@/lib/change-orders";
 import { formatProjectDepartment, formatProjectHours } from "@/lib/project-format";
 import { getProjectActualHours } from "@/lib/utilization";
 import { getEmployeeFullName } from "@/lib/week";
@@ -50,12 +57,18 @@ export default function ProjectDetailPage() {
   }
 
   const actual = getProjectActualHours(timeEntries, project.id);
-  const remaining = project.budgeted_design_hours - actual;
+  const budgetRollup = getProjectBudgetRollup(projects, project);
+  const hoursRollup = getProjectHoursRollup(projects, project, timeEntries);
+  const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
+  const budgetedHours = showRollup ? budgetRollup.totalBudgetHours : project.budgeted_design_hours;
+  const actualHours = showRollup ? hoursRollup.totalActualHours : actual;
+  const remaining = budgetedHours - actualHours;
   const percentUsed =
-    project.budgeted_design_hours > 0
-      ? Math.round((actual / project.budgeted_design_hours) * 100)
-      : 0;
+    budgetedHours > 0 ? Math.round((actualHours / budgetedHours) * 100) : 0;
   const lead = project.lead_employee_id ? getEmployeeById(project.lead_employee_id) : null;
+  const leadEstimator = project.lead_estimator_id
+    ? getEmployeeById(project.lead_estimator_id)
+    : null;
   const parentProject = isChangeOrder(project) ? getParentProject(projects, project) : undefined;
 
   const projectAllocations = allocations
@@ -109,7 +122,13 @@ export default function ProjectDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Budgeted hours</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatProjectHours(project.budgeted_design_hours)}h</p>
+            <p className="text-2xl font-bold">{formatProjectHours(budgetedHours)}h</p>
+            {showRollup && (
+              <p className="text-sm text-muted-foreground">
+                {formatProjectHours(budgetRollup.baseBudgetHours)}h base +{" "}
+                {formatProjectHours(budgetRollup.changeOrderBudgetHours)}h COs
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -117,8 +136,14 @@ export default function ProjectDetailPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Actual</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatProjectHours(actual)}h</p>
+            <p className="text-2xl font-bold">{formatProjectHours(actualHours)}h</p>
             <p className="text-sm text-muted-foreground">{percentUsed}% of budget</p>
+            {showRollup && hoursRollup.changeOrderActualHours > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {formatProjectHours(hoursRollup.baseActualHours)}h base +{" "}
+                {formatProjectHours(hoursRollup.changeOrderActualHours)}h COs
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -136,6 +161,8 @@ export default function ProjectDetailPage() {
       <ProjectDetailsCard
         project={project}
         lead={lead}
+        leadEstimator={leadEstimator}
+        budgetRollup={showRollup ? budgetRollup : undefined}
         canEdit={permissions.editProjects}
         onEdit={() => setEditDialogOpen(true)}
       />

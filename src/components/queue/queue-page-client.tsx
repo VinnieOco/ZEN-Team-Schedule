@@ -86,6 +86,7 @@ export function QueuePageClient() {
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <QueueFiltersBar
+          kind={kind}
           filters={filters}
           onChange={(partial) => setFilters((prev) => ({ ...prev, ...partial }))}
           resultCount={resultCount}

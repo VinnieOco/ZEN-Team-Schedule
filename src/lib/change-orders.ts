@@ -43,6 +43,7 @@ export function buildChangeOrderFormDefaults(
     department: parent.department,
     phase: parent.phase,
     lead_employee_id: parent.lead_employee_id,
+    lead_estimator_id: parent.lead_estimator_id,
     address: parent.address,
     phone: parent.phone,
     email: parent.email,
@@ -57,6 +58,76 @@ export interface ChangeOrderSummary {
   totalBudgetHours: number;
   totalDesignAmount: number;
   totalEstimateAmount: number;
+}
+
+export interface ProjectBudgetRollup {
+  baseBudgetHours: number;
+  changeOrderBudgetHours: number;
+  totalBudgetHours: number;
+  baseDesignAmount: number;
+  changeOrderDesignAmount: number;
+  totalDesignAmount: number;
+  baseEstimateAmount: number;
+  changeOrderEstimateAmount: number;
+  totalEstimateAmount: number;
+  changeOrderCount: number;
+}
+
+export interface ProjectHoursRollup {
+  baseActualHours: number;
+  changeOrderActualHours: number;
+  totalActualHours: number;
+  changeOrderCount: number;
+}
+
+export function getProjectBudgetRollup(projects: Project[], project: Project): ProjectBudgetRollup {
+  const coSummary = isParentProject(project)
+    ? summarizeChangeOrders(projects, project.id)
+    : {
+        count: 0,
+        totalBudgetHours: 0,
+        totalDesignAmount: 0,
+        totalEstimateAmount: 0,
+      };
+
+  const baseDesignAmount = getProjectDesignAmount(project) ?? 0;
+  const baseEstimateAmount = getProjectEstimateValue(project) ?? 0;
+
+  return {
+    baseBudgetHours: project.budgeted_design_hours,
+    changeOrderBudgetHours: coSummary.totalBudgetHours,
+    totalBudgetHours: project.budgeted_design_hours + coSummary.totalBudgetHours,
+    baseDesignAmount,
+    changeOrderDesignAmount: coSummary.totalDesignAmount,
+    totalDesignAmount: baseDesignAmount + coSummary.totalDesignAmount,
+    baseEstimateAmount,
+    changeOrderEstimateAmount: coSummary.totalEstimateAmount,
+    totalEstimateAmount: baseEstimateAmount + coSummary.totalEstimateAmount,
+    changeOrderCount: coSummary.count,
+  };
+}
+
+export function getProjectHoursRollup(
+  projects: Project[],
+  project: Project,
+  timeEntries: TimeEntry[],
+): ProjectHoursRollup {
+  const changeOrders = isParentProject(project)
+    ? getChangeOrdersForParent(projects, project.id)
+    : [];
+  const baseActualHours = getProjectActualHours(timeEntries, project.id);
+  const changeOrderActualHours = getChangeOrderActualHours(timeEntries, changeOrders);
+
+  return {
+    baseActualHours,
+    changeOrderActualHours,
+    totalActualHours: baseActualHours + changeOrderActualHours,
+    changeOrderCount: changeOrders.length,
+  };
+}
+
+export function hasChangeOrderRollup(rollup: Pick<ProjectBudgetRollup, "changeOrderCount">): boolean {
+  return rollup.changeOrderCount > 0;
 }
 
 export function summarizeChangeOrders(

@@ -28,6 +28,7 @@ export function projectFromFormValues(
     department: optionalText(values.department),
     phase: values.phase,
     lead_employee_id: optionalText(values.lead_employee_id),
+    lead_estimator_id: optionalText(values.lead_estimator_id),
     budgeted_design_hours: budgeted,
     contract_date: optionalText(values.contract_date),
     target_completion_date: optionalText(values.target_completion_date),

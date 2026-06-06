@@ -38,6 +38,7 @@ export interface DesignQueueItem {
   dueDate?: string;
   metrics: QueueItemMetrics;
   leadName?: string;
+  leadSearchText?: string;
   estimatedValue?: number;
 }
 
@@ -50,6 +51,7 @@ export interface EstimatingQueueItem {
   bidDueDate?: string;
   metrics: QueueItemMetrics;
   leadName?: string;
+  leadSearchText?: string;
   estimatedValue?: number;
   missingDocuments: string[];
   followUpStatus?: string;

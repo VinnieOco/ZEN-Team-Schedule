@@ -35,6 +35,7 @@ type ProjectRow = {
   department: string | null;
   phase: string;
   lead_employee_id: string | null;
+  lead_estimator_id: string | null;
   budgeted_design_hours: number;
   estimated_construction_value: number | null;
   estimate_value: number | null;
@@ -149,6 +150,7 @@ export function mapProject(row: ProjectRow): Project {
     department: row.department?.trim() || undefined,
     phase: row.phase,
     lead_employee_id: row.lead_employee_id ?? undefined,
+    lead_estimator_id: row.lead_estimator_id ?? undefined,
     budgeted_design_hours: Number(row.budgeted_design_hours),
     design_amount:
       row.estimated_construction_value != null
@@ -314,6 +316,7 @@ export function projectToRow(project: Project) {
     department: project.department?.trim() || null,
     phase: project.phase,
     lead_employee_id: project.lead_employee_id ?? null,
+    lead_estimator_id: project.lead_estimator_id ?? null,
     budgeted_design_hours: project.budgeted_design_hours,
     estimated_construction_value: project.design_amount ?? null,
     estimate_value: project.estimate_value ?? null,

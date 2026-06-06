@@ -1058,7 +1058,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setAllocations((prev) => prev.filter((a) => a.employee_id !== id));
       setTimeEntries((prev) => prev.filter((e) => e.employee_id !== id));
       setProjects((prev) =>
-        prev.map((p) => (p.lead_employee_id === id ? { ...p, lead_employee_id: undefined } : p)),
+        prev.map((p) => {
+          let next = p;
+          if (p.lead_employee_id === id) {
+            next = { ...next, lead_employee_id: undefined };
+          }
+          if (p.lead_estimator_id === id) {
+            next = { ...next, lead_estimator_id: undefined };
+          }
+          return next;
+        }),
       );
 
       if (repoRef.current) {

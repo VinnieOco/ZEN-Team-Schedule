@@ -17,9 +17,10 @@ import {
 } from "@/lib/filter-queue";
 import { departmentFilterLabel, UNASSIGNED_DEPARTMENT } from "@/lib/departments";
 import { getDepartmentOptions } from "@/lib/team-options";
-import type { QueueFilters } from "@/lib/queue/types";
+import type { QueueFilters, QueueKind } from "@/lib/queue/types";
 
 interface QueueFiltersBarProps {
+  kind: QueueKind;
   filters: QueueFilters;
   onChange: (partial: Partial<QueueFilters>) => void;
   resultCount: number;
@@ -27,6 +28,7 @@ interface QueueFiltersBarProps {
 }
 
 export function QueueFiltersBar({
+  kind,
   filters,
   onChange,
   resultCount,
@@ -62,7 +64,11 @@ export function QueueFiltersBar({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder="Search project, client, or lead…"
+            placeholder={
+              kind === "design"
+                ? "Search project, client, or lead designer…"
+                : "Search project, client, or lead estimator…"
+            }
             value={filters.search}
             onChange={(e) => onChange({ search: e.target.value })}
           />

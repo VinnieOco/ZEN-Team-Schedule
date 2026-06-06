@@ -12,6 +12,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
 import { departmentFilterLabel } from "@/lib/departments";
+import { buildGroupedProjectSelectOptions } from "@/lib/project-picker-options";
 import { getDepartmentOptions } from "@/lib/team-options";
 
 interface SchedulingFiltersProps {
@@ -39,13 +40,9 @@ export function SchedulingFilters({ showScheduledOnlyToggle = false }: Schedulin
   const projectOptions = useMemo(
     () => [
       { value: "all", label: "All projects" },
-      ...projects
-        .filter((p) => p.active)
-        .map((p) => ({
-          value: p.id,
-          label: p.project_name,
-          keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
-        })),
+      ...buildGroupedProjectSelectOptions(projects, {
+        formatParentLabel: (project) => project.project_name,
+      }),
     ],
     [projects],
   );

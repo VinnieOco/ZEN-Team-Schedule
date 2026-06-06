@@ -12,6 +12,7 @@ import { CategorySearchSelect } from "@/components/time-tracking/category-search
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatProjectHours } from "@/lib/project-format";
+import { buildGroupedProjectSelectOptions } from "@/lib/project-picker-options";
 import { getClassCodeOptions, resolveClassCodes } from "@/lib/time-class-options";
 import {
   createEmptyTimesheetRow,
@@ -303,20 +304,16 @@ export function WeeklyTimesheet({
       .map((r) => (r.project_id && !activeIds.has(r.project_id) ? getProjectById(r.project_id) : null))
       .filter((p): p is NonNullable<typeof p> => p != null);
 
-    const projectOptions = [...activeProjects, ...inactiveFromRows]
-      .sort((a, b) => a.project_name.localeCompare(b.project_name))
-      .map((p) => ({
-        value: p.id,
-        label: `${p.client_name} · ${p.project_name}${!p.active ? " (inactive)" : ""}`,
-        keywords: [p.client_name, p.project_name, p.project_number].filter(Boolean).join(" "),
-      }));
+    const projectOptions = buildGroupedProjectSelectOptions(projects, {
+      extraProjects: inactiveFromRows,
+    });
 
     return [
       { value: UNSELECTED_PROJECT, label: "Select job…" },
       ...projectOptions,
       { value: TASK_PROJECT_VALUE, label: "Non-project time" },
     ];
-  }, [activeProjects, rows, getProjectById]);
+  }, [activeProjects, projects, rows, getProjectById]);
 
   if (!employeeId || activeEmployees.length === 0) {
     return (

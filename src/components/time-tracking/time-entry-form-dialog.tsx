@@ -21,6 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
+import { buildGroupedProjectSelectOptions } from "@/lib/project-picker-options";
 import { getEmployeeFullName } from "@/lib/week";
 import type { TimeEntry, TimeEntryFormValues } from "@/types";
 
@@ -76,13 +77,9 @@ export function TimeEntryFormDialog({
 
   const projectOptions = useMemo(
     () =>
-      projects
-        .filter((p) => p.active)
-        .map((p) => ({
-          value: p.id,
-          label: p.project_name,
-          keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
-        })),
+      buildGroupedProjectSelectOptions(projects, {
+        formatParentLabel: (project) => project.project_name,
+      }),
     [projects],
   );
 

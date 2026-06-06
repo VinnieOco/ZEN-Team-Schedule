@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { isInQueue } from "@/lib/queue/queue-membership";
+import { buildGroupedProjectSelectOptions } from "@/lib/project-picker-options";
 import type { QueueKind } from "@/lib/queue/types";
 import type { Project } from "@/types";
 
@@ -60,11 +61,9 @@ export function AddToQueueDialog({
 
   const options = useMemo(
     () =>
-      availableProjects.map((p) => ({
-        value: p.id,
-        label: p.project_name,
-        keywords: [p.client_name, p.department, p.phase].filter(Boolean).join(" "),
-      })),
+      buildGroupedProjectSelectOptions(availableProjects, {
+        formatParentLabel: (project) => project.project_name,
+      }),
     [availableProjects],
   );
 
