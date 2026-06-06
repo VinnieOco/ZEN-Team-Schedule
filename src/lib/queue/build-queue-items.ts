@@ -52,7 +52,6 @@ function estimatingMissingDocs(project: Project): string[] {
   const missing: string[] = [];
   if (!project.scope_of_work?.trim()) missing.push("Scope of work");
   if (!project.address?.trim()) missing.push("Site address");
-  if (!project.contract_date?.trim()) missing.push("Bid documents");
   return missing;
 }
 
