@@ -12,6 +12,9 @@ export interface AppPermissions {
   /** Log or edit time for any team member */
   logTimeForAnyone: boolean;
   viewCrm: boolean;
+  viewQueue: boolean;
+  /** Move projects between queue stages (stored locally until DB integration) */
+  editQueue: boolean;
   viewReports: boolean;
   exportReports: boolean;
   viewSettings: boolean;
@@ -43,6 +46,13 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
     crew: "View only",
   },
   { label: "CRM", admin: "View", manager: "View", member: "View", crew: "Hidden" },
+  {
+    label: "Queue",
+    admin: "View and edit stages",
+    manager: "View and edit stages",
+    member: "View only",
+    crew: "Hidden",
+  },
   { label: "Projects", admin: "View and edit", manager: "View and edit", member: "View only", crew: "Hidden" },
   {
     label: "Time tracking",
@@ -100,6 +110,8 @@ function adminPermissions(): AppPermissions {
     viewTimeTracking: true,
     logTimeForAnyone: true,
     viewCrm: true,
+    viewQueue: true,
+    editQueue: true,
     viewReports: true,
     exportReports: true,
     viewSettings: true,
@@ -122,6 +134,8 @@ function managerPermissions(): AppPermissions {
     viewTimeTracking: true,
     logTimeForAnyone: true,
     viewCrm: true,
+    viewQueue: true,
+    editQueue: true,
     viewReports: true,
     exportReports: true,
     viewSettings: true,
@@ -144,6 +158,8 @@ function memberPermissions(): AppPermissions {
     viewTimeTracking: true,
     logTimeForAnyone: false,
     viewCrm: true,
+    viewQueue: true,
+    editQueue: false,
     viewReports: true,
     exportReports: false,
     viewSettings: true,
@@ -166,6 +182,8 @@ function crewPermissions(): AppPermissions {
     viewTimeTracking: true,
     logTimeForAnyone: false,
     viewCrm: false,
+    viewQueue: false,
+    editQueue: false,
     viewReports: false,
     exportReports: false,
     viewSettings: false,

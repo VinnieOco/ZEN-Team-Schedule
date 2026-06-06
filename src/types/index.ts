@@ -47,9 +47,10 @@ export interface Project {
   phase: ProjectPhase | string;
   lead_employee_id?: string;
   budgeted_design_hours: number;
-  /** Contract / project dollar amount (stored as estimated_construction_value). */
-  project_amount?: number;
-  estimated_construction_value?: number;
+  /** Design contract / fee amount (DB: estimated_construction_value). */
+  design_amount?: number;
+  /** Construction estimate amount (DB: estimate_value). */
+  estimate_value?: number;
   start_date?: string;
   contract_date?: string;
   target_completion_date?: string;
@@ -230,7 +231,8 @@ export interface ProjectFormValues {
   budgeted_design_hours: number;
   contract_date?: string;
   target_completion_date?: string;
-  project_amount?: number;
+  design_amount?: number;
+  estimate_value?: number;
   scope_of_work?: string;
   address?: string;
   phone?: string;

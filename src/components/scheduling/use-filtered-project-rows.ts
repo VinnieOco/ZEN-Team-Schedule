@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useScheduling } from "@/context/scheduling-context";
+import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { projectMatchesDepartmentFilter } from "@/lib/departments";
 import {
   filterAllocationsForMonth,
@@ -45,7 +46,8 @@ export function useFilteredProjectRows({
         const projectHaystack = [
           p.project_name,
           p.client_name,
-          p.project_amount != null ? String(p.project_amount) : "",
+          getProjectDesignAmount(p) != null ? String(getProjectDesignAmount(p)) : "",
+          getProjectEstimateValue(p) != null ? String(getProjectEstimateValue(p)) : "",
         ]
           .filter(Boolean)
           .join(" ")

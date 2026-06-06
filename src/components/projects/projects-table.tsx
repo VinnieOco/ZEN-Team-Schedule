@@ -25,7 +25,7 @@ import {
   filterProjects,
   type ProjectFilters,
 } from "@/lib/filter-projects";
-import { formatProjectDepartment, formatProjectHours } from "@/lib/project-format";
+import { formatProjectAmount, formatProjectDepartment, formatProjectHours, getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getProjectActualHours } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
@@ -101,6 +101,8 @@ export function ProjectsTable() {
                 <TableHead className="text-right">Budgeted Hrs</TableHead>
                 <TableHead className="text-right">Actual Hrs</TableHead>
                 <TableHead className="text-right">Remaining Hrs</TableHead>
+                <TableHead className="text-right">Design Amount</TableHead>
+                <TableHead className="text-right">Estimate Amount</TableHead>
                 <TableHead>Target Date</TableHead>
                 {permissions.editProjects && <TableHead />}
               </TableRow>
@@ -152,6 +154,12 @@ export function ProjectsTable() {
                       )}
                     >
                       {formatProjectHours(remaining)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatProjectAmount(getProjectDesignAmount(project))}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatProjectAmount(getProjectEstimateValue(project))}
                     </TableCell>
                     <TableCell>
                       {project.target_completion_date

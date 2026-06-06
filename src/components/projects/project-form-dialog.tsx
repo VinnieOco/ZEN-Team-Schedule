@@ -25,6 +25,7 @@ import {
   getClientContact,
   normalizeClientName,
 } from "@/lib/clients";
+import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Project, ProjectFormValues } from "@/types";
 
@@ -32,11 +33,13 @@ interface ProjectFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   project?: Project | null;
+  /** Preset values when creating a new project (ignored when editing). */
+  defaults?: Partial<ProjectFormValues>;
 }
 
 const NO_DEPARTMENT = "__none__";
 
-export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDialogProps) {
+export function ProjectFormDialog({ open, onOpenChange, project, defaults }: ProjectFormDialogProps) {
   const { employees, settings, projects, clients, addProject, updateProject } = useScheduling();
   const lastPrefilledClientKey = useRef<string | null>(null);
   const departmentOptions = [
@@ -98,7 +101,8 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         budgeted_design_hours: project.budgeted_design_hours,
         contract_date: project.contract_date,
         target_completion_date: project.target_completion_date,
-        project_amount: project.project_amount,
+        design_amount: getProjectDesignAmount(project),
+        estimate_value: getProjectEstimateValue(project),
         scope_of_work: project.scope_of_work,
         address: project.address,
         phone: project.phone,
@@ -109,15 +113,22 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
       form.reset({
         project_name: "",
         client_name: "",
-        phase: "Concept",
-        budgeted_design_hours: 80,
-        scope_of_work: "",
-        address: "",
-        phone: "",
-        email: "",
+        phase: defaults?.phase ?? "Concept",
+        department: defaults?.department,
+        lead_employee_id: defaults?.lead_employee_id,
+        budgeted_design_hours: defaults?.budgeted_design_hours ?? 80,
+        contract_date: defaults?.contract_date,
+        target_completion_date: defaults?.target_completion_date,
+        design_amount: defaults?.design_amount,
+        estimate_value: defaults?.estimate_value,
+        scope_of_work: defaults?.scope_of_work ?? "",
+        address: defaults?.address ?? "",
+        phone: defaults?.phone ?? "",
+        email: defaults?.email ?? "",
+        active: defaults?.active ?? true,
       });
     }
-  }, [open, project, form]);
+  }, [open, project, form, defaults]);
 
   useEffect(() => {
     if (!open || project) return;
@@ -237,13 +248,23 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               />
             </div>
             <div className="space-y-2">
-              <Label>Project amount</Label>
+              <Label>Design amount</Label>
               <Input
                 type="number"
                 min={0}
                 step="0.01"
                 placeholder="0"
-                {...form.register("project_amount", { valueAsNumber: true })}
+                {...form.register("design_amount", { valueAsNumber: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Estimate amount</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="0"
+                {...form.register("estimate_value", { valueAsNumber: true })}
               />
             </div>
             <div className="space-y-2">

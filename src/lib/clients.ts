@@ -1,4 +1,5 @@
 import type { Client, Project } from "@/types";
+import { getProjectDesignAmount } from "@/lib/project-format";
 
 export interface ClientSummary {
   /** Normalized name used for grouping and route lookup */
@@ -184,7 +185,7 @@ export function groupProjectsByClient(
       activeProjectCount: sorted.filter((p) => p.active).length,
       totalBudgetedHours: sorted.reduce((sum, p) => sum + p.budgeted_design_hours, 0),
       totalProjectAmount: sorted.reduce(
-        (sum, p) => sum + (p.project_amount ?? p.estimated_construction_value ?? 0),
+        (sum, p) => sum + (getProjectDesignAmount(p) ?? 0),
         0,
       ),
       ...contact,

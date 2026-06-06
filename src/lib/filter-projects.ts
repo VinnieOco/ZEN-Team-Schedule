@@ -1,3 +1,4 @@
+import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Employee, Project } from "@/types";
 
@@ -52,7 +53,8 @@ export function filterProjects(
     const haystack = [
       project.project_name,
       project.client_name,
-      project.project_amount != null ? String(project.project_amount) : "",
+      getProjectDesignAmount(project) != null ? String(getProjectDesignAmount(project)) : "",
+      getProjectEstimateValue(project) != null ? String(getProjectEstimateValue(project)) : "",
       project.department,
       project.phase,
       lead ? getEmployeeFullName(lead) : "",

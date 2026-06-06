@@ -4,6 +4,7 @@ import {
   CalendarDays,
   FolderKanban,
   LayoutDashboard,
+  ListOrdered,
   Settings,
   Timer,
   Users,
@@ -22,6 +23,7 @@ export interface AppNavItem {
     | "viewTimeTracking"
     | "viewProjects"
     | "viewCrm"
+    | "viewQueue"
     | "viewReports"
     | "viewSettings"
   >;
@@ -32,6 +34,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays, permission: "viewScheduling" },
   { href: "/time-tracking", label: "Time Tracking", icon: Timer, permission: "viewTimeTracking" },
   { href: "/projects", label: "Projects", icon: FolderKanban, permission: "viewProjects" },
+  { href: "/queue", label: "Queue", icon: ListOrdered, permission: "viewQueue" },
   { href: "/crm", label: "CRM", icon: Users, permission: "viewCrm" },
   { href: "/reports", label: "Reports", icon: BarChart3, permission: "viewReports" },
   { href: "/settings", label: "Settings", icon: Settings, permission: "viewSettings" },

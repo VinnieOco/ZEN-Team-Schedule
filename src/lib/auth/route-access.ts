@@ -9,6 +9,7 @@ type RoutePermissionKey = keyof Pick<
   | "viewTimeTracking"
   | "viewProjects"
   | "viewCrm"
+  | "viewQueue"
   | "viewReports"
   | "viewSettings"
 >;
@@ -17,6 +18,7 @@ const ROUTE_CHECKS: { prefix: string; permission: RoutePermissionKey }[] = [
   { prefix: "/settings", permission: "viewSettings" },
   { prefix: "/crm", permission: "viewCrm" },
   { prefix: "/projects", permission: "viewProjects" },
+  { prefix: "/queue", permission: "viewQueue" },
   { prefix: "/reports", permission: "viewReports" },
   { prefix: "/scheduling", permission: "viewScheduling" },
   { prefix: "/time-tracking", permission: "viewTimeTracking" },
@@ -28,6 +30,7 @@ const FALLBACK_PATH_ORDER: { path: string; permission: RoutePermissionKey }[] = 
   { path: "/dashboard", permission: "viewDashboard" },
   { path: "/scheduling", permission: "viewScheduling" },
   { path: "/projects", permission: "viewProjects" },
+  { path: "/queue", permission: "viewQueue" },
   { path: "/crm", permission: "viewCrm" },
   { path: "/reports", permission: "viewReports" },
   { path: "/settings", permission: "viewSettings" },
