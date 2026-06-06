@@ -2,6 +2,7 @@ import { isInDesignQueue, isInEstimatingQueue } from "@/lib/queue/queue-membersh
 import {
   defaultDesignStage,
   defaultEstimatingStage,
+  normalizeDesignStage,
   normalizeEstimatingStage,
 } from "@/lib/queue/stages";
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
@@ -68,7 +69,7 @@ export function buildDesignQueueItems(
       const override = getStageOverride(project.id);
       let stage: DesignQueueStage = defaultDesignStage(project.phase);
       if (override?.kind === "design") {
-        stage = override.stage;
+        stage = normalizeDesignStage(override.stage);
       }
 
       const lead = project.lead_employee_id

@@ -3,14 +3,15 @@ import type { DesignQueueStage, EstimatingQueueStage } from "@/lib/queue/types";
 export const DESIGN_STAGES: { id: DesignQueueStage; label: string }[] = [
   { id: "backlog", label: "Backlog" },
   { id: "ready", label: "Ready To Start" },
-  { id: "active", label: "Active Production" },
+  { id: "active", label: "Active Production SD" },
+  { id: "active_dd_cd", label: "Active Production DD/CD" },
   { id: "in_review", label: "In Review" },
   { id: "client_review", label: "Client Review" },
   { id: "complete", label: "Complete" },
 ];
 
 export const ESTIMATING_STAGES: { id: EstimatingQueueStage; label: string }[] = [
-  { id: "lead", label: "Lead Opportunity" },
+  { id: "lead", label: "Backlog" },
   { id: "waiting_docs", label: "Waiting On Documents" },
   { id: "pricing", label: "Pricing" },
   { id: "submitted", label: "Submitted" },
@@ -50,12 +51,19 @@ const PHASE_TO_ESTIMATING: Record<string, EstimatingQueueStage> = {
 const PHASE_TO_DESIGN: Record<string, DesignQueueStage> = {
   Concept: "backlog",
   "Schematic Design": "ready",
-  "Design Development": "active",
-  "Construction Documents": "in_review",
+  "Design Development": "active_dd_cd",
+  "Construction Documents": "active_dd_cd",
   Revisions: "client_review",
   "Construction Support": "complete",
   Closeout: "complete",
 };
+
+export function normalizeDesignStage(stage: string): DesignQueueStage {
+  if (DESIGN_STAGES.some((s) => s.id === stage)) {
+    return stage as DesignQueueStage;
+  }
+  return "backlog";
+}
 
 export function defaultDesignStage(phase: string): DesignQueueStage {
   return PHASE_TO_DESIGN[phase] ?? "backlog";

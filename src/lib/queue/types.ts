@@ -6,6 +6,7 @@ export type DesignQueueStage =
   | "backlog"
   | "ready"
   | "active"
+  | "active_dd_cd"
   | "in_review"
   | "client_review"
   | "complete";
