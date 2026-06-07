@@ -20,6 +20,7 @@ import {
   settingsToRow,
   timeEntryToRow,
 } from "@/lib/data/mappers";
+import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
 import type { SchedulingRepository } from "@/lib/repository";
 import type {
   Allocation,
@@ -98,6 +99,10 @@ export function createSupabaseRepository(
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map(mapClientNote);
+    },
+
+    async listQueueState() {
+      return fetchQueueState(supabase);
     },
 
     async listClients() {

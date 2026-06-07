@@ -1,47 +1,20 @@
+import {
+  readColumnOrder,
+  writeColumnOrder,
+  writeRemoveFromColumnOrder,
+} from "@/lib/queue/queue-state";
 import type { QueueKind, QueueSortBy } from "@/lib/queue/types";
 
-const STORAGE_KEY = "zen-queue-column-order";
-
-type ColumnOrderMap = Record<string, string[]>;
-
-function columnKey(kind: QueueKind, stage: string): string {
-  return `${kind}::${stage}`;
-}
-
-function loadOrders(): ColumnOrderMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as ColumnOrderMap;
-  } catch {
-    return {};
-  }
-}
-
-function saveOrders(map: ColumnOrderMap): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-}
-
 export function getColumnOrder(kind: QueueKind, stage: string): string[] | undefined {
-  return loadOrders()[columnKey(kind, stage)];
+  return readColumnOrder(kind, stage);
 }
 
 export function setColumnOrder(kind: QueueKind, stage: string, projectIds: string[]): void {
-  const map = loadOrders();
-  map[columnKey(kind, stage)] = projectIds;
-  saveOrders(map);
+  writeColumnOrder(kind, stage, projectIds);
 }
 
 export function removeFromColumnOrder(kind: QueueKind, stage: string, projectId: string): void {
-  const existing = getColumnOrder(kind, stage);
-  if (!existing) return;
-  setColumnOrder(
-    kind,
-    stage,
-    existing.filter((id) => id !== projectId),
-  );
+  writeRemoveFromColumnOrder(kind, stage, projectId);
 }
 
 interface SortableQueueItem {

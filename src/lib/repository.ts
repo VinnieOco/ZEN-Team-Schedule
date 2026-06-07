@@ -1,3 +1,4 @@
+import type { QueueStateSnapshot } from "@/lib/queue/queue-state-types";
 import type {
   Allocation,
   AllocationCategory,
@@ -18,6 +19,7 @@ export interface SchedulingRepository {
   listTimeEntries(): Promise<TimeEntry[]>;
   listProjectNotes(): Promise<ProjectNote[]>;
   listClientNotes(): Promise<ClientNote[]>;
+  listQueueState(): Promise<QueueStateSnapshot>;
   listClients(): Promise<Client[]>;
   upsertClient(client: Client): Promise<Client>;
   updateClient(client: Client): Promise<Client>;

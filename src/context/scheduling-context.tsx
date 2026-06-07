@@ -20,7 +20,15 @@ import {
   initialTimeEntries,
   projects as seedProjects,
 } from "@/data/mock-data";
+import { createQueueStatePersistence } from "@/lib/data/queue-repository";
 import { createSupabaseRepository } from "@/lib/data/supabase-repository";
+import {
+  hydrateQueueState,
+  initQueuePersistence,
+  isQueueStateEmpty,
+  loadLocalQueueSnapshot,
+  migrateLocalQueueToRemote,
+} from "@/lib/queue/queue-state";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { SchedulingRepository } from "@/lib/repository";
@@ -78,6 +86,8 @@ interface PersistedState {
 interface SchedulingContextValue {
   dataSource: DataSource;
   isLoading: boolean;
+  /** Bumps when queue state is loaded from DB or localStorage (for memo invalidation). */
+  queueRevision: number;
   error: string | null;
   employees: Employee[];
   projects: Project[];
@@ -199,6 +209,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   const [dataSource] = useState<DataSource>(useSupabase ? "supabase" : "local");
   const [isLoading, setIsLoading] = useState(useSupabase);
+  const [queueRevision, setQueueRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // Supabase: start empty so seed/demo data never flashes before refreshData().
   const [employees, setEmployees] = useState<Employee[]>(
@@ -299,6 +310,23 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setTimeEntries(times);
       setSettings(sett);
       setSelectedWeekStart(getWeekStart(new Date(), sett));
+
+      try {
+        const persistence = createQueueStatePersistence(supabase);
+        initQueuePersistence(persistence, { useRemote: true });
+        let queueSnapshot = await repo.listQueueState();
+        if (isQueueStateEmpty(queueSnapshot)) {
+          await migrateLocalQueueToRemote();
+          queueSnapshot = await repo.listQueueState();
+        }
+        hydrateQueueState(queueSnapshot);
+        setQueueRevision((n) => n + 1);
+      } catch {
+        // Tables may be missing until migration 20260525120000_queue_state.sql is applied.
+        initQueuePersistence(null, { useRemote: false });
+        loadLocalQueueSnapshot();
+        setQueueRevision((n) => n + 1);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -311,6 +339,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       refreshData();
     }
   }, [useSupabase, refreshData]);
+
+  useEffect(() => {
+    if (useSupabase) return;
+    initQueuePersistence(null, { useRemote: false });
+    loadLocalQueueSnapshot();
+    setQueueRevision((n) => n + 1);
+  }, [useSupabase]);
 
   useEffect(() => {
     if (useSupabase) return;
@@ -1168,6 +1203,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     () => ({
       dataSource,
       isLoading,
+      queueRevision,
       error,
       employees,
       projects,
@@ -1222,6 +1258,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [
       dataSource,
       isLoading,
+      queueRevision,
       error,
       employees,
       projects,

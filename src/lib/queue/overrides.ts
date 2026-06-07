@@ -1,43 +1,23 @@
-import type { DesignQueueStage, EstimatingQueueStage, QueueKind } from "@/lib/queue/types";
+import {
+  readStageOverride,
+  removeStageOverride,
+  writeStageOverride,
+} from "@/lib/queue/queue-state";
+import type { QueueStageOverride } from "@/lib/queue/queue-state-types";
+import type { QueueKind } from "@/lib/queue/types";
 
-const STORAGE_KEY = "zen-queue-stage-overrides";
-
-export type QueueStageOverride =
-  | { kind: "design"; stage: DesignQueueStage }
-  | { kind: "estimating"; stage: EstimatingQueueStage };
-
-type OverrideMap = Record<string, QueueStageOverride>;
-
-function loadOverrides(): OverrideMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as OverrideMap;
-  } catch {
-    return {};
-  }
-}
-
-function saveOverrides(map: OverrideMap): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-}
+export type { QueueStageOverride } from "@/lib/queue/queue-state-types";
 
 export function getStageOverride(projectId: string): QueueStageOverride | undefined {
-  return loadOverrides()[projectId];
+  return readStageOverride(projectId);
 }
 
 export function setStageOverride(projectId: string, override: QueueStageOverride): void {
-  const map = loadOverrides();
-  map[projectId] = override;
-  saveOverrides(map);
+  writeStageOverride(projectId, override);
 }
 
 export function clearStageOverride(projectId: string): void {
-  const map = loadOverrides();
-  delete map[projectId];
-  saveOverrides(map);
+  removeStageOverride(projectId);
 }
 
 export function overrideKindMatches(kind: QueueKind, override: QueueStageOverride): boolean {

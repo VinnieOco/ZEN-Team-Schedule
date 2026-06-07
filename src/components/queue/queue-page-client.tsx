@@ -30,7 +30,8 @@ import {
 } from "@/lib/filter-queue";
 
 export function QueuePageClient() {
-  const { projects, allocations, timeEntries, getEmployeeById, isLoading } = useScheduling();
+  const { projects, allocations, timeEntries, getEmployeeById, isLoading, queueRevision } =
+    useScheduling();
   const { permissions } = usePermissions();
   const { revision, updateStage } = useQueueStageOverrides();
   const { revision: membershipRevision, addToQueue, removeFromQueue } = useQueueMembership();
@@ -40,12 +41,12 @@ export function QueuePageClient() {
 
   const designItems = useMemo(
     () => buildDesignQueueItems(projects, allocations, timeEntries, getEmployeeById),
-    [projects, allocations, timeEntries, getEmployeeById, revision, membershipRevision],
+    [projects, allocations, timeEntries, getEmployeeById, revision, membershipRevision, queueRevision],
   );
 
   const estimatingItems = useMemo(
     () => buildEstimatingQueueItems(projects, allocations, timeEntries, getEmployeeById),
-    [projects, allocations, timeEntries, getEmployeeById, revision, membershipRevision],
+    [projects, allocations, timeEntries, getEmployeeById, revision, membershipRevision, queueRevision],
   );
 
   const filteredDesign = useMemo(
@@ -133,7 +134,7 @@ export function QueuePageClient() {
             <QueueBoard
               kind="design"
               designItems={filteredDesign}
-              orderRevision={orderRevision}
+              orderRevision={orderRevision + queueRevision}
               sortBy={filters.sortBy}
               canEditStage={canEditStage}
               canManageQueue={canManageQueue}
@@ -164,7 +165,7 @@ export function QueuePageClient() {
             <QueueBoard
               kind="estimating"
               estimatingItems={filteredEstimating}
-              orderRevision={orderRevision}
+              orderRevision={orderRevision + queueRevision}
               sortBy={filters.sortBy}
               canEditStage={canEditStage}
               canManageQueue={canManageQueue}

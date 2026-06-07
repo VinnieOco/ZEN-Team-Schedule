@@ -13,7 +13,7 @@ export interface AppPermissions {
   logTimeForAnyone: boolean;
   viewCrm: boolean;
   viewQueue: boolean;
-  /** Move projects between queue stages (stored locally until DB integration) */
+  /** Move projects between queue stages (persisted in Supabase when configured) */
   editQueue: boolean;
   viewReports: boolean;
   exportReports: boolean;
