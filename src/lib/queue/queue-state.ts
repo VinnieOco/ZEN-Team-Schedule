@@ -59,12 +59,33 @@ function columnKey(kind: QueueKind, stage: string): string {
   return `${kind}::${stage}`;
 }
 
+function overrideKey(kind: QueueKind, projectId: string): string {
+  return `${kind}::${projectId}`;
+}
+
+function parseOverrideKey(key: string): { kind: QueueKind; projectId: string } | null {
+  const sep = key.indexOf("::");
+  if (sep <= 0) return null;
+  const kind = key.slice(0, sep);
+  if (kind !== "design" && kind !== "estimating") return null;
+  return { kind, projectId: key.slice(sep + 2) };
+}
+
 function loadLocalStageOverrides(): OverrideMap {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(STAGE_STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as OverrideMap;
+    const parsed = JSON.parse(raw) as Record<string, QueueStageOverride>;
+    const migrated: OverrideMap = {};
+    for (const [key, override] of Object.entries(parsed)) {
+      if (parseOverrideKey(key)) {
+        migrated[key] = override;
+      } else {
+        migrated[overrideKey(override.kind, key)] = override;
+      }
+    }
+    return migrated;
   } catch {
     return {};
   }
@@ -119,10 +140,11 @@ function persistLocalSnapshot(): void {
 function applySnapshot(snapshot: QueueStateSnapshot): void {
   const nextOverrides: OverrideMap = {};
   for (const row of snapshot.stages) {
-    nextOverrides[row.project_id] =
+    const override: QueueStageOverride =
       row.queue_kind === "design"
         ? { kind: "design", stage: row.stage as DesignQueueStage }
         : { kind: "estimating", stage: row.stage as EstimatingQueueStage };
+    nextOverrides[overrideKey(row.queue_kind, row.project_id)] = override;
   }
 
   stageOverrides = nextOverrides;
@@ -153,11 +175,16 @@ function applySnapshot(snapshot: QueueStateSnapshot): void {
 }
 
 export function snapshotFromMemory(): QueueStateSnapshot {
-  const stages: QueueStageRow[] = Object.entries(stageOverrides).map(([projectId, override]) => ({
-    project_id: projectId,
-    queue_kind: override.kind,
-    stage: override.stage,
-  }));
+  const stages: QueueStageRow[] = [];
+  for (const [key, override] of Object.entries(stageOverrides)) {
+    const parsed = parseOverrideKey(key);
+    if (!parsed) continue;
+    stages.push({
+      project_id: parsed.projectId,
+      queue_kind: override.kind,
+      stage: override.stage,
+    });
+  }
 
   const memberships: QueueMembershipRow[] = [];
   for (const kind of ["design", "estimating"] as const) {
@@ -257,7 +284,7 @@ function columnKeysFromCommit(commit: QueueDragCommit): string[] {
 export function writeQueueDragCommit(commit: QueueDragCommit): void {
   if (commit.stageChange) {
     const { projectId, override } = commit.stageChange;
-    stageOverrides = { ...stageOverrides, [projectId]: override };
+    stageOverrides = { ...stageOverrides, [overrideKey(override.kind, projectId)]: override };
     const nextColumnOrders = { ...columnOrders };
     for (const [key, ids] of Object.entries(nextColumnOrders)) {
       if (!key.startsWith(`${override.kind}::`)) continue;
@@ -273,7 +300,7 @@ export function writeQueueDragCommit(commit: QueueDragCommit): void {
   enqueuePersist(async () => {
     if (commit.stageChange) {
       const { projectId, override } = commit.stageChange;
-      const latest = readStageOverride(projectId) ?? override;
+      const latest = readStageOverride(projectId, override.kind) ?? override;
       await persistence!.upsertStage(projectId, latest.kind, latest.stage);
       await persistence!.removeProjectColumnPositions(projectId, latest.kind);
     }
@@ -284,30 +311,30 @@ export function writeQueueDragCommit(commit: QueueDragCommit): void {
   });
 }
 
-export function readStageOverride(projectId: string): QueueStageOverride | undefined {
-  return stageOverrides[projectId];
+export function readStageOverride(
+  projectId: string,
+  kind: QueueKind,
+): QueueStageOverride | undefined {
+  return stageOverrides[overrideKey(kind, projectId)];
 }
 
 export function writeStageOverride(projectId: string, override: QueueStageOverride): void {
-  stageOverrides = { ...stageOverrides, [projectId]: override };
+  stageOverrides = { ...stageOverrides, [overrideKey(override.kind, projectId)]: override };
   enqueuePersist(async () => {
-    const latest = readStageOverride(projectId);
+    const latest = readStageOverride(projectId, override.kind);
     if (!latest) return;
     await persistence!.upsertStage(projectId, latest.kind, latest.stage);
   });
 }
 
-export function removeStageOverride(projectId: string): void {
-  const existing = stageOverrides[projectId];
+export function removeStageOverride(projectId: string, kind: QueueKind): void {
+  const key = overrideKey(kind, projectId);
+  const existing = stageOverrides[key];
   if (!existing) return;
   const next = { ...stageOverrides };
-  delete next[projectId];
+  delete next[key];
   stageOverrides = next;
-  if (existing) {
-    enqueuePersist(() => persistence!.deleteStage(projectId, existing.kind));
-  } else {
-    persistLocalSnapshot();
-  }
+  enqueuePersist(() => persistence!.deleteStage(projectId, kind));
 }
 
 export function readIsMember(kind: QueueKind, projectId: string): boolean {

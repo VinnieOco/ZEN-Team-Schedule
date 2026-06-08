@@ -147,7 +147,16 @@ export function QueueBoard({
       const newIndex = ids.indexOf(overId);
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
       onDragCommit({
-        columnOrders: [{ kind, stage: activeItem.stage, projectIds: arrayMoveIds(ids, oldIndex, newIndex) }],
+        stageChange: {
+          projectId: activeId,
+          override:
+            kind === "design"
+              ? { kind: "design", stage: activeItem.stage as DesignQueueItem["stage"] }
+              : { kind: "estimating", stage: activeItem.stage as EstimatingQueueItem["stage"] },
+        },
+        columnOrders: [
+          { kind, stage: activeItem.stage, projectIds: arrayMoveIds(ids, oldIndex, newIndex) },
+        ],
       });
       return;
     }

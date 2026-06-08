@@ -7,6 +7,7 @@ import {
   setStageOverride,
   type QueueStageOverride,
 } from "@/lib/queue/overrides";
+import type { QueueKind } from "@/lib/queue/types";
 
 export function useQueueStageOverrides() {
   const [revision, setRevision] = useState(0);
@@ -22,8 +23,8 @@ export function useQueueStageOverrides() {
   );
 
   const resetStage = useCallback(
-    (projectId: string) => {
-      clearStageOverride(projectId);
+    (projectId: string, kind: QueueKind) => {
+      clearStageOverride(projectId, kind);
       bump();
     },
     [bump],

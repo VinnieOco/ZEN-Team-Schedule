@@ -65,9 +65,9 @@ export function buildDesignQueueItems(
     .filter((p) => isInDesignQueue(p))
     .map((project) => {
       const metrics = projectMetrics(project, allocations, timeEntries);
-      const override = getStageOverride(project.id);
+      const override = getStageOverride(project.id, "design");
       let stage: DesignQueueStage = defaultDesignStage(project.phase);
-      if (override?.kind === "design") {
+      if (override) {
         stage = normalizeDesignStage(override.stage);
       }
 
@@ -106,13 +106,13 @@ export function buildEstimatingQueueItems(
     .filter((p) => isInEstimatingQueue(p))
     .map((project) => {
       const metrics = projectMetrics(project, allocations, timeEntries);
-      const override = getStageOverride(project.id);
+      const override = getStageOverride(project.id, "estimating");
       let stage: EstimatingQueueStage = defaultEstimatingStage(
         project.phase,
         metrics.hoursUsed,
         metrics.budgetHours,
       );
-      if (override?.kind === "estimating") {
+      if (override) {
         stage = normalizeEstimatingStage(override.stage);
       }
 
