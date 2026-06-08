@@ -23,6 +23,7 @@ import {
 import { createQueueStatePersistence } from "@/lib/data/queue-repository";
 import { createSupabaseRepository } from "@/lib/data/supabase-repository";
 import {
+  flushPersistQueue,
   hydrateQueueState,
   initQueuePersistence,
   isQueueStateEmpty,
@@ -314,6 +315,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       try {
         const persistence = createQueueStatePersistence(supabase);
         initQueuePersistence(persistence, { useRemote: true });
+        await flushPersistQueue();
         let queueSnapshot = await repo.listQueueState();
         if (isQueueStateEmpty(queueSnapshot)) {
           await migrateLocalQueueToRemote();

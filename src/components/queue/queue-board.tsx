@@ -17,6 +17,7 @@ import { QueueCardContent } from "@/components/queue/queue-card-content";
 import { QueueDropColumn } from "@/components/queue/queue-drop-column";
 import { parseQueueDropId } from "@/components/queue/queue-drop-utils";
 import { arrayMoveIds, sortQueueColumnItems } from "@/lib/queue/column-order";
+import type { QueueDragCommit } from "@/lib/queue/queue-state";
 import { DESIGN_STAGES, ESTIMATING_STAGES } from "@/lib/queue/stages";
 import type { DesignQueueItem, EstimatingQueueItem, QueueKind, QueueSortBy } from "@/lib/queue/types";
 
@@ -28,8 +29,7 @@ interface QueueBoardProps {
   sortBy?: QueueSortBy;
   canEditStage?: boolean;
   canManageQueue?: boolean;
-  onStageChange?: (projectId: string, stage: string) => void;
-  onColumnOrderChange?: (kind: QueueKind, stage: string, projectIds: string[]) => void;
+  onDragCommit?: (commit: QueueDragCommit) => void;
   onRemoveFromQueue?: (projectId: string) => void;
 }
 
@@ -41,8 +41,7 @@ export function QueueBoard({
   sortBy = "priority",
   canEditStage,
   canManageQueue,
-  onStageChange,
-  onColumnOrderChange,
+  onDragCommit,
   onRemoveFromQueue,
 }: QueueBoardProps) {
   const [activeItem, setActiveItem] = useState<DesignQueueItem | EstimatingQueueItem | null>(null);
@@ -77,7 +76,7 @@ export function QueueBoard({
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
     const { active, over } = event;
-    if (!over || !canEditStage) return;
+    if (!over || !canEditStage || !onDragCommit) return;
 
     const activeId = String(active.id);
     const activeItem = items.find((i) => i.project.id === activeId);
@@ -90,18 +89,27 @@ export function QueueBoard({
       const targetStage = columnTarget.stage;
       if (activeItem.stage === targetStage) return;
 
-      onStageChange?.(activeId, targetStage);
-
       const sourceIds = (byStage[activeItem.stage] ?? [])
         .map((i) => i.project.id)
         .filter((id) => id !== activeId);
-      onColumnOrderChange?.(kind, activeItem.stage, sourceIds);
-
       const targetIds = (byStage[targetStage] ?? [])
         .map((i) => i.project.id)
         .filter((id) => id !== activeId);
       targetIds.push(activeId);
-      onColumnOrderChange?.(kind, targetStage, targetIds);
+
+      onDragCommit({
+        stageChange: {
+          projectId: activeId,
+          override:
+            kind === "design"
+              ? { kind: "design", stage: targetStage as DesignQueueItem["stage"] }
+              : { kind: "estimating", stage: targetStage as EstimatingQueueItem["stage"] },
+        },
+        columnOrders: [
+          { kind, stage: activeItem.stage, projectIds: sourceIds },
+          { kind, stage: targetStage, projectIds: targetIds },
+        ],
+      });
       return;
     }
 
@@ -114,23 +122,34 @@ export function QueueBoard({
       const oldIndex = ids.indexOf(activeId);
       const newIndex = ids.indexOf(overId);
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
-      onColumnOrderChange?.(kind, activeItem.stage, arrayMoveIds(ids, oldIndex, newIndex));
+      onDragCommit({
+        columnOrders: [{ kind, stage: activeItem.stage, projectIds: arrayMoveIds(ids, oldIndex, newIndex) }],
+      });
       return;
     }
-
-    onStageChange?.(activeId, overItem.stage);
 
     const sourceIds = (byStage[activeItem.stage] ?? [])
       .map((i) => i.project.id)
       .filter((id) => id !== activeId);
-    onColumnOrderChange?.(kind, activeItem.stage, sourceIds);
-
     const targetIds = (byStage[overItem.stage] ?? [])
       .map((i) => i.project.id)
       .filter((id) => id !== activeId);
     const overIndex = targetIds.indexOf(overId);
     targetIds.splice(overIndex >= 0 ? overIndex : targetIds.length, 0, activeId);
-    onColumnOrderChange?.(kind, overItem.stage, targetIds);
+
+    onDragCommit({
+      stageChange: {
+        projectId: activeId,
+        override:
+          kind === "design"
+            ? { kind: "design", stage: overItem.stage as DesignQueueItem["stage"] }
+            : { kind: "estimating", stage: overItem.stage as EstimatingQueueItem["stage"] },
+      },
+      columnOrders: [
+        { kind, stage: activeItem.stage, projectIds: sourceIds },
+        { kind, stage: overItem.stage, projectIds: targetIds },
+      ],
+    });
   };
 
   return (

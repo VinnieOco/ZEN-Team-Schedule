@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ListOrdered, Plus } from "lucide-react";
 
 import { AddToQueueDialog } from "@/components/queue/add-to-queue-dialog";
@@ -21,7 +21,8 @@ import {
   buildEstimatingQueueItems,
   buildQueueKpis,
 } from "@/lib/queue/build-queue-items";
-import type { DesignQueueStage, EstimatingQueueStage, QueueKind } from "@/lib/queue/types";
+import { writeQueueDragCommit, type QueueDragCommit } from "@/lib/queue/queue-state";
+import type { QueueKind } from "@/lib/queue/types";
 import {
   defaultQueueFilters,
   filterDesignQueueItems,
@@ -35,18 +36,37 @@ export function QueuePageClient() {
   const { permissions } = usePermissions();
   const { revision, updateStage } = useQueueStageOverrides();
   const { revision: membershipRevision, addToQueue, removeFromQueue } = useQueueMembership();
-  const { revision: orderRevision, updateColumnOrder } = useQueueColumnOrder();
+  const { revision: orderRevision } = useQueueColumnOrder();
   const [filters, setFilters] = useState(defaultQueueFilters);
   const [addDialogKind, setAddDialogKind] = useState<QueueKind | null>(null);
+  const [dragRevision, setDragRevision] = useState(0);
 
   const designItems = useMemo(
     () => buildDesignQueueItems(projects, allocations, timeEntries, getEmployeeById),
-    [projects, allocations, timeEntries, getEmployeeById, revision, membershipRevision, queueRevision],
+    [
+      projects,
+      allocations,
+      timeEntries,
+      getEmployeeById,
+      revision,
+      membershipRevision,
+      queueRevision,
+      dragRevision,
+    ],
   );
 
   const estimatingItems = useMemo(
     () => buildEstimatingQueueItems(projects, allocations, timeEntries, getEmployeeById),
-    [projects, allocations, timeEntries, getEmployeeById, revision, membershipRevision, queueRevision],
+    [
+      projects,
+      allocations,
+      timeEntries,
+      getEmployeeById,
+      revision,
+      membershipRevision,
+      queueRevision,
+      dragRevision,
+    ],
   );
 
   const filteredDesign = useMemo(
@@ -62,13 +82,10 @@ export function QueuePageClient() {
   const designKpis = useMemo(() => buildQueueKpis(designItems), [designItems]);
   const estimatingKpis = useMemo(() => buildQueueKpis(estimatingItems), [estimatingItems]);
 
-  const handleDesignStageChange = (projectId: string, stage: string) => {
-    updateStage(projectId, { kind: "design", stage: stage as DesignQueueStage });
-  };
-
-  const handleEstimatingStageChange = (projectId: string, stage: string) => {
-    updateStage(projectId, { kind: "estimating", stage: stage as EstimatingQueueStage });
-  };
+  const handleDragCommit = useCallback((commit: QueueDragCommit) => {
+    writeQueueDragCommit(commit);
+    setDragRevision((n) => n + 1);
+  }, []);
 
   const handleAddToQueue = (kind: QueueKind, projectId: string) => {
     addToQueue(kind, projectId);
@@ -134,12 +151,11 @@ export function QueuePageClient() {
             <QueueBoard
               kind="design"
               designItems={filteredDesign}
-              orderRevision={orderRevision + queueRevision}
+              orderRevision={orderRevision + queueRevision + dragRevision}
               sortBy={filters.sortBy}
               canEditStage={canEditStage}
               canManageQueue={canManageQueue}
-              onStageChange={handleDesignStageChange}
-              onColumnOrderChange={updateColumnOrder}
+              onDragCommit={handleDragCommit}
               onRemoveFromQueue={(projectId) => removeFromQueue("design", projectId)}
             />
           )}
@@ -165,12 +181,11 @@ export function QueuePageClient() {
             <QueueBoard
               kind="estimating"
               estimatingItems={filteredEstimating}
-              orderRevision={orderRevision + queueRevision}
+              orderRevision={orderRevision + queueRevision + dragRevision}
               sortBy={filters.sortBy}
               canEditStage={canEditStage}
               canManageQueue={canManageQueue}
-              onStageChange={handleEstimatingStageChange}
-              onColumnOrderChange={updateColumnOrder}
+              onDragCommit={handleDragCommit}
               onRemoveFromQueue={(projectId) => removeFromQueue("estimating", projectId)}
             />
           )}

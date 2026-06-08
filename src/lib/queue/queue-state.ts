@@ -47,6 +47,12 @@ let excluded: Record<QueueKind, Set<string>> = {
 let columnOrders: ColumnOrderMap = {};
 let persistence: QueueStatePersistence | null = null;
 let useRemotePersistence = false;
+let persistChain: Promise<void> = Promise.resolve();
+
+export interface QueueDragCommit {
+  stageChange?: { projectId: string; override: QueueStageOverride };
+  columnOrders: Array<{ kind: QueueKind; stage: string; projectIds: string[] }>;
+}
 
 function columnKey(kind: QueueKind, stage: string): string {
   return `${kind}::${stage}`;
@@ -217,14 +223,39 @@ export function initQueuePersistence(
   useRemotePersistence = Boolean(options?.useRemote && remote);
 }
 
-function runPersist(task: () => Promise<void>): void {
-  if (!useRemotePersistence || !persistence) {
-    persistLocalSnapshot();
-    return;
+/** Wait for in-flight remote writes before loading queue state from the database. */
+export function flushPersistQueue(): Promise<void> {
+  return persistChain;
+}
+
+function enqueuePersist(task: () => Promise<void>): void {
+  persistLocalSnapshot();
+  if (!useRemotePersistence || !persistence) return;
+  persistChain = persistChain
+    .then(task)
+    .catch((err) => {
+      console.error("Failed to persist queue state", err);
+    });
+}
+
+/** Apply stage + column updates from one drag in memory, then persist as a single ordered write. */
+export function writeQueueDragCommit(commit: QueueDragCommit): void {
+  if (commit.stageChange) {
+    const { projectId, override } = commit.stageChange;
+    stageOverrides = { ...stageOverrides, [projectId]: override };
   }
-  void task().catch((err) => {
-    console.error("Failed to persist queue state", err);
-    persistLocalSnapshot();
+  for (const { kind, stage, projectIds } of commit.columnOrders) {
+    columnOrders = { ...columnOrders, [columnKey(kind, stage)]: projectIds };
+  }
+
+  enqueuePersist(async () => {
+    if (commit.stageChange) {
+      const { projectId, override } = commit.stageChange;
+      await persistence!.upsertStage(projectId, override.kind, override.stage);
+    }
+    for (const { kind, stage, projectIds } of commit.columnOrders) {
+      await persistence!.replaceColumnOrder(kind, stage, projectIds);
+    }
   });
 }
 
@@ -234,7 +265,7 @@ export function readStageOverride(projectId: string): QueueStageOverride | undef
 
 export function writeStageOverride(projectId: string, override: QueueStageOverride): void {
   stageOverrides = { ...stageOverrides, [projectId]: override };
-  runPersist(() => persistence!.upsertStage(projectId, override.kind, override.stage));
+  enqueuePersist(() => persistence!.upsertStage(projectId, override.kind, override.stage));
 }
 
 export function removeStageOverride(projectId: string): void {
@@ -244,7 +275,7 @@ export function removeStageOverride(projectId: string): void {
   delete next[projectId];
   stageOverrides = next;
   if (existing) {
-    runPersist(() => persistence!.deleteStage(projectId, existing.kind));
+    enqueuePersist(() => persistence!.deleteStage(projectId, existing.kind));
   } else {
     persistLocalSnapshot();
   }
@@ -267,7 +298,7 @@ export function writeAddToQueue(kind: QueueKind, projectId: string): void {
   nextMembers.add(projectId);
   members = { ...members, [kind]: nextMembers };
 
-  runPersist(() => persistence!.upsertMembership(projectId, kind, "member"));
+  enqueuePersist(() => persistence!.upsertMembership(projectId, kind, "member"));
 }
 
 export function writeRemoveFromQueue(kind: QueueKind, projectId: string): void {
@@ -279,7 +310,7 @@ export function writeRemoveFromQueue(kind: QueueKind, projectId: string): void {
   nextExcluded.add(projectId);
   excluded = { ...excluded, [kind]: nextExcluded };
 
-  runPersist(() => persistence!.upsertMembership(projectId, kind, "excluded"));
+  enqueuePersist(() => persistence!.upsertMembership(projectId, kind, "excluded"));
 }
 
 export function readColumnOrder(kind: QueueKind, stage: string): string[] | undefined {
@@ -288,7 +319,7 @@ export function readColumnOrder(kind: QueueKind, stage: string): string[] | unde
 
 export function writeColumnOrder(kind: QueueKind, stage: string, projectIds: string[]): void {
   columnOrders = { ...columnOrders, [columnKey(kind, stage)]: projectIds };
-  runPersist(() => persistence!.replaceColumnOrder(kind, stage, projectIds));
+  enqueuePersist(() => persistence!.replaceColumnOrder(kind, stage, projectIds));
 }
 
 export function writeRemoveFromColumnOrder(
