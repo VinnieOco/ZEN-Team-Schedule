@@ -151,6 +151,7 @@ export function QueuePageClient() {
             <QueueBoard
               kind="design"
               designItems={filteredDesign}
+              allDesignItems={designItems}
               orderRevision={orderRevision + queueRevision + dragRevision}
               sortBy={filters.sortBy}
               canEditStage={canEditStage}
@@ -181,6 +182,7 @@ export function QueuePageClient() {
             <QueueBoard
               kind="estimating"
               estimatingItems={filteredEstimating}
+              allEstimatingItems={estimatingItems}
               orderRevision={orderRevision + queueRevision + dragRevision}
               sortBy={filters.sortBy}
               canEditStage={canEditStage}

@@ -41,11 +41,14 @@ export async function listQueueState(supabase: SupabaseClient): Promise<QueueSta
 export function createQueueStatePersistence(supabase: SupabaseClient): QueueStatePersistence {
   return {
     async upsertStage(projectId, kind, stage) {
-      const { error } = await supabase.from("queue_project_stages").upsert({
-        project_id: projectId,
-        queue_kind: kind,
-        stage,
-      });
+      const { error } = await supabase.from("queue_project_stages").upsert(
+        {
+          project_id: projectId,
+          queue_kind: kind,
+          stage,
+        },
+        { onConflict: "project_id,queue_kind" },
+      );
       if (error) throw error;
     },
 
@@ -59,11 +62,23 @@ export function createQueueStatePersistence(supabase: SupabaseClient): QueueStat
     },
 
     async upsertMembership(projectId, kind, membership) {
-      const { error } = await supabase.from("queue_memberships").upsert({
-        project_id: projectId,
-        queue_kind: kind,
-        membership,
-      });
+      const { error } = await supabase.from("queue_memberships").upsert(
+        {
+          project_id: projectId,
+          queue_kind: kind,
+          membership,
+        },
+        { onConflict: "project_id,queue_kind" },
+      );
+      if (error) throw error;
+    },
+
+    async removeProjectColumnPositions(projectId, kind) {
+      const { error } = await supabase
+        .from("queue_column_positions")
+        .delete()
+        .eq("project_id", projectId)
+        .eq("queue_kind", kind);
       if (error) throw error;
     },
 

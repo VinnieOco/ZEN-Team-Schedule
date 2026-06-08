@@ -21,10 +21,15 @@ import type { QueueDragCommit } from "@/lib/queue/queue-state";
 import { DESIGN_STAGES, ESTIMATING_STAGES } from "@/lib/queue/stages";
 import type { DesignQueueItem, EstimatingQueueItem, QueueKind, QueueSortBy } from "@/lib/queue/types";
 
+type QueueBoardItem = DesignQueueItem | EstimatingQueueItem;
+
 interface QueueBoardProps {
   kind: QueueKind;
   designItems?: DesignQueueItem[];
   estimatingItems?: EstimatingQueueItem[];
+  /** Full unfiltered queue list — used when persisting drag order so hidden items are not dropped. */
+  allDesignItems?: DesignQueueItem[];
+  allEstimatingItems?: EstimatingQueueItem[];
   orderRevision?: number;
   sortBy?: QueueSortBy;
   canEditStage?: boolean;
@@ -33,10 +38,31 @@ interface QueueBoardProps {
   onRemoveFromQueue?: (projectId: string) => void;
 }
 
+function buildStageMap(
+  kind: QueueKind,
+  items: QueueBoardItem[],
+  stages: { id: string }[],
+  sortBy: QueueSortBy,
+): Record<string, QueueBoardItem[]> {
+  const map: Record<string, QueueBoardItem[]> = Object.fromEntries(
+    stages.map((s) => [s.id, [] as QueueBoardItem[]]),
+  );
+  for (const item of items) {
+    const bucket = map[item.stage];
+    if (bucket) bucket.push(item);
+  }
+  for (const stage of stages) {
+    map[stage.id] = sortQueueColumnItems(kind, stage.id, map[stage.id] ?? [], sortBy);
+  }
+  return map;
+}
+
 export function QueueBoard({
   kind,
   designItems = [],
   estimatingItems = [],
+  allDesignItems,
+  allEstimatingItems,
   orderRevision = 0,
   sortBy = "priority",
   canEditStage,
@@ -52,24 +78,22 @@ export function QueueBoard({
   );
 
   const stages = kind === "design" ? DESIGN_STAGES : ESTIMATING_STAGES;
-  const items = kind === "design" ? designItems : estimatingItems;
+  const visibleItems = kind === "design" ? designItems : estimatingItems;
+  const allItems =
+    kind === "design" ? (allDesignItems ?? designItems) : (allEstimatingItems ?? estimatingItems);
 
-  const byStage = useMemo(() => {
-    const map: Record<string, (DesignQueueItem | EstimatingQueueItem)[]> = Object.fromEntries(
-      stages.map((s) => [s.id, [] as (DesignQueueItem | EstimatingQueueItem)[]]),
-    );
-    for (const item of items) {
-      const bucket = map[item.stage];
-      if (bucket) bucket.push(item);
-    }
-    for (const stage of stages) {
-      map[stage.id] = sortQueueColumnItems(kind, stage.id, map[stage.id] ?? [], sortBy);
-    }
-    return map;
-  }, [items, stages, kind, orderRevision, sortBy]);
+  const displayByStage = useMemo(
+    () => buildStageMap(kind, visibleItems, stages, sortBy),
+    [visibleItems, stages, kind, orderRevision, sortBy],
+  );
+
+  const fullByStage = useMemo(
+    () => buildStageMap(kind, allItems, stages, sortBy),
+    [allItems, stages, kind, orderRevision, sortBy],
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const found = items.find((i) => i.project.id === event.active.id);
+    const found = visibleItems.find((i) => i.project.id === event.active.id);
     if (found) setActiveItem(found);
   };
 
@@ -79,7 +103,7 @@ export function QueueBoard({
     if (!over || !canEditStage || !onDragCommit) return;
 
     const activeId = String(active.id);
-    const activeItem = items.find((i) => i.project.id === activeId);
+    const activeItem = allItems.find((i) => i.project.id === activeId);
     if (!activeItem) return;
 
     const overId = String(over.id);
@@ -89,10 +113,10 @@ export function QueueBoard({
       const targetStage = columnTarget.stage;
       if (activeItem.stage === targetStage) return;
 
-      const sourceIds = (byStage[activeItem.stage] ?? [])
+      const sourceIds = (fullByStage[activeItem.stage] ?? [])
         .map((i) => i.project.id)
         .filter((id) => id !== activeId);
-      const targetIds = (byStage[targetStage] ?? [])
+      const targetIds = (fullByStage[targetStage] ?? [])
         .map((i) => i.project.id)
         .filter((id) => id !== activeId);
       targetIds.push(activeId);
@@ -113,11 +137,11 @@ export function QueueBoard({
       return;
     }
 
-    const overItem = items.find((i) => i.project.id === overId);
+    const overItem = allItems.find((i) => i.project.id === overId);
     if (!overItem) return;
 
     if (activeItem.stage === overItem.stage) {
-      const columnItems = byStage[activeItem.stage] ?? [];
+      const columnItems = fullByStage[activeItem.stage] ?? [];
       const ids = columnItems.map((i) => i.project.id);
       const oldIndex = ids.indexOf(activeId);
       const newIndex = ids.indexOf(overId);
@@ -128,10 +152,10 @@ export function QueueBoard({
       return;
     }
 
-    const sourceIds = (byStage[activeItem.stage] ?? [])
+    const sourceIds = (fullByStage[activeItem.stage] ?? [])
       .map((i) => i.project.id)
       .filter((id) => id !== activeId);
-    const targetIds = (byStage[overItem.stage] ?? [])
+    const targetIds = (fullByStage[overItem.stage] ?? [])
       .map((i) => i.project.id)
       .filter((id) => id !== activeId);
     const overIndex = targetIds.indexOf(overId);
@@ -177,7 +201,7 @@ export function QueueBoard({
                 kind={kind}
                 stageId={stage.id}
                 title={stage.label}
-                items={byStage[stage.id] ?? []}
+                items={displayByStage[stage.id] ?? []}
                 canDrag={canEditStage}
                 canRemove={canManageQueue}
                 onRemoveProject={onRemoveFromQueue}

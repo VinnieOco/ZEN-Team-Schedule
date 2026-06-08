@@ -31,6 +31,7 @@ export interface QueueStatePersistence {
     membership: "member" | "excluded",
   ): Promise<void>;
   deleteMembership(projectId: string, kind: QueueKind): Promise<void>;
+  removeProjectColumnPositions(projectId: string, kind: QueueKind): Promise<void>;
   replaceColumnOrder(kind: QueueKind, stage: string, projectIds: string[]): Promise<void>;
   replaceAll(snapshot: QueueStateSnapshot): Promise<void>;
 }
@@ -231,11 +232,25 @@ export function flushPersistQueue(): Promise<void> {
 function enqueuePersist(task: () => Promise<void>): void {
   persistLocalSnapshot();
   if (!useRemotePersistence || !persistence) return;
+  const activePersistence = persistence;
   persistChain = persistChain
     .then(task)
-    .catch((err) => {
+    .catch(async (err) => {
       console.error("Failed to persist queue state", err);
+      try {
+        await activePersistence.replaceAll(snapshotFromMemory());
+      } catch (retryErr) {
+        console.error("Failed to sync full queue state after error", retryErr);
+      }
     });
+}
+
+async function persistColumnOrderFromMemory(kind: QueueKind, stage: string): Promise<void> {
+  await persistence!.replaceColumnOrder(kind, stage, readColumnOrder(kind, stage) ?? []);
+}
+
+function columnKeysFromCommit(commit: QueueDragCommit): string[] {
+  return [...new Set(commit.columnOrders.map(({ kind, stage }) => columnKey(kind, stage)))];
 }
 
 /** Apply stage + column updates from one drag in memory, then persist as a single ordered write. */
@@ -243,18 +258,28 @@ export function writeQueueDragCommit(commit: QueueDragCommit): void {
   if (commit.stageChange) {
     const { projectId, override } = commit.stageChange;
     stageOverrides = { ...stageOverrides, [projectId]: override };
+    const nextColumnOrders = { ...columnOrders };
+    for (const [key, ids] of Object.entries(nextColumnOrders)) {
+      if (!key.startsWith(`${override.kind}::`)) continue;
+      nextColumnOrders[key] = ids.filter((id) => id !== projectId);
+    }
+    columnOrders = nextColumnOrders;
   }
   for (const { kind, stage, projectIds } of commit.columnOrders) {
     columnOrders = { ...columnOrders, [columnKey(kind, stage)]: projectIds };
   }
 
+  const stageKeys = columnKeysFromCommit(commit);
   enqueuePersist(async () => {
     if (commit.stageChange) {
       const { projectId, override } = commit.stageChange;
-      await persistence!.upsertStage(projectId, override.kind, override.stage);
+      const latest = readStageOverride(projectId) ?? override;
+      await persistence!.upsertStage(projectId, latest.kind, latest.stage);
+      await persistence!.removeProjectColumnPositions(projectId, latest.kind);
     }
-    for (const { kind, stage, projectIds } of commit.columnOrders) {
-      await persistence!.replaceColumnOrder(kind, stage, projectIds);
+    for (const key of stageKeys) {
+      const [kind, stage] = key.split("::") as [QueueKind, string];
+      await persistColumnOrderFromMemory(kind, stage);
     }
   });
 }
@@ -265,7 +290,11 @@ export function readStageOverride(projectId: string): QueueStageOverride | undef
 
 export function writeStageOverride(projectId: string, override: QueueStageOverride): void {
   stageOverrides = { ...stageOverrides, [projectId]: override };
-  enqueuePersist(() => persistence!.upsertStage(projectId, override.kind, override.stage));
+  enqueuePersist(async () => {
+    const latest = readStageOverride(projectId);
+    if (!latest) return;
+    await persistence!.upsertStage(projectId, latest.kind, latest.stage);
+  });
 }
 
 export function removeStageOverride(projectId: string): void {
@@ -319,7 +348,7 @@ export function readColumnOrder(kind: QueueKind, stage: string): string[] | unde
 
 export function writeColumnOrder(kind: QueueKind, stage: string, projectIds: string[]): void {
   columnOrders = { ...columnOrders, [columnKey(kind, stage)]: projectIds };
-  enqueuePersist(() => persistence!.replaceColumnOrder(kind, stage, projectIds));
+  enqueuePersist(() => persistColumnOrderFromMemory(kind, stage));
 }
 
 export function writeRemoveFromColumnOrder(
