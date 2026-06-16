@@ -32,6 +32,11 @@ import {
 import { useScheduling } from "@/context/scheduling-context";
 import { PhaseProgressBar } from "@/components/gantt/phase-progress-bar";
 import {
+  getProjectBudgetRollup,
+  hasChangeOrderRollup,
+  isParentProject,
+} from "@/lib/change-orders";
+import {
   buildPhaseHoursAllocation,
   computePhaseProgress,
 } from "@/lib/gantt/phase-progress";
@@ -75,7 +80,7 @@ export function ProjectScheduleSection({
   timeEntries,
   canEdit,
 }: ProjectScheduleSectionProps) {
-  const { projectPhases, projectMilestones, allocations, employees, replaceProjectPhases, replaceProjectMilestones, isLoading } =
+  const { projects, projectPhases, projectMilestones, allocations, employees, replaceProjectPhases, replaceProjectMilestones, isLoading } =
     useScheduling();
   const seededRef = useRef(false);
   const [rangeStart, setRangeStart] = useState(() =>
@@ -94,6 +99,23 @@ export function ProjectScheduleSection({
     () => buildPhaseHoursAllocation(phases, timeEntries, project.id),
     [phases, timeEntries, project.id],
   );
+  const totalPhaseBudgetHours = useMemo(
+    () => phases.reduce((sum, phase) => sum + phase.budget_hours, 0),
+    [phases],
+  );
+  const totalLoggedHours = useMemo(
+    () =>
+      phases.reduce(
+        (sum, phase) => sum + (phaseHoursByKey.get(phase.phase_key) ?? 0),
+        0,
+      ),
+    [phases, phaseHoursByKey],
+  );
+  const projectBudgetedHours = useMemo(() => {
+    const budgetRollup = getProjectBudgetRollup(projects, project);
+    const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
+    return showRollup ? budgetRollup.totalBudgetHours : project.budgeted_design_hours;
+  }, [projects, project]);
   const [phaseToAdd, setPhaseToAdd] = useState<string>("");
 
   useEffect(() => {
@@ -335,6 +357,26 @@ export function ProjectScheduleSection({
                   </TableRow>
                 );
               })}
+              <TableRow className="bg-slate-50/80 font-semibold hover:bg-slate-50/80">
+                <TableCell>Total</TableCell>
+                <TableCell colSpan={3} />
+                <TableCell className="text-right">
+                  <span className="tabular-nums">{formatProjectHours(totalPhaseBudgetHours)}</span>
+                  <span className="font-normal text-muted-foreground">
+                    {" "}
+                    / {formatProjectHours(projectBudgetedHours)}h project
+                  </span>
+                  {Math.abs(totalPhaseBudgetHours - projectBudgetedHours) > 0.01 && (
+                    <p className="mt-0.5 text-[10px] font-normal text-amber-700">
+                      Phase total differs from project budget
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-normal text-muted-foreground">
+                  {formatProjectHours(totalLoggedHours)}h
+                </TableCell>
+                <TableCell colSpan={canEdit ? 4 : 3} />
+              </TableRow>
             </TableBody>
           </Table>
           )}
