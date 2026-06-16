@@ -9,6 +9,7 @@ import type {
   Project,
   ClientNote,
   ProjectNote,
+  ScheduledProjectPhase,
   TimeEntry,
 } from "@/types";
 
@@ -389,5 +390,48 @@ export function settingsToRow(settings: CompanySettings) {
     job_roles: normalized.job_roles,
     departments: normalized.departments,
     class_codes: normalized.class_codes,
+  };
+}
+
+type ScheduledProjectPhaseRow = {
+  id: string;
+  project_id: string;
+  phase_key: string;
+  sort_order: number;
+  start_date: string | null;
+  end_date: string | null;
+  budget_hours: number;
+  budget_amount: number | null;
+  linked_to_previous: boolean;
+  notes: string | null;
+};
+
+export function mapScheduledProjectPhase(row: ScheduledProjectPhaseRow): ScheduledProjectPhase {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    phase_key: row.phase_key,
+    sort_order: row.sort_order,
+    start_date: row.start_date ?? undefined,
+    end_date: row.end_date ?? undefined,
+    budget_hours: Number(row.budget_hours),
+    budget_amount: row.budget_amount != null ? Number(row.budget_amount) : undefined,
+    linked_to_previous: row.linked_to_previous,
+    notes: row.notes ?? undefined,
+  };
+}
+
+export function scheduledProjectPhaseToRow(phase: ScheduledProjectPhase) {
+  return {
+    id: phase.id,
+    project_id: phase.project_id,
+    phase_key: phase.phase_key,
+    sort_order: phase.sort_order,
+    start_date: phase.start_date ?? null,
+    end_date: phase.end_date ?? null,
+    budget_hours: phase.budget_hours,
+    budget_amount: phase.budget_amount ?? null,
+    linked_to_previous: phase.linked_to_previous,
+    notes: phase.notes?.trim() || null,
   };
 }

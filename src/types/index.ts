@@ -68,6 +68,20 @@ export interface Project {
   is_change_order?: boolean;
 }
 
+/** Scheduled phase row for Gantt planning (one project has many). */
+export interface ScheduledProjectPhase {
+  id: string;
+  project_id: string;
+  phase_key: string;
+  sort_order: number;
+  start_date?: string;
+  end_date?: string;
+  budget_hours: number;
+  budget_amount?: number;
+  linked_to_previous: boolean;
+  notes?: string;
+}
+
 export interface ProjectNote {
   id: string;
   project_id: string;

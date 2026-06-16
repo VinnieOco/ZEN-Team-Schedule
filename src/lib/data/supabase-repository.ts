@@ -21,6 +21,11 @@ import {
   timeEntryToRow,
 } from "@/lib/data/mappers";
 import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
+import {
+  insertProjectPhases as insertPhases,
+  listProjectPhases as fetchProjectPhases,
+  upsertProjectPhases as upsertPhases,
+} from "@/lib/data/project-phases-repository";
 import type { SchedulingRepository } from "@/lib/repository";
 import type {
   Allocation,
@@ -31,6 +36,7 @@ import type {
   Project,
   ClientNote,
   ProjectNote,
+  ScheduledProjectPhase,
   TimeEntry,
 } from "@/types";
 
@@ -103,6 +109,18 @@ export function createSupabaseRepository(
 
     async listQueueState() {
       return fetchQueueState(supabase);
+    },
+
+    async listProjectPhases() {
+      return fetchProjectPhases(supabase);
+    },
+
+    async upsertProjectPhases(phases: ScheduledProjectPhase[]) {
+      return upsertPhases(supabase, phases);
+    },
+
+    async insertProjectPhases(phases: ScheduledProjectPhase[]) {
+      return insertPhases(supabase, phases);
     },
 
     async listClients() {

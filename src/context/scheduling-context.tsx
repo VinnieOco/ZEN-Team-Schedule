@@ -48,6 +48,7 @@ import {
   type ClientContactFields,
 } from "@/lib/clients";
 import { projectFromFormValues } from "@/lib/project-form";
+import { projectsNeedingPhaseSeed, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { getMonthStart, getWeekStart } from "@/lib/week";
 import type {
   Allocation,
@@ -61,6 +62,7 @@ import type {
   ClientNote,
   ClientFormValues,
   ProjectNote,
+  ScheduledProjectPhase,
   EmployeeFormValues,
   ProjectFormValues,
   SchedulingFilters,
@@ -81,6 +83,7 @@ interface PersistedState {
   categories?: AllocationCategory[];
   allocations: Allocation[];
   timeEntries: TimeEntry[];
+  projectPhases?: ScheduledProjectPhase[];
   settings: CompanySettings;
 }
 
@@ -98,6 +101,7 @@ interface SchedulingContextValue {
   categories: AllocationCategory[];
   allocations: Allocation[];
   timeEntries: TimeEntry[];
+  projectPhases: ScheduledProjectPhase[];
   settings: CompanySettings;
   selectedWeekStart: Date;
   filters: SchedulingFilters;
@@ -139,6 +143,8 @@ interface SchedulingContextValue {
   getCategoryById: (id: string) => AllocationCategory | undefined;
   getProjectById: (id: string) => Project | undefined;
   getEmployeeById: (id: string) => Employee | undefined;
+  replaceProjectPhases: (projectId: string, phases: ScheduledProjectPhase[]) => void;
+  seedMissingProjectPhases: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -245,6 +251,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>(
     useSupabase ? [] : (persisted?.timeEntries ?? initialTimeEntries),
   );
+  const [projectPhases, setProjectPhases] = useState<ScheduledProjectPhase[]>(
+    useSupabase ? [] : (persisted?.projectPhases ?? []),
+  );
   const [settings, setSettings] = useState<CompanySettings>(() =>
     normalizeCompanySettings(persisted?.settings ?? seedSettings),
   );
@@ -313,6 +322,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setSelectedWeekStart(getWeekStart(new Date(), sett));
 
       try {
+        const phasesData = await repo.listProjectPhases();
+        setProjectPhases(phasesData);
+      } catch {
+        setProjectPhases([]);
+      }
+
+      try {
         const persistence = createQueueStatePersistence(supabase);
         initQueuePersistence(persistence, { useRemote: true });
         await flushPersistQueue();
@@ -360,6 +376,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       categories,
       allocations,
       timeEntries,
+      projectPhases,
       settings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -373,6 +390,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     categories,
     allocations,
     timeEntries,
+    projectPhases,
     settings,
   ]);
 
@@ -705,6 +723,39 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     },
     [projects, persistAsync, ensureClientInRegistry],
   );
+
+  const replaceProjectPhases = useCallback(
+    (projectId: string, phases: ScheduledProjectPhase[]) => {
+      setProjectPhases((prev) => {
+        const snapshot = prev;
+        const next = [...prev.filter((p) => p.project_id !== projectId), ...phases];
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertProjectPhases(phases),
+            () => setProjectPhases(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const seedMissingProjectPhases = useCallback(async () => {
+    const missing = projectsNeedingPhaseSeed(projects, projectPhases);
+    if (missing.length === 0) return;
+    const seeded = missing.flatMap((project) => seedPhasesForProject(project));
+    setProjectPhases((prev) => [...prev, ...seeded]);
+    if (repoRef.current) {
+      await persistAsync(
+        () => repoRef.current!.insertProjectPhases(seeded),
+        () =>
+          setProjectPhases((prev) =>
+            prev.filter((p) => !seeded.some((s) => s.id === p.id)),
+          ),
+      );
+    }
+  }, [projects, projectPhases, persistAsync]);
 
   const updateProject = useCallback(
     (id: string, values: ProjectFormValues) => {
@@ -1215,6 +1266,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       categories,
       allocations,
       timeEntries,
+      projectPhases,
       settings,
       selectedWeekStart,
       filters,
@@ -1255,6 +1307,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       getCategoryById,
       getProjectById,
       getEmployeeById,
+      replaceProjectPhases,
+      seedMissingProjectPhases,
       refreshData,
     }),
     [
@@ -1270,6 +1324,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       categories,
       allocations,
       timeEntries,
+      projectPhases,
       settings,
       selectedWeekStart,
       filters,
@@ -1310,6 +1365,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       getCategoryById,
       getProjectById,
       getEmployeeById,
+      replaceProjectPhases,
+      seedMissingProjectPhases,
       refreshData,
     ],
   );

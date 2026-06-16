@@ -7,12 +7,15 @@ import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
 import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
+import { ProjectScheduleSection } from "@/components/projects/project-schedule-section";
 import { AppPage } from "@/components/layout/app-page";
+import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -107,6 +110,17 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
+      <Tabs defaultValue="overview" className="min-w-0">
+        <ScrollableTabsList>
+          <TabsTrigger value="overview" className="shrink-0 px-3">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="schedule" className="shrink-0 px-3">
+            Schedule
+          </TabsTrigger>
+        </ScrollableTabsList>
+
+        <TabsContent value="overview" className="mt-6 space-y-6">
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -210,6 +224,16 @@ export default function ProjectDetailPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="schedule" className="mt-6">
+          <ProjectScheduleSection
+            project={project}
+            timeEntries={timeEntries}
+            canEdit={permissions.editProjects}
+          />
+        </TabsContent>
+      </Tabs>
 
       {permissions.editProjects && (
         <ProjectFormDialog

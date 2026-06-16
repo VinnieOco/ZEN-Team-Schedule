@@ -1,0 +1,144 @@
+"use client";
+
+import { format } from "date-fns";
+
+import { GanttPhaseBar } from "@/components/gantt/gantt-phase-bar";
+import { GanttProjectLabel } from "@/components/gantt/gantt-project-label";
+import type { GanttProjectRow } from "@/lib/gantt/build-gantt-rows";
+import { movePhaseByDays, resizePhaseEnd, resizePhaseStart } from "@/lib/gantt/phase-links";
+import { phasesForProject } from "@/lib/gantt/seed-phases";
+import {
+  barGeometry,
+  GANTT_ROW_HEIGHT_PX,
+  type GanttZoom,
+} from "@/lib/gantt/timeline";
+import type { ScheduledProjectPhase } from "@/types";
+
+export type GanttDragMode = "move" | "resize-start" | "resize-end";
+
+export interface GanttDragState {
+  projectId: string;
+  phaseId: string;
+  mode: GanttDragMode;
+  startX: number;
+  originStart?: string;
+  originEnd?: string;
+}
+
+interface GanttProjectRowViewProps {
+  row: GanttProjectRow;
+  rangeStart: Date;
+  zoom: GanttZoom;
+  timelineWidth: number;
+  canEdit: boolean;
+  projectPhases: ScheduledProjectPhase[];
+  dragState: GanttDragState | null;
+  onDragStart: (state: GanttDragState) => void;
+}
+
+function dayDeltaFromPixels(deltaPx: number, zoom: GanttZoom): number {
+  const weeks = deltaPx / 56;
+  return Math.round(zoom === "months" ? weeks * 30 : weeks * 7);
+}
+
+export function GanttProjectRowView({
+  row,
+  rangeStart,
+  zoom,
+  timelineWidth,
+  canEdit,
+  projectPhases,
+  dragState,
+  onDragStart,
+}: GanttProjectRowViewProps) {
+  const phases = phasesForProject(projectPhases, row.project.id);
+  const previewPhases =
+    dragState?.projectId === row.project.id ? phases : row.phases.map((s) => s.phase);
+
+  return (
+    <div className="flex" style={{ height: GANTT_ROW_HEIGHT_PX }}>
+      <GanttProjectLabel row={row} />
+      <div
+        className="relative border-b border-slate-200 bg-white"
+        style={{ width: timelineWidth, minWidth: timelineWidth }}
+      >
+        {row.phases.map((segment) => {
+          const phase = previewPhases.find((p) => p.id === segment.phase.id) ?? segment.phase;
+          const geom = barGeometry(phase.start_date, phase.end_date, rangeStart, zoom);
+          if (!geom) return null;
+
+          return (
+            <GanttPhaseBar
+              key={segment.phase.id}
+              segment={{ ...segment, phase }}
+              left={geom.left}
+              width={geom.width}
+              canEdit={canEdit}
+              onPointerDownMove={(e) => {
+                if (!phase.start_date || !phase.end_date) return;
+                onDragStart({
+                  projectId: row.project.id,
+                  phaseId: phase.id,
+                  mode: "move",
+                  startX: e.clientX,
+                  originStart: phase.start_date,
+                  originEnd: phase.end_date,
+                });
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              }}
+              onPointerDownResizeStart={(e) => {
+                if (!phase.start_date || !phase.end_date) return;
+                onDragStart({
+                  projectId: row.project.id,
+                  phaseId: phase.id,
+                  mode: "resize-start",
+                  startX: e.clientX,
+                  originStart: phase.start_date,
+                  originEnd: phase.end_date,
+                });
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              }}
+              onPointerDownResizeEnd={(e) => {
+                if (!phase.start_date || !phase.end_date) return;
+                onDragStart({
+                  projectId: row.project.id,
+                  phaseId: phase.id,
+                  mode: "resize-end",
+                  startX: e.clientX,
+                  originStart: phase.start_date,
+                  originEnd: phase.end_date,
+                });
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function commitGanttDrag(
+  projectPhases: ScheduledProjectPhase[],
+  drag: GanttDragState,
+  deltaPx: number,
+  zoom: GanttZoom,
+): ScheduledProjectPhase[] {
+  const phases = phasesForProject(projectPhases, drag.projectId);
+  const dayDelta = dayDeltaFromPixels(deltaPx, zoom);
+
+  if (drag.mode === "move") {
+    return movePhaseByDays(phases, drag.phaseId, dayDelta);
+  }
+  if (drag.mode === "resize-end" && drag.originEnd) {
+    const end = new Date(drag.originEnd);
+    end.setDate(end.getDate() + dayDelta);
+    return resizePhaseEnd(phases, drag.phaseId, format(end, "yyyy-MM-dd"));
+  }
+  if (drag.mode === "resize-start" && drag.originStart) {
+    const start = new Date(drag.originStart);
+    start.setDate(start.getDate() + dayDelta);
+    return resizePhaseStart(phases, drag.phaseId, format(start, "yyyy-MM-dd"));
+  }
+  return phases;
+}
