@@ -30,7 +30,7 @@ export function computePhaseProgress(
   phase: ScheduledProjectPhase,
   hoursUsed: number,
 ): PhaseProgress {
-  const roundedHours = Math.round(hoursUsed * 10) / 10;
+  const roundedHours = Math.round(hoursUsed * 100) / 100;
   const hoursBudget = phase.budget_hours;
   const hoursPercent =
     hoursBudget > 0 ? Math.round((roundedHours / hoursBudget) * 100) : 0;

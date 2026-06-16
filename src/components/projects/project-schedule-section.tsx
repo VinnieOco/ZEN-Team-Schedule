@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { differenceInCalendarDays, parseISO, startOfWeek, subWeeks } from "date-fns";
+import { differenceInCalendarDays, format, parseISO, startOfWeek, subWeeks } from "date-fns";
 import { Link2, Link2Off, Plus, Trash2 } from "lucide-react";
 
 import {
@@ -12,6 +12,7 @@ import {
 import { ProjectMilestonesCard } from "@/components/projects/project-milestones-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -48,6 +49,15 @@ interface ProjectScheduleSectionProps {
   project: Project;
   timeEntries: TimeEntry[];
   canEdit: boolean;
+}
+
+function formatPhaseDate(value?: string): string {
+  if (!value) return "—";
+  try {
+    return format(parseISO(value), "MMM d, yyyy");
+  } catch {
+    return value;
+  }
 }
 
 function phaseWeeks(start?: string, end?: string): string {
@@ -170,8 +180,8 @@ export function ProjectScheduleSection({
             <TableHeader>
               <TableRow>
                 <TableHead>Phase</TableHead>
-                <TableHead>Start</TableHead>
-                <TableHead>End</TableHead>
+                <TableHead className="min-w-[11rem]">Start</TableHead>
+                <TableHead className="min-w-[11rem]">End</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead className="text-right">Budget hrs</TableHead>
                 <TableHead className="text-right">Logged</TableHead>
@@ -188,32 +198,28 @@ export function ProjectScheduleSection({
                 return (
                   <TableRow key={phase.id}>
                     <TableCell className="font-medium">{phase.phase_key}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap py-2">
                       {canEdit ? (
-                        <Input
-                          type="date"
+                        <DateInput
                           value={phase.start_date ?? ""}
-                          className="h-8 w-[130px]"
                           onChange={(e) =>
                             handleFieldChange(phase.id, "start_date", e.target.value)
                           }
                         />
                       ) : (
-                        (phase.start_date ?? "—")
+                        <span className="text-sm tabular-nums">{formatPhaseDate(phase.start_date)}</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap py-2">
                       {canEdit ? (
-                        <Input
-                          type="date"
+                        <DateInput
                           value={phase.end_date ?? ""}
-                          className="h-8 w-[130px]"
                           onChange={(e) =>
                             handleFieldChange(phase.id, "end_date", e.target.value)
                           }
                         />
                       ) : (
-                        (phase.end_date ?? "—")
+                        <span className="text-sm tabular-nums">{formatPhaseDate(phase.end_date)}</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -224,7 +230,7 @@ export function ProjectScheduleSection({
                         <Input
                           type="number"
                           min={0}
-                          step={0.5}
+                          step={0.25}
                           value={phase.budget_hours}
                           className="ml-auto h-8 w-20 text-right"
                           onChange={(e) =>

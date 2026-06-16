@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -130,12 +131,10 @@ export function ProjectMilestonesCard({
                       milestone.title
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap py-2">
                     {canEdit ? (
-                      <Input
-                        type="date"
+                      <DateInput
                         value={milestone.milestone_date}
-                        className="h-8 w-[130px]"
                         onChange={(e) =>
                           updateMilestone(milestone.id, "milestone_date", e.target.value)
                         }

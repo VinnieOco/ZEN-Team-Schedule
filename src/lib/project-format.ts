@@ -12,10 +12,13 @@ export function formatProjectDepartment(department?: string): string {
   return trimmed || "—";
 }
 
-/** Display hours with up to one decimal when needed. */
+/** Display hours with up to two decimal places when needed (e.g. 1.25, 1.5, 8). */
 export function formatProjectHours(hours: number): string {
-  const rounded = Math.round(hours * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  if (!Number.isFinite(hours)) return "0";
+  const rounded = Math.round(hours * 100) / 100;
+  if (Number.isInteger(rounded)) return String(rounded);
+  const fixed = rounded.toFixed(2);
+  return fixed.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 }
 
 type ProjectAmountFields = {
