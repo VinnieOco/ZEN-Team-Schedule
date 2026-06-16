@@ -43,15 +43,11 @@ export function GanttPhaseBar({
     <div className="absolute top-2 h-8" style={{ left, width }} title={tooltip}>
       <div
         className={cn(
-          "relative flex h-full items-center overflow-hidden rounded-md border shadow-sm",
+          "relative flex h-full items-center overflow-hidden rounded-md border border-slate-200/90 text-slate-900 shadow-sm",
           editable && "cursor-grab active:cursor-grabbing",
           isProjectSpan && "border-dashed",
         )}
-        style={{
-          backgroundColor: colors.bg,
-          borderColor: colors.border,
-          color: colors.text,
-        }}
+        style={{ backgroundColor: colors.bg }}
         onPointerDown={editable ? onPointerDownMove : undefined}
       >
         <GanttPhaseProgressOverlay progress={segment.progress} />

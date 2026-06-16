@@ -4,6 +4,7 @@ import type { Allocation, Employee, ScheduledProjectPhase } from "@/types";
 export interface PhaseStaffingSegment {
   employeeId: string;
   employeeName: string;
+  firstName: string;
   initials: string;
   startDate: string;
   endDate: string;
@@ -42,6 +43,7 @@ function buildStaffingSegments(
       return {
         employeeId,
         employeeName: employee ? getEmployeeFullName(employee) : "Unknown",
+        firstName: firstName || "Unknown",
         initials,
         startDate: dates[0]!,
         endDate: dates[dates.length - 1]!,

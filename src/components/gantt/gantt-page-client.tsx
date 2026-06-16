@@ -30,8 +30,6 @@ export function GanttPageClient() {
     projects,
     projectPhases,
     timeEntries,
-    allocations,
-    employees,
     isLoading,
     projectMilestones,
     replaceProjectPhases,
@@ -142,8 +140,6 @@ export function GanttPageClient() {
                   timelineWidth={timelineWidth}
                   canEdit={canEdit}
                   projectPhases={effectivePhases}
-                  allocations={allocations}
-                  employees={employees}
                   milestones={milestonesForProject(projectMilestones, row.project.id)}
                   dragState={dragState}
                   onDragStart={setDragState}
@@ -157,9 +153,9 @@ export function GanttPageClient() {
       <GanttProgressLegend />
 
       <p className="text-xs text-muted-foreground">
-        Phase bars show hours and fee burn from logged time. Green pills under each row show
-        who is scheduled from Team Scheduling. Change orders appear indented under their parent
-        project. Click a project name to open its{" "}
+        Phase bars show hours and fee burn from logged time. Change orders appear indented under
+        their parent project. Open a project Schedule tab to see phase staffing. Click a project
+        name to open its{" "}
         <Link href="/projects" className="text-emerald-700 hover:underline">
           Schedule tab
         </Link>

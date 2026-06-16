@@ -1,18 +1,12 @@
 "use client";
 
 import { format } from "date-fns";
-import { useMemo } from "react";
 
 import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-markers";
 import { GanttPhaseBar } from "@/components/gantt/gantt-phase-bar";
-import {
-  GanttPhaseStaffingStrip,
-  GANTT_STAFFING_STRIP_HEIGHT,
-} from "@/components/gantt/gantt-phase-staffing-strip";
 import { GanttProjectLabel } from "@/components/gantt/gantt-project-label";
 import type { GanttProjectRow } from "@/lib/gantt/build-gantt-rows";
 import { movePhaseByDays, resizePhaseEnd, resizePhaseStart } from "@/lib/gantt/phase-links";
-import { staffingForProject } from "@/lib/gantt/phase-staffing";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import {
   barGeometry,
@@ -20,7 +14,7 @@ import {
   GANTT_ROW_HEIGHT_PX,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
-import type { Allocation, Employee, ProjectMilestone, ScheduledProjectPhase } from "@/types";
+import type { ProjectMilestone, ScheduledProjectPhase } from "@/types";
 
 export type GanttDragMode = "move" | "resize-start" | "resize-end";
 
@@ -40,8 +34,6 @@ interface GanttProjectRowViewProps {
   timelineWidth: number;
   canEdit: boolean;
   projectPhases: ScheduledProjectPhase[];
-  allocations: Allocation[];
-  employees: Employee[];
   milestones: ProjectMilestone[];
   dragState: GanttDragState | null;
   onDragStart: (state: GanttDragState) => void;
@@ -54,8 +46,6 @@ export function GanttProjectRowView({
   timelineWidth,
   canEdit,
   projectPhases,
-  allocations,
-  employees,
   milestones,
   dragState,
   onDragStart,
@@ -64,36 +54,20 @@ export function GanttProjectRowView({
   const previewPhases =
     dragState?.projectId === row.project.id ? phases : row.phases.map((s) => s.phase);
 
-  const projectStaffing = useMemo(
-    () =>
-      staffingForProject(
-        allocations,
-        employees,
-        row.project.id,
-        phases.length > 0 ? phases : row.phases.map((s) => s.phase),
-      ),
-    [allocations, employees, row.project.id, phases, row.phases],
-  );
-
-  const rowHeight =
-    GANTT_ROW_HEIGHT_PX +
-    (projectStaffing.length > 0 ? GANTT_STAFFING_STRIP_HEIGHT + 6 : 0);
-
   return (
-    <div className="flex" style={{ height: rowHeight }}>
+    <div className="flex" style={{ height: GANTT_ROW_HEIGHT_PX }}>
       <GanttProjectLabel row={row} />
       <div
-        className="relative flex flex-col border-b border-slate-200 bg-white"
+        className="relative border-b border-slate-200 bg-white"
         style={{ width: timelineWidth, minWidth: timelineWidth }}
       >
-        <div className="relative flex-1">
-          <GanttMilestoneMarkers
-            milestones={milestones}
-            rangeStart={rangeStart}
-            zoom={zoom}
-            compact
-          />
-          {row.phases.map((segment) => {
+        <GanttMilestoneMarkers
+          milestones={milestones}
+          rangeStart={rangeStart}
+          zoom={zoom}
+          compact
+        />
+        {row.phases.map((segment) => {
           const phase = previewPhases.find((p) => p.id === segment.phase.id) ?? segment.phase;
           const geom = barGeometry(phase.start_date, phase.end_date, rangeStart, zoom);
           if (!geom) return null;
@@ -145,13 +119,6 @@ export function GanttProjectRowView({
             />
           );
         })}
-        </div>
-        <GanttPhaseStaffingStrip
-          segments={projectStaffing}
-          rangeStart={rangeStart}
-          zoom={zoom}
-          className="px-0 pb-1"
-        />
       </div>
     </div>
   );

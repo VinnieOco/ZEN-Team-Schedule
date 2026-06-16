@@ -13,3 +13,17 @@ export const CATEGORY_COLOR_OPTIONS = [
 ] as const;
 
 export const DEFAULT_CATEGORY_COLOR = CATEGORY_COLOR_OPTIONS[0];
+
+/** Matches allocation cards on Team Scheduling (`border-slate-200/90`). */
+export const CATEGORY_BAR_BORDER = "rgba(226, 232, 240, 0.9)";
+
+/** Matches allocation card title text (`text-slate-900`). */
+export const CATEGORY_BAR_TEXT = "#0f172a";
+
+export function categoryBarColors(backgroundColor: string) {
+  return {
+    bg: backgroundColor,
+    border: CATEGORY_BAR_BORDER,
+    text: CATEGORY_BAR_TEXT,
+  };
+}

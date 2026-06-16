@@ -74,6 +74,7 @@ export function GanttSingleProjectChart({
   }, [project, effectivePhases, timeEntries]);
 
   const phases = phasesForProject(effectivePhases, project.id);
+  const committedPhases = phasesForProject(projectPhases, project.id);
   const milestones = milestonesForProject(projectMilestones, project.id);
   const hasMilestones = milestones.length > 0;
 
@@ -133,6 +134,8 @@ export function GanttSingleProjectChart({
             )}
             {row.phases.map((segment) => {
               const phase = phases.find((p) => p.id === segment.phase.id) ?? segment.phase;
+              const committedPhase =
+                committedPhases.find((p) => p.id === segment.phase.id) ?? segment.phase;
               return (
                 <GanttPhaseRowView
                   key={segment.phase.id}
@@ -147,6 +150,7 @@ export function GanttSingleProjectChart({
                   dragState={dragState}
                   onDragStart={setDragState}
                   phaseOverride={phase}
+                  staffingPhase={committedPhase}
                 />
               );
             })}

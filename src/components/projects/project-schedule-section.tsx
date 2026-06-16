@@ -137,7 +137,7 @@ export function ProjectScheduleSection({
             <CardTitle className="text-base">Phase schedule</CardTitle>
             <p className="text-sm text-muted-foreground">
               Add or remove phases, edit dates in the table, or drag bars on the timeline. Linked
-              phases shift when a predecessor changes. Green pills under each phase show who is
+              phases shift when a predecessor changes. Named bars under each phase show who is
               scheduled from Team Scheduling.
             </p>
           </div>
