@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-markers";
+import { GanttTooltipProvider } from "@/components/gantt/gantt-chart-tooltip";
 import { GanttPhaseRowView, PHASE_LABEL_WIDTH } from "@/components/gantt/gantt-phase-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
@@ -107,12 +108,13 @@ export function GanttSingleProjectChart({
             sideLabel="Phase"
             sideLabelWidth={PHASE_LABEL_WIDTH}
           />
-          <div className="relative">
-            <div
-              className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
-              style={{ left: PHASE_LABEL_WIDTH + todayLeft }}
-            />
-            {hasMilestones && (
+          <GanttTooltipProvider>
+            <div className="relative">
+              <div
+                className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
+                style={{ left: PHASE_LABEL_WIDTH + todayLeft }}
+              />
+              {hasMilestones && (
               <div className="flex border-b border-slate-100" style={{ height: 28 }}>
                 <div
                   className="shrink-0 border-r border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
@@ -154,7 +156,8 @@ export function GanttSingleProjectChart({
                 />
               );
             })}
-          </div>
+            </div>
+          </GanttTooltipProvider>
         </div>
       </div>
     </div>

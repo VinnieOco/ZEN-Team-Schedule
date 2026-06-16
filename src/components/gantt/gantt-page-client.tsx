@@ -5,6 +5,7 @@ import Link from "next/link";
 import { startOfMonth, startOfWeek, subWeeks } from "date-fns";
 
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
+import { GanttTooltipProvider } from "@/components/gantt/gantt-chart-tooltip";
 import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
@@ -142,26 +143,28 @@ export function GanttPageClient() {
         <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm">
           <div style={{ minWidth: GANTT_PROJECT_COLUMN_WIDTH_PX + timelineWidth }}>
             <GanttTimelineHeader rangeStart={rangeStart} columnCount={columnCount} zoom={zoom} />
-            <div className="relative">
-              <div
-                className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
-                style={{ left: GANTT_PROJECT_COLUMN_WIDTH_PX + todayLeft }}
-              />
-              {rows.map((row) => (
-                <GanttProjectRowView
-                  key={row.project.id}
-                  row={row}
-                  rangeStart={rangeStart}
-                  zoom={zoom}
-                  timelineWidth={timelineWidth}
-                  canEdit={canEdit}
-                  projectPhases={effectivePhases}
-                  milestones={milestonesForProject(projectMilestones, row.project.id)}
-                  dragState={dragState}
-                  onDragStart={setDragState}
+            <GanttTooltipProvider>
+              <div className="relative">
+                <div
+                  className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
+                  style={{ left: GANTT_PROJECT_COLUMN_WIDTH_PX + todayLeft }}
                 />
-              ))}
-            </div>
+                {rows.map((row) => (
+                  <GanttProjectRowView
+                    key={row.project.id}
+                    row={row}
+                    rangeStart={rangeStart}
+                    zoom={zoom}
+                    timelineWidth={timelineWidth}
+                    canEdit={canEdit}
+                    projectPhases={effectivePhases}
+                    milestones={milestonesForProject(projectMilestones, row.project.id)}
+                    dragState={dragState}
+                    onDragStart={setDragState}
+                  />
+                ))}
+              </div>
+            </GanttTooltipProvider>
           </div>
         </div>
       )}
