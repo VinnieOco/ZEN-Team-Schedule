@@ -1,5 +1,5 @@
-import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
-import type { ScheduledProjectPhase, TimeEntry } from "@/types";
+import { formatProjectAmount, formatProjectHours, getProjectDesignAmount } from "@/lib/project-format";
+import type { Project, ScheduledProjectPhase, TimeEntry } from "@/types";
 
 export interface PhaseProgress {
   hoursUsed: number;
@@ -133,16 +133,29 @@ export function allocatedHoursForPhase(
   return buildPhaseHoursAllocation(phases, timeEntries, projectId).get(phaseKey) ?? 0;
 }
 
+export function computePhaseFeeBudget(
+  phase: Pick<ScheduledProjectPhase, "budget_hours">,
+  project: Pick<Project, "budgeted_design_hours" | "design_amount">,
+): number | undefined {
+  const designAmount = getProjectDesignAmount(project);
+  const totalHours = project.budgeted_design_hours;
+  if (designAmount == null || designAmount <= 0) return undefined;
+  if (!totalHours || totalHours <= 0) return undefined;
+  if (!phase.budget_hours || phase.budget_hours <= 0) return 0;
+  return Math.round((phase.budget_hours / totalHours) * designAmount * 100) / 100;
+}
+
 export function computePhaseProgress(
   phase: ScheduledProjectPhase,
   hoursUsed: number,
+  project?: Pick<Project, "budgeted_design_hours" | "design_amount">,
 ): PhaseProgress {
   const roundedHours = Math.round(hoursUsed * 100) / 100;
   const hoursBudget = phase.budget_hours;
   const hoursPercent =
     hoursBudget > 0 ? Math.round((roundedHours / hoursBudget) * 100) : 0;
 
-  const feeBudget = phase.budget_amount;
+  const feeBudget = project ? computePhaseFeeBudget(phase, project) : phase.budget_amount;
   let feeUsed: number | undefined;
   let feePercent: number | undefined;
 

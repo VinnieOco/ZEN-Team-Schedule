@@ -2,8 +2,10 @@ import { getChangeOrdersForParent, isChangeOrder } from "@/lib/change-orders";
 import { computePhaseProgress, buildPhaseHoursAllocation } from "@/lib/gantt/phase-progress";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import { getProjectActualHours } from "@/lib/utilization";
+import type { ProjectFilters } from "@/lib/filter-projects";
+import { projectMatchesFilterCriteria } from "@/lib/filter-projects";
 import type { PhaseProgress } from "@/lib/gantt/phase-progress";
-import type { Project, ScheduledProjectPhase, TimeEntry } from "@/types";
+import type { Employee, Project, ScheduledProjectPhase, TimeEntry } from "@/types";
 
 export interface GanttPhaseSegment {
   phase: ScheduledProjectPhase;
@@ -28,7 +30,7 @@ function buildSegmentsForProject(
     const hoursByPhase = buildPhaseHoursAllocation(scheduled, timeEntries, project.id);
     return scheduled.map((phase) => {
       const hoursUsed = hoursByPhase.get(phase.phase_key) ?? 0;
-      return { phase, progress: computePhaseProgress(phase, hoursUsed) };
+      return { phase, progress: computePhaseProgress(phase, hoursUsed, project) };
     });
   }
 
@@ -50,7 +52,7 @@ function buildSegmentsForProject(
   return [
     {
       phase: spanPhase,
-      progress: computePhaseProgress(spanPhase, hoursUsed),
+      progress: computePhaseProgress(spanPhase, hoursUsed, project),
       isProjectSpan: true,
     },
   ];
@@ -105,38 +107,38 @@ export function buildGanttRows(
   return rows;
 }
 
-export function matchesGanttSearch(project: Project, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return (
-    project.project_name.toLowerCase().includes(q) ||
-    project.client_name.toLowerCase().includes(q) ||
-    (project.project_number?.toLowerCase().includes(q) ?? false)
-  );
+function ganttProjectMatches(
+  project: Project,
+  filters: ProjectFilters,
+  getEmployeeById: (id: string) => Employee | undefined,
+): boolean {
+  if (!filters.showInactive && !project.active) return false;
+  return projectMatchesFilterCriteria(project, filters, getEmployeeById);
 }
 
 export function filterGanttRows(
   rows: GanttProjectRow[],
   projects: Project[],
-  query: string,
+  filters: ProjectFilters,
+  getEmployeeById: (id: string) => Employee | undefined,
 ): GanttProjectRow[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return rows;
+  const matches = (project: Project) => ganttProjectMatches(project, filters, getEmployeeById);
 
   const matchingParentIds = new Set(
     rows
-      .filter((row) => !row.isChangeOrder && matchesGanttSearch(row.project, q))
+      .filter((row) => !row.isChangeOrder && matches(row.project))
       .map((row) => row.project.id),
   );
 
   const parentsWithMatchingChangeOrders = new Set(
     projects
-      .filter((p) => isChangeOrder(p) && p.parent_project_id && matchesGanttSearch(p, q))
+      .filter((p) => isChangeOrder(p) && p.parent_project_id && matches(p))
       .map((p) => p.parent_project_id as string),
   );
 
   return rows.filter((row) => {
-    if (matchesGanttSearch(row.project, q)) return true;
+    if (!filters.showChangeOrders && row.isChangeOrder) return false;
+    if (matches(row.project)) return true;
     if (!row.isChangeOrder && parentsWithMatchingChangeOrders.has(row.project.id)) return true;
     if (
       row.isChangeOrder &&

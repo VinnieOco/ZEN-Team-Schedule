@@ -3,20 +3,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { startOfMonth, startOfWeek, subWeeks } from "date-fns";
-import { Search } from "lucide-react";
 
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
 import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
-import { Button } from "@/components/ui/button";
+import { ProjectsFilters } from "@/components/projects/projects-filters";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
 import { buildGanttRows, filterGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { milestonesForProject } from "@/lib/gantt/milestones";
+import {
+  defaultGanttFilters,
+  projectFiltersActive,
+  type ProjectFilters,
+} from "@/lib/filter-projects";
 import {
   GANTT_PROJECT_COLUMN_WIDTH_PX,
   todayOffsetPx,
@@ -24,6 +27,10 @@ import {
   visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
+
+function countParentRows(rows: ReturnType<typeof buildGanttRows>): number {
+  return rows.filter((row) => !row.isChangeOrder).length;
+}
 
 export function GanttPageClient() {
   const {
@@ -34,6 +41,7 @@ export function GanttPageClient() {
     projectMilestones,
     replaceProjectPhases,
     seedMissingProjectPhases,
+    getEmployeeById,
   } = useScheduling();
   const { permissions } = usePermissions();
   const canEdit = permissions.editProjects;
@@ -42,8 +50,7 @@ export function GanttPageClient() {
     startOfWeek(subWeeks(new Date(), 2), { weekStartsOn: 1 }),
   );
   const [zoom, setZoom] = useState<GanttZoom>("weeks");
-  const [search, setSearch] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
+  const [filters, setFilters] = useState<ProjectFilters>(defaultGanttFilters);
   const seededRef = useRef(false);
 
   const columnCount = visibleColumnCount(zoom);
@@ -66,15 +73,29 @@ export function GanttPageClient() {
     );
   }, [zoom]);
 
-  const rows = useMemo(() => {
-    const built = buildGanttRows(projects, effectivePhases, timeEntries, {
-      activeOnly: !showInactive,
-    });
-    return filterGanttRows(built, projects, search);
-  }, [projects, effectivePhases, timeEntries, showInactive, search]);
+  const builtRows = useMemo(
+    () =>
+      buildGanttRows(projects, effectivePhases, timeEntries, {
+        activeOnly: !filters.showInactive,
+      }),
+    [projects, effectivePhases, timeEntries, filters.showInactive],
+  );
+
+  const rows = useMemo(
+    () => filterGanttRows(builtRows, projects, filters, getEmployeeById),
+    [builtRows, projects, filters, getEmployeeById],
+  );
+
+  const totalCount = useMemo(() => countParentRows(builtRows), [builtRows]);
+  const resultCount = useMemo(() => countParentRows(rows), [rows]);
+  const hasActiveFilters = projectFiltersActive(filters);
 
   const timelineWidth = timelineWidthPx(columnCount, zoom);
   const todayLeft = todayOffsetPx(rangeStart, zoom);
+
+  const updateFilters = (partial: Partial<ProjectFilters>) => {
+    setFilters((prev) => ({ ...prev, ...partial }));
+  };
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading schedules…</p>;
@@ -82,32 +103,21 @@ export function GanttPageClient() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search projects…"
-            className="pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <GanttZoomControls
-            rangeStart={rangeStart}
-            zoom={zoom}
-            onRangeStartChange={setRangeStart}
-            onZoomChange={setZoom}
-          />
-          <Button
-            type="button"
-            variant={showInactive ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setShowInactive((v) => !v)}
-          >
-            {showInactive ? "Showing all" : "Active only"}
-          </Button>
-        </div>
+      <ProjectsFilters
+        filters={filters}
+        onChange={updateFilters}
+        onClear={() => setFilters(defaultGanttFilters())}
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+
+      <div className="flex justify-end">
+        <GanttZoomControls
+          rangeStart={rangeStart}
+          zoom={zoom}
+          onRangeStartChange={setRangeStart}
+          onZoomChange={setZoom}
+        />
       </div>
 
       {canEdit && (
@@ -119,8 +129,14 @@ export function GanttPageClient() {
 
       {rows.length === 0 ? (
         <EmptyState
-          title="No project schedules yet"
-          description="Active projects without phase schedules are seeded automatically on first visit."
+          title={hasActiveFilters ? "No schedules match your filters" : "No project schedules yet"}
+          description={
+            hasActiveFilters
+              ? "Try a different search term, department, lead, or clear filters to see more schedules."
+              : "Active projects without phase schedules are seeded automatically on first visit."
+          }
+          actionLabel={hasActiveFilters ? "Clear filters" : undefined}
+          onAction={hasActiveFilters ? () => setFilters(defaultGanttFilters()) : undefined}
         />
       ) : (
         <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm">

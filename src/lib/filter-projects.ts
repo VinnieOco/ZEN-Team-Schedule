@@ -32,42 +32,68 @@ export function projectFiltersActive(filters: ProjectFilters): boolean {
   );
 }
 
+export function projectMatchesFilterCriteria(
+  project: Project,
+  filters: Pick<ProjectFilters, "search" | "department" | "phase" | "leadEmployeeId">,
+  getEmployeeById: (id: string) => Employee | undefined,
+): boolean {
+  if (filters.department && (project.department?.trim() ?? "") !== filters.department) {
+    return false;
+  }
+  if (filters.phase && project.phase !== filters.phase) return false;
+  if (filters.leadEmployeeId && project.lead_employee_id !== filters.leadEmployeeId) {
+    return false;
+  }
+
+  const query = filters.search.trim().toLowerCase();
+  if (!query) return true;
+
+  const lead = project.lead_employee_id
+    ? getEmployeeById(project.lead_employee_id)
+    : undefined;
+  const leadEstimator = project.lead_estimator_id
+    ? getEmployeeById(project.lead_estimator_id)
+    : undefined;
+  const haystack = [
+    project.project_name,
+    project.client_name,
+    project.project_number,
+    getProjectDesignAmount(project) != null ? String(getProjectDesignAmount(project)) : "",
+    getProjectEstimateValue(project) != null ? String(getProjectEstimateValue(project)) : "",
+    project.department,
+    project.phase,
+    lead ? getEmployeeFullName(lead) : "",
+    leadEstimator ? getEmployeeFullName(leadEstimator) : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(query);
+}
+
+export function projectMatchesFilters(
+  project: Project,
+  filters: ProjectFilters,
+  getEmployeeById: (id: string) => Employee | undefined,
+): boolean {
+  if (!filters.showInactive && !project.active) return false;
+  if (!filters.showChangeOrders && isChangeOrder(project)) return false;
+  return projectMatchesFilterCriteria(project, filters, getEmployeeById);
+}
+
 export function filterProjects(
   projects: Project[],
   filters: ProjectFilters,
   getEmployeeById: (id: string) => Employee | undefined,
 ): Project[] {
-  const query = filters.search.trim().toLowerCase();
+  return projects.filter((project) => projectMatchesFilters(project, filters, getEmployeeById));
+}
 
-  return projects.filter((project) => {
-    if (!filters.showInactive && !project.active) return false;
-    if (!filters.showChangeOrders && isChangeOrder(project)) return false;
-    if (filters.department && (project.department?.trim() ?? "") !== filters.department) {
-      return false;
-    }
-    if (filters.phase && project.phase !== filters.phase) return false;
-    if (filters.leadEmployeeId && project.lead_employee_id !== filters.leadEmployeeId) {
-      return false;
-    }
-
-    if (!query) return true;
-
-    const lead = project.lead_employee_id
-      ? getEmployeeById(project.lead_employee_id)
-      : undefined;
-    const haystack = [
-      project.project_name,
-      project.client_name,
-      getProjectDesignAmount(project) != null ? String(getProjectDesignAmount(project)) : "",
-      getProjectEstimateValue(project) != null ? String(getProjectEstimateValue(project)) : "",
-      project.department,
-      project.phase,
-      lead ? getEmployeeFullName(lead) : "",
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    return haystack.includes(query);
-  });
+/** Gantt defaults — change orders are shown on the timeline by default. */
+export function defaultGanttFilters(): ProjectFilters {
+  return {
+    ...defaultProjectFilters(),
+    showChangeOrders: true,
+  };
 }

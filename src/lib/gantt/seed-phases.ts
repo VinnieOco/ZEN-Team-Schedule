@@ -19,10 +19,6 @@ export function seedPhasesForProject(project: Project): ScheduledProjectPhase[] 
   const perPhase = Math.max(Math.floor(totalDays / keys.length), 7);
   const hoursEach =
     keys.length > 0 ? Math.round((project.budgeted_design_hours / keys.length) * 10) / 10 : 0;
-  const amountEach =
-    project.design_amount != null
-      ? Math.round((project.design_amount / keys.length) * 100) / 100
-      : undefined;
 
   return keys.map((phase_key, index) => {
     const phaseStart = addDays(start, index * perPhase);
@@ -37,7 +33,6 @@ export function seedPhasesForProject(project: Project): ScheduledProjectPhase[] 
       start_date: format(phaseStart, "yyyy-MM-dd"),
       end_date: format(phaseEnd, "yyyy-MM-dd"),
       budget_hours: hoursEach,
-      budget_amount: amountEach,
       linked_to_previous: index > 0,
     };
   });

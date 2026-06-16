@@ -39,9 +39,6 @@ export function createPhaseForProject(
   const end = addWeeks(start, 2);
   const usedHours = existingPhases.reduce((sum, p) => sum + p.budget_hours, 0);
   const remainingHours = Math.max(0, project.budgeted_design_hours - usedHours);
-  const usedAmount = existingPhases.reduce((sum, p) => sum + (p.budget_amount ?? 0), 0);
-  const designAmount = project.design_amount ?? 0;
-  const remainingAmount = Math.max(0, designAmount - usedAmount);
 
   return {
     id: generateId(),
@@ -51,8 +48,6 @@ export function createPhaseForProject(
     start_date: format(start, "yyyy-MM-dd"),
     end_date: format(end, "yyyy-MM-dd"),
     budget_hours: Math.round(remainingHours * 10) / 10,
-    budget_amount:
-      designAmount > 0 ? Math.round(remainingAmount * 100) / 100 : undefined,
     linked_to_previous: sortOrder > 0,
   };
 }

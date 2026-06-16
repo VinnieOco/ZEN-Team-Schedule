@@ -38,6 +38,7 @@ import {
 } from "@/lib/change-orders";
 import {
   buildPhaseHoursAllocation,
+  computePhaseFeeBudget,
   computePhaseProgress,
 } from "@/lib/gantt/phase-progress";
 import {
@@ -252,7 +253,7 @@ export function ProjectScheduleSection({
             <TableBody>
               {phases.map((phase, index) => {
                 const logged = phaseHoursByKey.get(phase.phase_key) ?? 0;
-                const progress = computePhaseProgress(phase, logged);
+                const progress = computePhaseProgress(phase, logged, project);
                 return (
                   <TableRow key={phase.id}>
                     <TableCell className="font-medium">{phase.phase_key}</TableCell>
@@ -310,7 +311,7 @@ export function ProjectScheduleSection({
                       </p>
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {formatProjectAmount(phase.budget_amount)}
+                      {formatProjectAmount(computePhaseFeeBudget(phase, project))}
                     </TableCell>
                     <TableCell className="text-center">
                       {index === 0 ? (
