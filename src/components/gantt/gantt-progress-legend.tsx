@@ -15,8 +15,12 @@ export function GanttProgressLegend() {
         Over budget
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-block h-1 w-6 rounded-full bg-amber-500" />
+        <span className="inline-block h-2 w-6 rounded-full bg-amber-500" />
         Fee burn (when phase fee is set)
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-3.5 w-6 rounded-full border border-emerald-300 bg-emerald-50" />
+        Staffing (scheduled team)
       </span>
     </div>
   );

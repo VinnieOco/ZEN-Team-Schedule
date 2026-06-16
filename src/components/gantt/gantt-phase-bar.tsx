@@ -25,6 +25,8 @@ export function GanttPhaseBar({
   onPointerDownResizeStart,
   onPointerDownResizeEnd,
 }: GanttPhaseBarProps) {
+  const isProjectSpan = segment.isProjectSpan === true;
+  const editable = canEdit && !isProjectSpan;
   const colors = phaseBarColors(segment.phase.phase_key);
   const label = phaseAbbreviation(segment.phase.phase_key);
   const showLabel = width >= 28;
@@ -42,17 +44,18 @@ export function GanttPhaseBar({
       <div
         className={cn(
           "relative flex h-full items-center overflow-hidden rounded-md border shadow-sm",
-          canEdit && "cursor-grab active:cursor-grabbing",
+          editable && "cursor-grab active:cursor-grabbing",
+          isProjectSpan && "border-dashed",
         )}
         style={{
           backgroundColor: colors.bg,
           borderColor: colors.border,
           color: colors.text,
         }}
-        onPointerDown={canEdit ? onPointerDownMove : undefined}
+        onPointerDown={editable ? onPointerDownMove : undefined}
       >
         <GanttPhaseProgressOverlay progress={segment.progress} />
-        {canEdit && (
+        {editable && (
           <div
             className="absolute left-0 top-0 z-10 h-full w-2 cursor-ew-resize"
             onPointerDown={(e) => {
@@ -66,7 +69,7 @@ export function GanttPhaseBar({
             {showPercent ? `${label} ${segment.progress.hoursPercent}%` : label}
           </span>
         )}
-        {canEdit && (
+        {editable && (
           <div
             className="absolute right-0 top-0 z-10 h-full w-2 cursor-ew-resize"
             onPointerDown={(e) => {

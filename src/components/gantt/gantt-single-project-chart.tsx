@@ -18,7 +18,7 @@ import {
   visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
-import type { Project, ProjectMilestone, ScheduledProjectPhase, TimeEntry } from "@/types";
+import type { Allocation, Employee, Project, ProjectMilestone, ScheduledProjectPhase, TimeEntry } from "@/types";
 import { startOfMonth, startOfWeek } from "date-fns";
 
 interface GanttSingleProjectChartProps {
@@ -26,6 +26,8 @@ interface GanttSingleProjectChartProps {
   projectPhases: ScheduledProjectPhase[];
   projectMilestones: ProjectMilestone[];
   timeEntries: TimeEntry[];
+  allocations: Allocation[];
+  employees: Employee[];
   canEdit: boolean;
   rangeStart: Date;
   onRangeStartChange: (date: Date) => void;
@@ -37,6 +39,8 @@ export function GanttSingleProjectChart({
   projectPhases,
   projectMilestones,
   timeEntries,
+  allocations,
+  employees,
   canEdit,
   rangeStart,
   onRangeStartChange,
@@ -138,6 +142,8 @@ export function GanttSingleProjectChart({
                   zoom={zoom}
                   timelineWidth={timelineWidth}
                   canEdit={canEdit}
+                  allocations={allocations}
+                  employees={employees}
                   dragState={dragState}
                   onDragStart={setDragState}
                   phaseOverride={phase}

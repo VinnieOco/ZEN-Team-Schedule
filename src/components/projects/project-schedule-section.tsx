@@ -75,7 +75,7 @@ export function ProjectScheduleSection({
   timeEntries,
   canEdit,
 }: ProjectScheduleSectionProps) {
-  const { projectPhases, projectMilestones, replaceProjectPhases, replaceProjectMilestones, isLoading } =
+  const { projectPhases, projectMilestones, allocations, employees, replaceProjectPhases, replaceProjectMilestones, isLoading } =
     useScheduling();
   const seededRef = useRef(false);
   const [rangeStart, setRangeStart] = useState(() =>
@@ -137,7 +137,8 @@ export function ProjectScheduleSection({
             <CardTitle className="text-base">Phase schedule</CardTitle>
             <p className="text-sm text-muted-foreground">
               Add or remove phases, edit dates in the table, or drag bars on the timeline. Linked
-              phases shift when a predecessor changes.
+              phases shift when a predecessor changes. Green pills under each phase show who is
+              scheduled from Team Scheduling.
             </p>
           </div>
           {canEdit && availablePhases.length > 0 && (
@@ -317,6 +318,8 @@ export function ProjectScheduleSection({
         projectPhases={projectPhases}
         projectMilestones={projectMilestones}
         timeEntries={timeEntries}
+        allocations={allocations}
+        employees={employees}
         canEdit={canEdit}
         rangeStart={rangeStart}
         onRangeStartChange={setRangeStart}

@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
-import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
+import { buildGanttRows, filterGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import {
   GANTT_PROJECT_COLUMN_WIDTH_PX,
@@ -30,6 +30,8 @@ export function GanttPageClient() {
     projects,
     projectPhases,
     timeEntries,
+    allocations,
+    employees,
     isLoading,
     projectMilestones,
     replaceProjectPhases,
@@ -70,14 +72,7 @@ export function GanttPageClient() {
     const built = buildGanttRows(projects, effectivePhases, timeEntries, {
       activeOnly: !showInactive,
     });
-    const q = search.trim().toLowerCase();
-    if (!q) return built;
-    return built.filter(
-      (r) =>
-        r.project.project_name.toLowerCase().includes(q) ||
-        r.project.client_name.toLowerCase().includes(q) ||
-        r.project.project_number?.toLowerCase().includes(q),
-    );
+    return filterGanttRows(built, projects, search);
   }, [projects, effectivePhases, timeEntries, showInactive, search]);
 
   const timelineWidth = timelineWidthPx(columnCount, zoom);
@@ -147,6 +142,8 @@ export function GanttPageClient() {
                   timelineWidth={timelineWidth}
                   canEdit={canEdit}
                   projectPhases={effectivePhases}
+                  allocations={allocations}
+                  employees={employees}
                   milestones={milestonesForProject(projectMilestones, row.project.id)}
                   dragState={dragState}
                   onDragStart={setDragState}
@@ -160,7 +157,9 @@ export function GanttPageClient() {
       <GanttProgressLegend />
 
       <p className="text-xs text-muted-foreground">
-        Phase bars show hours and fee burn from logged time. Click a project name to open its{" "}
+        Phase bars show hours and fee burn from logged time. Green pills under each row show
+        who is scheduled from Team Scheduling. Change orders appear indented under their parent
+        project. Click a project name to open its{" "}
         <Link href="/projects" className="text-emerald-700 hover:underline">
           Schedule tab
         </Link>

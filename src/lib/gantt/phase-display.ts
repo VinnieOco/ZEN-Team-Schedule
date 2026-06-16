@@ -12,6 +12,7 @@ export const PHASE_ABBREVIATIONS: Record<string, string> = {
   Revisions: "REV",
   "Construction Support": "CA",
   Closeout: "CL",
+  "Change order": "CO",
 };
 
 /** Distinct bar colors per phase (Monograph-style pastels). */
@@ -24,6 +25,8 @@ export const PHASE_BAR_COLORS: Record<string, { bg: string; border: string; text
   Revisions: { bg: "#fce7f3", border: "#f9a8d4", text: "#9d174d" },
   "Construction Support": { bg: "#d1fae5", border: "#6ee7b7", text: "#065f46" },
   Closeout: { bg: "#f1f5f9", border: "#94a3b8", text: "#334155" },
+  "Change order": { bg: "#fff7ed", border: "#fdba74", text: "#9a3412" },
+  Schedule: { bg: "#f8fafc", border: "#cbd5e1", text: "#475569" },
 };
 
 export function phaseAbbreviation(phaseKey: string): string {
