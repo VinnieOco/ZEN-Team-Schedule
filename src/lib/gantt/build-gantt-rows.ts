@@ -1,5 +1,5 @@
 import { getChangeOrdersForParent, isChangeOrder } from "@/lib/change-orders";
-import { computePhaseProgress, hoursForPhase } from "@/lib/gantt/phase-progress";
+import { computePhaseProgress, buildPhaseHoursAllocation } from "@/lib/gantt/phase-progress";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import { getProjectActualHours } from "@/lib/utilization";
 import type { PhaseProgress } from "@/lib/gantt/phase-progress";
@@ -25,8 +25,9 @@ function buildSegmentsForProject(
 ): GanttPhaseSegment[] {
   const scheduled = phasesForProject(allPhases, project.id);
   if (scheduled.length > 0) {
+    const hoursByPhase = buildPhaseHoursAllocation(scheduled, timeEntries, project.id);
     return scheduled.map((phase) => {
-      const hoursUsed = hoursForPhase(timeEntries, project.id, phase.phase_key);
+      const hoursUsed = hoursByPhase.get(phase.phase_key) ?? 0;
       return { phase, progress: computePhaseProgress(phase, hoursUsed) };
     });
   }

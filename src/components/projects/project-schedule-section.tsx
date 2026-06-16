@@ -32,8 +32,8 @@ import {
 import { useScheduling } from "@/context/scheduling-context";
 import { PhaseProgressBar } from "@/components/gantt/phase-progress-bar";
 import {
+  buildPhaseHoursAllocation,
   computePhaseProgress,
-  hoursForPhase,
 } from "@/lib/gantt/phase-progress";
 import {
   addPhaseToSchedule,
@@ -90,6 +90,10 @@ export function ProjectScheduleSection({
     () => availablePhaseKeysToAdd(project, phases),
     [project, phases],
   );
+  const phaseHoursByKey = useMemo(
+    () => buildPhaseHoursAllocation(phases, timeEntries, project.id),
+    [phases, timeEntries, project.id],
+  );
   const [phaseToAdd, setPhaseToAdd] = useState<string>("");
 
   useEffect(() => {
@@ -132,13 +136,44 @@ export function ProjectScheduleSection({
   return (
     <div className="space-y-6">
       <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Schedule timeline</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Drag phase bars to adjust dates. A staffing lane under each phase shows who is
+            scheduled from Team Scheduling, with one row per person. Milestone markers appear when
+            milestones are set below.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <GanttSingleProjectChart
+            project={project}
+            projectPhases={projectPhases}
+            projectMilestones={projectMilestones}
+            timeEntries={timeEntries}
+            allocations={allocations}
+            employees={employees}
+            canEdit={canEdit}
+            rangeStart={rangeStart}
+            onRangeStartChange={setRangeStart}
+            onCommitPhases={handleCommit}
+          />
+        </CardContent>
+      </Card>
+
+      <ProjectMilestonesCard
+        project={project}
+        projectMilestones={projectMilestones}
+        canEdit={canEdit}
+        onCommit={(milestones) => replaceProjectMilestones(project.id, milestones)}
+      />
+
+      <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
           <div>
             <CardTitle className="text-base">Phase schedule</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Add or remove phases, edit dates in the table, or drag bars on the timeline. Linked
-              phases shift when a predecessor changes. A staffing lane under each phase shows
-              who is scheduled from Team Scheduling, with one row per person.
+              Add or remove phases and edit dates, budgets, and links in the table. Linked phases
+              shift when a predecessor changes.
             </p>
           </div>
           {canEdit && availablePhases.length > 0 && (
@@ -194,7 +229,7 @@ export function ProjectScheduleSection({
             </TableHeader>
             <TableBody>
               {phases.map((phase, index) => {
-                const logged = hoursForPhase(timeEntries, project.id, phase.phase_key);
+                const logged = phaseHoursByKey.get(phase.phase_key) ?? 0;
                 const progress = computePhaseProgress(phase, logged);
                 return (
                   <TableRow key={phase.id}>
@@ -305,26 +340,6 @@ export function ProjectScheduleSection({
           )}
         </CardContent>
       </Card>
-
-      <ProjectMilestonesCard
-        project={project}
-        projectMilestones={projectMilestones}
-        canEdit={canEdit}
-        onCommit={(milestones) => replaceProjectMilestones(project.id, milestones)}
-      />
-
-      <GanttSingleProjectChart
-        project={project}
-        projectPhases={projectPhases}
-        projectMilestones={projectMilestones}
-        timeEntries={timeEntries}
-        allocations={allocations}
-        employees={employees}
-        canEdit={canEdit}
-        rangeStart={rangeStart}
-        onRangeStartChange={setRangeStart}
-        onCommitPhases={handleCommit}
-      />
     </div>
   );
 }

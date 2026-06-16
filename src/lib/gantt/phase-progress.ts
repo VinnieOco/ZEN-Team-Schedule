@@ -12,18 +12,125 @@ export interface PhaseProgress {
 
 export type PhaseProgressStatus = "under" | "near" | "over" | "none";
 
-export function hoursForPhase(
+function entryPhaseKey(phase?: string): string {
+  const trimmed = phase?.trim();
+  return trimmed || "Concept";
+}
+
+function entryMatchesPhase(
+  entry: Pick<TimeEntry, "phase">,
+  phaseKey: string,
+): boolean {
+  return entryPhaseKey(entry.phase) === phaseKey;
+}
+
+/** Hours logged directly to a phase via time entry tags. */
+export function directHoursForPhase(
   timeEntries: Pick<TimeEntry, "project_id" | "phase" | "hours">[],
   projectId: string,
   phaseKey: string,
 ): number {
   return timeEntries
-    .filter(
-      (e) =>
-        e.project_id === projectId &&
-        (e.phase?.trim() === phaseKey || (!e.phase?.trim() && phaseKey === "Concept")),
-    )
+    .filter((e) => e.project_id === projectId && entryMatchesPhase(e, phaseKey))
     .reduce((sum, e) => sum + e.hours, 0);
+}
+
+/** @deprecated Prefer buildPhaseHoursAllocation for schedule views. */
+export function hoursForPhase(
+  timeEntries: Pick<TimeEntry, "project_id" | "phase" | "hours">[],
+  projectId: string,
+  phaseKey: string,
+): number {
+  return directHoursForPhase(timeEntries, projectId, phaseKey);
+}
+
+function sortPhasesForHourAllocation(
+  phases: ScheduledProjectPhase[],
+): ScheduledProjectPhase[] {
+  return [...phases].sort((a, b) => {
+    if (a.start_date && b.start_date) {
+      const byStart = a.start_date.localeCompare(b.start_date);
+      if (byStart !== 0) return byStart;
+    } else if (a.start_date) {
+      return -1;
+    } else if (b.start_date) {
+      return 1;
+    }
+    return a.sort_order - b.sort_order;
+  });
+}
+
+/**
+ * Distributes logged hours across the active schedule. Hours tagged to removed phases
+ * fill the earliest-started phase first until its budget, then cascade forward; any
+ * remainder lands on the last phase as over budget.
+ */
+export function buildPhaseHoursAllocation(
+  phases: ScheduledProjectPhase[],
+  timeEntries: Pick<TimeEntry, "project_id" | "phase" | "hours">[],
+  projectId: string,
+): Map<string, number> {
+  const activeKeys = new Set(phases.map((phase) => phase.phase_key));
+  const directByKey = new Map<string, number>();
+
+  for (const phase of phases) {
+    directByKey.set(
+      phase.phase_key,
+      directHoursForPhase(timeEntries, projectId, phase.phase_key),
+    );
+  }
+
+  let orphanHours = 0;
+  for (const entry of timeEntries) {
+    if (entry.project_id !== projectId) continue;
+    if (!activeKeys.has(entryPhaseKey(entry.phase))) {
+      orphanHours += entry.hours;
+    }
+  }
+
+  const allocation = new Map<string, number>();
+  for (const phase of phases) {
+    allocation.set(phase.phase_key, directByKey.get(phase.phase_key) ?? 0);
+  }
+
+  if (orphanHours <= 0 || phases.length === 0) {
+    return allocation;
+  }
+
+  let remaining = orphanHours;
+  const sorted = sortPhasesForHourAllocation(phases);
+
+  for (const phase of sorted) {
+    if (remaining <= 0) break;
+
+    const direct = directByKey.get(phase.phase_key) ?? 0;
+    const budget = phase.budget_hours;
+    const capacity = budget > 0 ? Math.max(0, budget - direct) : 0;
+    if (capacity <= 0) continue;
+
+    const applied = Math.min(remaining, capacity);
+    allocation.set(phase.phase_key, direct + applied);
+    remaining -= applied;
+  }
+
+  if (remaining > 0) {
+    const lastPhase = sorted[sorted.length - 1]!;
+    allocation.set(
+      lastPhase.phase_key,
+      (allocation.get(lastPhase.phase_key) ?? 0) + remaining,
+    );
+  }
+
+  return allocation;
+}
+
+export function allocatedHoursForPhase(
+  phases: ScheduledProjectPhase[],
+  timeEntries: Pick<TimeEntry, "project_id" | "phase" | "hours">[],
+  projectId: string,
+  phaseKey: string,
+): number {
+  return buildPhaseHoursAllocation(phases, timeEntries, projectId).get(phaseKey) ?? 0;
 }
 
 export function computePhaseProgress(
