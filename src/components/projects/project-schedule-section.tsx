@@ -40,6 +40,7 @@ import {
   buildPhaseHoursAllocation,
   computePhaseFeeBudget,
   computePhaseProgress,
+  type PhaseProgress,
 } from "@/lib/gantt/phase-progress";
 import {
   addPhaseToSchedule,
@@ -47,7 +48,7 @@ import {
   removePhaseFromSchedule,
 } from "@/lib/gantt/phase-schedule";
 import { phasesForProject, seedPhasesForProject } from "@/lib/gantt/seed-phases";
-import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
+import { formatProjectAmount, formatProjectHours, getProjectDesignAmount } from "@/lib/project-format";
 import type { Project, ProjectPhase, TimeEntry } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -117,6 +118,46 @@ export function ProjectScheduleSection({
     const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
     return showRollup ? budgetRollup.totalBudgetHours : project.budgeted_design_hours;
   }, [projects, project]);
+  const scheduleTotals = useMemo(() => {
+    let totalContract = 0;
+    let totalContractUsed = 0;
+    let hasContract = false;
+
+    for (const phase of phases) {
+      const logged = phaseHoursByKey.get(phase.phase_key) ?? 0;
+      const progress = computePhaseProgress(phase, logged, project);
+      const contract = computePhaseFeeBudget(phase, project);
+      if (contract != null && contract > 0) {
+        hasContract = true;
+        totalContract += contract;
+        totalContractUsed += progress.feeUsed ?? 0;
+      }
+    }
+
+    const budgetRollup = getProjectBudgetRollup(projects, project);
+    const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
+    const projectContractAmount = showRollup
+      ? budgetRollup.totalDesignAmount
+      : getProjectDesignAmount(project);
+
+    const hoursPercent =
+      totalPhaseBudgetHours > 0
+        ? Math.round((totalLoggedHours / totalPhaseBudgetHours) * 100)
+        : 0;
+    const contractPercent =
+      totalContract > 0 ? Math.round((totalContractUsed / totalContract) * 100) : undefined;
+
+    const totalProgress: PhaseProgress = {
+      hoursUsed: totalLoggedHours,
+      hoursBudget: totalPhaseBudgetHours,
+      hoursPercent,
+      feeBudget: hasContract ? Math.round(totalContract * 100) / 100 : undefined,
+      feeUsed: hasContract ? Math.round(totalContractUsed * 100) / 100 : undefined,
+      feePercent: contractPercent,
+    };
+
+    return { totalContract, projectContractAmount, totalProgress };
+  }, [phases, phaseHoursByKey, project, projects, totalLoggedHours, totalPhaseBudgetHours]);
   const [phaseToAdd, setPhaseToAdd] = useState<string>("");
 
   useEffect(() => {
@@ -245,7 +286,7 @@ export function ProjectScheduleSection({
                 <TableHead className="text-right">Budget hrs</TableHead>
                 <TableHead className="text-right">Logged</TableHead>
                 <TableHead className="min-w-[120px]">Progress</TableHead>
-                <TableHead className="text-right">Fee budget</TableHead>
+                <TableHead className="text-right">Contract</TableHead>
                 <TableHead className="w-10 text-center">Link</TableHead>
                 {canEdit && <TableHead className="w-10" />}
               </TableRow>
@@ -307,7 +348,7 @@ export function ProjectScheduleSection({
                       <PhaseProgressBar progress={progress} compact />
                       <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
                         {progress.hoursBudget > 0 ? `${progress.hoursPercent}%` : "—"}
-                        {progress.feePercent != null ? ` · ${progress.feePercent}% fee` : ""}
+                        {progress.feePercent != null ? ` · ${progress.feePercent}% contract` : ""}
                       </p>
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
@@ -376,7 +417,38 @@ export function ProjectScheduleSection({
                 <TableCell className="text-right font-normal text-muted-foreground">
                   {formatProjectHours(totalLoggedHours)}h
                 </TableCell>
-                <TableCell colSpan={canEdit ? 4 : 3} />
+                <TableCell>
+                  <PhaseProgressBar progress={scheduleTotals.totalProgress} compact />
+                  <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                    {scheduleTotals.totalProgress.hoursBudget > 0
+                      ? `${scheduleTotals.totalProgress.hoursPercent}%`
+                      : "—"}
+                    {scheduleTotals.totalProgress.feePercent != null
+                      ? ` · ${scheduleTotals.totalProgress.feePercent}% contract`
+                      : ""}
+                  </p>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className="tabular-nums">
+                    {formatProjectAmount(scheduleTotals.totalContract)}
+                  </span>
+                  {scheduleTotals.projectContractAmount != null &&
+                    scheduleTotals.projectContractAmount > 0 && (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        / {formatProjectAmount(scheduleTotals.projectContractAmount)} project
+                      </span>
+                    )}
+                  {scheduleTotals.projectContractAmount != null &&
+                    scheduleTotals.projectContractAmount > 0 &&
+                    Math.abs(scheduleTotals.totalContract - scheduleTotals.projectContractAmount) >
+                      0.01 && (
+                      <p className="mt-0.5 text-[10px] font-normal text-amber-700">
+                        Phase total differs from project contract
+                      </p>
+                    )}
+                </TableCell>
+                <TableCell colSpan={canEdit ? 2 : 1} />
               </TableRow>
             </TableBody>
           </Table>
