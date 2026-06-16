@@ -5,6 +5,12 @@ import Link from "next/link";
 import { startOfMonth, startOfWeek, subWeeks } from "date-fns";
 
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
+import {
+  buildProjectMilestone,
+  GanttMilestoneFormDialog,
+  type GanttMilestoneFormValues,
+} from "@/components/gantt/gantt-milestone-form-dialog";
+import { GanttTimelineContextMenu } from "@/components/gantt/gantt-timeline-context-menu";
 import { GanttTooltipProvider } from "@/components/gantt/gantt-chart-tooltip";
 import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
@@ -41,6 +47,7 @@ export function GanttPageClient() {
     isLoading,
     projectMilestones,
     replaceProjectPhases,
+    replaceProjectMilestones,
     seedMissingProjectPhases,
     getEmployeeById,
   } = useScheduling();
@@ -53,6 +60,18 @@ export function GanttPageClient() {
   const [zoom, setZoom] = useState<GanttZoom>("weeks");
   const [filters, setFilters] = useState<ProjectFilters>(defaultGanttFilters);
   const seededRef = useRef(false);
+  const [timelineMenu, setTimelineMenu] = useState<{
+    projectId: string;
+    projectLabel: string;
+    clientX: number;
+    clientY: number;
+    date: string;
+  } | null>(null);
+  const [milestoneDialog, setMilestoneDialog] = useState<{
+    projectId: string;
+    projectLabel: string;
+    date: string;
+  } | null>(null);
 
   const columnCount = visibleColumnCount(zoom);
 
@@ -98,6 +117,39 @@ export function GanttPageClient() {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
+  const projectLabelForRow = (projectId: string): string => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return "Project";
+    return project.project_number
+      ? `${project.project_number} ${project.project_name}`
+      : project.project_name;
+  };
+
+  const handleTimelineContextMenu = (
+    projectId: string,
+    request: { clientX: number; clientY: number; date: string },
+  ) => {
+    setTimelineMenu({
+      projectId,
+      projectLabel: projectLabelForRow(projectId),
+      clientX: request.clientX,
+      clientY: request.clientY,
+      date: request.date,
+    });
+  };
+
+  const handleSaveMilestone = (values: GanttMilestoneFormValues) => {
+    if (!milestoneDialog) return;
+    const existing = milestonesForProject(projectMilestones, milestoneDialog.projectId);
+    const milestone = buildProjectMilestone(
+      milestoneDialog.projectId,
+      values,
+      existing.length,
+    );
+    replaceProjectMilestones(milestoneDialog.projectId, [...existing, milestone]);
+    setMilestoneDialog(null);
+  };
+
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading schedules…</p>;
   }
@@ -124,7 +176,8 @@ export function GanttPageClient() {
       {canEdit && (
         <p className="text-xs text-muted-foreground">
           Drag phase bars to move schedules. Drag bar edges to resize. Linked phases shift
-          automatically when you change a predecessor.
+          automatically when you change a predecessor. Right-click a project timeline to add a
+          milestone.
         </p>
       )}
 
@@ -161,6 +214,11 @@ export function GanttPageClient() {
                     milestones={milestonesForProject(projectMilestones, row.project.id)}
                     dragState={dragState}
                     onDragStart={setDragState}
+                    onTimelineContextMenu={
+                      canEdit
+                        ? (request) => handleTimelineContextMenu(row.project.id, request)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -170,6 +228,32 @@ export function GanttPageClient() {
       )}
 
       <GanttProgressLegend />
+
+      <GanttTimelineContextMenu
+        open={timelineMenu !== null}
+        x={timelineMenu?.clientX ?? 0}
+        y={timelineMenu?.clientY ?? 0}
+        date={timelineMenu?.date ?? ""}
+        onClose={() => setTimelineMenu(null)}
+        onAddMilestone={() => {
+          if (!timelineMenu) return;
+          setMilestoneDialog({
+            projectId: timelineMenu.projectId,
+            projectLabel: timelineMenu.projectLabel,
+            date: timelineMenu.date,
+          });
+        }}
+      />
+
+      <GanttMilestoneFormDialog
+        open={milestoneDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setMilestoneDialog(null);
+        }}
+        projectLabel={milestoneDialog?.projectLabel ?? ""}
+        initialDate={milestoneDialog?.date ?? new Date().toISOString().slice(0, 10)}
+        onSave={handleSaveMilestone}
+      />
 
       <p className="text-xs text-muted-foreground">
         Phase bars show hours and fee burn from logged time. Change orders appear indented under

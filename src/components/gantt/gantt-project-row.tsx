@@ -12,6 +12,7 @@ import {
   barGeometry,
   dayDeltaFromPixels,
   GANTT_ROW_HEIGHT_PX,
+  offsetPxToDate,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
 import type { ProjectMilestone, ScheduledProjectPhase } from "@/types";
@@ -27,6 +28,12 @@ export interface GanttDragState {
   originEnd?: string;
 }
 
+export interface GanttTimelineContextRequest {
+  clientX: number;
+  clientY: number;
+  date: string;
+}
+
 interface GanttProjectRowViewProps {
   row: GanttProjectRow;
   rangeStart: Date;
@@ -37,6 +44,7 @@ interface GanttProjectRowViewProps {
   milestones: ProjectMilestone[];
   dragState: GanttDragState | null;
   onDragStart: (state: GanttDragState) => void;
+  onTimelineContextMenu?: (request: GanttTimelineContextRequest) => void;
 }
 
 export function GanttProjectRowView({
@@ -49,6 +57,7 @@ export function GanttProjectRowView({
   milestones,
   dragState,
   onDragStart,
+  onTimelineContextMenu,
 }: GanttProjectRowViewProps) {
   const phases = phasesForProject(projectPhases, row.project.id);
   const previewPhases =
@@ -56,10 +65,22 @@ export function GanttProjectRowView({
 
   return (
     <div className="flex" style={{ height: GANTT_ROW_HEIGHT_PX }}>
-      <GanttProjectLabel row={row} />
+      <GanttProjectLabel row={row} className="relative z-10" />
       <div
-        className="relative border-b border-slate-200 bg-white"
+        className="relative overflow-hidden border-b border-slate-200 bg-white"
         style={{ width: timelineWidth, minWidth: timelineWidth }}
+        onContextMenu={(event) => {
+          if (!canEdit || !onTimelineContextMenu || dragState) return;
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          const offsetPx = event.clientX - rect.left;
+          const date = format(offsetPxToDate(offsetPx, rangeStart, zoom), "yyyy-MM-dd");
+          onTimelineContextMenu({
+            clientX: event.clientX,
+            clientY: event.clientY,
+            date,
+          });
+        }}
       >
         <GanttMilestoneMarkers
           milestones={milestones}

@@ -89,7 +89,7 @@ export function GanttPhaseRowView({
         )}
       </div>
       <div
-        className="relative shrink-0"
+        className="relative shrink-0 overflow-hidden"
         style={{ width: timelineWidth, minWidth: timelineWidth, height: rowHeight }}
       >
         <div
