@@ -19,10 +19,11 @@ export function GanttProgressLegend() {
         Fee burn (when phase fee is set)
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-flex h-4 min-w-[3.5rem] items-center rounded border border-emerald-300/70 bg-emerald-50 px-1 text-[9px] font-medium text-emerald-900">
-          Name · 12h
+        <span className="inline-flex h-3 w-8 flex-col overflow-hidden rounded border border-slate-200/80 bg-slate-50/50">
+          <span className="h-1.5 border-b border-slate-100 bg-emerald-50" />
+          <span className="h-1.5 bg-emerald-50" />
         </span>
-        Staffing (project Schedule)
+        Staffing lane (one row per person)
       </span>
     </div>
   );

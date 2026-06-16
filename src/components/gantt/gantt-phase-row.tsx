@@ -4,8 +4,10 @@ import { useMemo } from "react";
 
 import { GanttPhaseBar } from "@/components/gantt/gantt-phase-bar";
 import {
-  GanttPhaseStaffingStrip,
-  staffingStripHeight,
+  GanttPhaseStaffingLabels,
+  GanttPhaseStaffingTrack,
+  STAFFING_TRACK_GAP,
+  staffingTrackHeight,
 } from "@/components/gantt/gantt-phase-staffing-strip";
 import type { GanttPhaseSegment } from "@/lib/gantt/build-gantt-rows";
 import { staffingForPhase } from "@/lib/gantt/phase-staffing";
@@ -16,7 +18,6 @@ import type { Allocation, Employee, ScheduledProjectPhase } from "@/types";
 const PHASE_LABEL_WIDTH = 160;
 /** Matches GanttPhaseBar (`top-2` + `h-8`). */
 const PHASE_BAR_TRACK_HEIGHT = 40;
-const STAFFING_GAP = 4;
 
 interface GanttPhaseRowViewProps {
   segment: GanttPhaseSegment;
@@ -63,18 +64,29 @@ export function GanttPhaseRowView({
     [allocations, employees, projectId, staffingPhase, phase],
   );
 
-  const staffingHeight = staffingStripHeight(staffing);
+  const staffingHeight = staffingTrackHeight(staffing);
+  const hasStaffing = staffingHeight > 0;
   const rowHeight =
     PHASE_BAR_TRACK_HEIGHT +
-    (staffingHeight > 0 ? STAFFING_GAP + staffingHeight : 0);
+    (hasStaffing ? STAFFING_TRACK_GAP + staffingHeight : 0);
 
   return (
     <div className="flex border-b border-slate-100" style={{ height: rowHeight }}>
       <div
-        className="flex shrink-0 items-center border-r border-slate-200 px-2 text-xs font-medium"
+        className="flex shrink-0 flex-col border-r border-slate-200"
         style={{ width: PHASE_LABEL_WIDTH, height: rowHeight }}
       >
-        <span className="truncate text-slate-900">{phase.phase_key}</span>
+        <div
+          className="flex items-center px-2 text-xs font-medium"
+          style={{ height: PHASE_BAR_TRACK_HEIGHT }}
+        >
+          <span className="truncate text-slate-900">{phase.phase_key}</span>
+        </div>
+        {hasStaffing && (
+          <div className="flex-1" style={{ marginTop: STAFFING_TRACK_GAP }}>
+            <GanttPhaseStaffingLabels segments={staffing} className="h-full" />
+          </div>
+        )}
       </div>
       <div
         className="relative shrink-0"
@@ -132,15 +144,15 @@ export function GanttPhaseRowView({
             <p className="px-2 py-3 text-[10px] text-muted-foreground">Set dates to show on timeline</p>
           )}
         </div>
-        {staffingHeight > 0 && (
+        {hasStaffing && (
           <div
             className="absolute inset-x-0"
             style={{
-              top: PHASE_BAR_TRACK_HEIGHT + STAFFING_GAP,
+              top: PHASE_BAR_TRACK_HEIGHT + STAFFING_TRACK_GAP,
               height: staffingHeight,
             }}
           >
-            <GanttPhaseStaffingStrip
+            <GanttPhaseStaffingTrack
               segments={staffing}
               rangeStart={rangeStart}
               zoom={zoom}
