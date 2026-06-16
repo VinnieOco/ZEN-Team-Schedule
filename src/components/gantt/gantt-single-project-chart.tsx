@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-markers";
 import { GanttPhaseRowView, PHASE_LABEL_WIDTH } from "@/components/gantt/gantt-phase-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
+import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
 import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
@@ -88,6 +89,8 @@ export function GanttSingleProjectChart({
         onRangeStartChange={onRangeStartChange}
         onZoomChange={setZoom}
       />
+
+      <GanttProgressLegend />
 
       <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm">
         <div style={{ minWidth: PHASE_LABEL_WIDTH + timelineWidth }}>

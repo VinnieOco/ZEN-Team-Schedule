@@ -5,6 +5,7 @@ import Link from "next/link";
 import { startOfMonth, startOfWeek, subWeeks } from "date-fns";
 import { Search } from "lucide-react";
 
+import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
 import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
@@ -156,9 +157,10 @@ export function GanttPageClient() {
         </div>
       )}
 
+      <GanttProgressLegend />
+
       <p className="text-xs text-muted-foreground">
-        Thin bar under each phase shows hours logged vs phase budget. Click a project name to open
-        its{" "}
+        Phase bars show hours and fee burn from logged time. Click a project name to open its{" "}
         <Link href="/projects" className="text-emerald-700 hover:underline">
           Schedule tab
         </Link>

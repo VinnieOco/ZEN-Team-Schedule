@@ -1,25 +1,16 @@
+import { computePhaseProgress, hoursForPhase } from "@/lib/gantt/phase-progress";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
+import type { PhaseProgress } from "@/lib/gantt/phase-progress";
 import type { Project, ScheduledProjectPhase, TimeEntry } from "@/types";
 
 export interface GanttPhaseSegment {
   phase: ScheduledProjectPhase;
-  hoursUsed: number;
-  percentUsed: number;
+  progress: PhaseProgress;
 }
 
 export interface GanttProjectRow {
   project: Project;
   phases: GanttPhaseSegment[];
-}
-
-function hoursForPhase(timeEntries: TimeEntry[], projectId: string, phaseKey: string): number {
-  return timeEntries
-    .filter(
-      (e) =>
-        e.project_id === projectId &&
-        (e.phase?.trim() === phaseKey || (!e.phase?.trim() && phaseKey === "Concept")),
-    )
-    .reduce((sum, e) => sum + e.hours, 0);
 }
 
 export function buildGanttRows(
@@ -38,10 +29,8 @@ export function buildGanttRows(
     .sort((a, b) => a.project_name.localeCompare(b.project_name))
     .map((project) => {
       const phases = phasesForProject(allPhases, project.id).map((phase) => {
-        const hoursUsed = Math.round(hoursForPhase(timeEntries, project.id, phase.phase_key) * 10) / 10;
-        const percentUsed =
-          phase.budget_hours > 0 ? Math.min(100, Math.round((hoursUsed / phase.budget_hours) * 100)) : 0;
-        return { phase, hoursUsed, percentUsed };
+        const hoursUsed = hoursForPhase(timeEntries, project.id, phase.phase_key);
+        return { phase, progress: computePhaseProgress(phase, hoursUsed) };
       });
       return { project, phases };
     })

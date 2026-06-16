@@ -21,8 +21,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
+import { PhaseProgressBar } from "@/components/gantt/phase-progress-bar";
+import {
+  computePhaseProgress,
+  hoursForPhase,
+} from "@/lib/gantt/phase-progress";
 import { phasesForProject, seedPhasesForProject } from "@/lib/gantt/seed-phases";
-import { formatProjectHours } from "@/lib/project-format";
+import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
 import type { Project, TimeEntry } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -40,12 +45,6 @@ function phaseWeeks(start?: string, end?: string): string {
   } catch {
     return "—";
   }
-}
-
-function hoursForPhase(timeEntries: TimeEntry[], projectId: string, phaseKey: string): number {
-  return timeEntries
-    .filter((e) => e.project_id === projectId && e.phase?.trim() === phaseKey)
-    .reduce((sum, e) => sum + e.hours, 0);
 }
 
 export function ProjectScheduleSection({
@@ -112,12 +111,15 @@ export function ProjectScheduleSection({
                 <TableHead>Duration</TableHead>
                 <TableHead className="text-right">Budget hrs</TableHead>
                 <TableHead className="text-right">Logged</TableHead>
+                <TableHead className="min-w-[120px]">Progress</TableHead>
+                <TableHead className="text-right">Fee budget</TableHead>
                 <TableHead className="w-10 text-center">Link</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {phases.map((phase, index) => {
                 const logged = hoursForPhase(timeEntries, project.id, phase.phase_key);
+                const progress = computePhaseProgress(phase, logged);
                 return (
                   <TableRow key={phase.id}>
                     <TableCell className="font-medium">{phase.phase_key}</TableCell>
@@ -170,6 +172,16 @@ export function ProjectScheduleSection({
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {formatProjectHours(logged)}h
+                    </TableCell>
+                    <TableCell>
+                      <PhaseProgressBar progress={progress} compact />
+                      <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
+                        {progress.hoursBudget > 0 ? `${progress.hoursPercent}%` : "—"}
+                        {progress.feePercent != null ? ` · ${progress.feePercent}% fee` : ""}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatProjectAmount(phase.budget_amount)}
                     </TableCell>
                     <TableCell className="text-center">
                       {index === 0 ? (

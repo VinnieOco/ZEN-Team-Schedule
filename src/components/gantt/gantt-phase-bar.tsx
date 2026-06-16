@@ -1,6 +1,8 @@
 "use client";
 
+import { GanttPhaseProgressOverlay } from "@/components/gantt/phase-progress-bar";
 import { phaseAbbreviation, phaseBarColors } from "@/lib/gantt/phase-display";
+import { phaseProgressTitle } from "@/lib/gantt/phase-progress";
 import type { GanttPhaseSegment } from "@/lib/gantt/build-gantt-rows";
 import { cn } from "@/lib/utils";
 
@@ -26,13 +28,17 @@ export function GanttPhaseBar({
   const colors = phaseBarColors(segment.phase.phase_key);
   const label = phaseAbbreviation(segment.phase.phase_key);
   const showLabel = width >= 28;
+  const showPercent =
+    width >= 52 &&
+    segment.progress.hoursBudget > 0 &&
+    segment.progress.hoursPercent > 0;
+  const tooltip = phaseProgressTitle(segment.phase.phase_key, segment.progress, {
+    start: segment.phase.start_date,
+    end: segment.phase.end_date,
+  });
 
   return (
-    <div
-      className="absolute top-2 h-8"
-      style={{ left, width }}
-      title={`${segment.phase.phase_key}${segment.phase.start_date ? ` · ${segment.phase.start_date}` : ""}${segment.phase.end_date ? ` → ${segment.phase.end_date}` : ""}`}
-    >
+    <div className="absolute top-2 h-8" style={{ left, width }} title={tooltip}>
       <div
         className={cn(
           "relative flex h-full items-center overflow-hidden rounded-md border shadow-sm",
@@ -45,6 +51,7 @@ export function GanttPhaseBar({
         }}
         onPointerDown={canEdit ? onPointerDownMove : undefined}
       >
+        <GanttPhaseProgressOverlay progress={segment.progress} />
         {canEdit && (
           <div
             className="absolute left-0 top-0 z-10 h-full w-2 cursor-ew-resize"
@@ -56,14 +63,8 @@ export function GanttPhaseBar({
         )}
         {showLabel && (
           <span className="pointer-events-none relative z-[1] truncate px-1.5 text-[10px] font-semibold">
-            {label}
+            {showPercent ? `${label} ${segment.progress.hoursPercent}%` : label}
           </span>
-        )}
-        {segment.percentUsed > 0 && (
-          <div
-            className="pointer-events-none absolute bottom-0 left-0 h-1 bg-slate-900/25"
-            style={{ width: `${segment.percentUsed}%` }}
-          />
         )}
         {canEdit && (
           <div
