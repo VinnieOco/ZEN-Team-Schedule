@@ -5,13 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { commitGanttDrag, type GanttDragState } from "@/components/gantt/gantt-project-row";
 import { movePhaseByDays, resizePhaseEnd, resizePhaseStart } from "@/lib/gantt/phase-links";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
-import { GANTT_WEEK_WIDTH_PX, type GanttZoom } from "@/lib/gantt/timeline";
+import { dayDeltaFromPixels, type GanttZoom } from "@/lib/gantt/timeline";
 import type { ScheduledProjectPhase } from "@/types";
-
-function dayDeltaFromPixels(deltaPx: number, zoom: GanttZoom): number {
-  const weeks = deltaPx / GANTT_WEEK_WIDTH_PX;
-  return Math.round(zoom === "months" ? weeks * 30 : weeks * 7);
-}
 
 interface UseGanttDragOptions {
   projectPhases: ScheduledProjectPhase[];

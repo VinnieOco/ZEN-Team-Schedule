@@ -17,7 +17,7 @@ export function GanttProjectLabel({ row }: GanttProjectLabelProps) {
       style={{ width: GANTT_PROJECT_COLUMN_WIDTH_PX, height: 52 }}
     >
       <Link
-        href={`/projects/${project.id}`}
+        href={`/projects/${project.id}?tab=schedule`}
         className="truncate text-sm font-medium text-slate-900 hover:text-emerald-700 hover:underline"
       >
         {project.project_number ? `${project.project_number} ` : ""}

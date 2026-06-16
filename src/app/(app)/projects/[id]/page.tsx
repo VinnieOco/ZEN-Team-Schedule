@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
@@ -40,11 +40,14 @@ import { getEmployeeFullName } from "@/lib/week";
 
 export default function ProjectDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
+  const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "overview";
   const { projects, allocations, timeEntries, employees, getEmployeeById, getCategoryById } =
     useScheduling();
   const { permissions } = usePermissions();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const project = projects.find((p) => p.id === projectId);
 
@@ -110,7 +113,7 @@ export default function ProjectDetailPage() {
         )}
       </div>
 
-      <Tabs defaultValue="overview" className="min-w-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
         <ScrollableTabsList>
           <TabsTrigger value="overview" className="shrink-0 px-3">
             Overview

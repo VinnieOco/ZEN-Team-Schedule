@@ -1,12 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
-import { addWeeks, startOfWeek, subWeeks } from "date-fns";
-import { ChevronLeft, ChevronRight, Link2, Link2Off } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { GanttPhaseRowView, PHASE_LABEL_WIDTH } from "@/components/gantt/gantt-phase-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
-import { Button } from "@/components/ui/button";
+import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
 import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { applyPhaseDateChange } from "@/lib/gantt/phase-links";
@@ -14,11 +12,11 @@ import { phasesForProject } from "@/lib/gantt/seed-phases";
 import {
   todayOffsetPx,
   timelineWidthPx,
+  visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
 import type { Project, ScheduledProjectPhase, TimeEntry } from "@/types";
-
-const VISIBLE_WEEKS = 24;
+import { startOfMonth, startOfWeek } from "date-fns";
 
 interface GanttSingleProjectChartProps {
   project: Project;
@@ -39,8 +37,10 @@ export function GanttSingleProjectChart({
   onRangeStartChange,
   onCommitPhases,
 }: GanttSingleProjectChartProps) {
-  const zoom: GanttZoom = "weeks";
-  const timelineWidth = timelineWidthPx(VISIBLE_WEEKS, zoom);
+  const [zoom, setZoom] = useState<GanttZoom>("weeks");
+  const prevZoomRef = useRef(zoom);
+  const columnCount = visibleColumnCount(zoom);
+  const timelineWidth = timelineWidthPx(columnCount, zoom);
   const todayLeft = todayOffsetPx(rangeStart, zoom);
 
   const { dragState, setDragState, effectivePhases } = useGanttDrag({
@@ -48,6 +48,16 @@ export function GanttSingleProjectChart({
     zoom,
     onCommit: (_projectId, phases) => onCommitPhases(phases),
   });
+
+  useEffect(() => {
+    if (prevZoomRef.current === zoom) return;
+    prevZoomRef.current = zoom;
+    onRangeStartChange(
+      zoom === "months"
+        ? startOfMonth(rangeStart)
+        : startOfWeek(rangeStart, { weekStartsOn: 1 }),
+    );
+  }, [zoom, rangeStart, onRangeStartChange]);
 
   const row = useMemo(() => {
     const rows = buildGanttRows([project], effectivePhases, timeEntries, { activeOnly: false });
@@ -66,58 +76,30 @@ export function GanttSingleProjectChart({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onRangeStartChange(subWeeks(rangeStart, 4))}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onRangeStartChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-        >
-          Today
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onRangeStartChange(addWeeks(rangeStart, 4))}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <GanttZoomControls
+        rangeStart={rangeStart}
+        zoom={zoom}
+        onRangeStartChange={onRangeStartChange}
+        onZoomChange={setZoom}
+      />
 
       <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm">
         <div style={{ minWidth: PHASE_LABEL_WIDTH + timelineWidth }}>
-          <div className="flex">
-            <div
-              className="shrink-0 border-r border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-              style={{ width: PHASE_LABEL_WIDTH }}
-            >
-              Phase
-            </div>
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <GanttTimelineHeader
-                rangeStart={rangeStart}
-                weekCount={VISIBLE_WEEKS}
-                showProjectColumn={false}
-              />
-            </div>
-          </div>
+          <GanttTimelineHeader
+            rangeStart={rangeStart}
+            columnCount={columnCount}
+            zoom={zoom}
+            showProjectColumn={false}
+            sideLabel="Phase"
+            sideLabelWidth={PHASE_LABEL_WIDTH}
+          />
           <div className="relative">
             <div
               className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
               style={{ left: PHASE_LABEL_WIDTH + todayLeft }}
             />
             {row.phases.map((segment) => {
-              const phase =
-                phases.find((p) => p.id === segment.phase.id) ?? segment.phase;
+              const phase = phases.find((p) => p.id === segment.phase.id) ?? segment.phase;
               return (
                 <GanttPhaseRowView
                   key={segment.phase.id}

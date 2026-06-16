@@ -712,6 +712,21 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         active: true,
       });
       setProjects((prev) => [...prev, project]);
+
+      if (!project.is_change_order) {
+        const seeded = seedPhasesForProject(project);
+        setProjectPhases((prev) => [...prev, ...seeded]);
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.insertProjectPhases(seeded),
+            () =>
+              setProjectPhases((prev) =>
+                prev.filter((p) => !seeded.some((s) => s.id === p.id)),
+              ),
+          );
+        }
+      }
+
       if (repoRef.current) {
         const snapshot = projects;
         persistAsync(

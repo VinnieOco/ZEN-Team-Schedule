@@ -9,6 +9,7 @@ import { movePhaseByDays, resizePhaseEnd, resizePhaseStart } from "@/lib/gantt/p
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import {
   barGeometry,
+  dayDeltaFromPixels,
   GANTT_ROW_HEIGHT_PX,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
@@ -34,11 +35,6 @@ interface GanttProjectRowViewProps {
   projectPhases: ScheduledProjectPhase[];
   dragState: GanttDragState | null;
   onDragStart: (state: GanttDragState) => void;
-}
-
-function dayDeltaFromPixels(deltaPx: number, zoom: GanttZoom): number {
-  const weeks = deltaPx / 56;
-  return Math.round(zoom === "months" ? weeks * 30 : weeks * 7);
 }
 
 export function GanttProjectRowView({

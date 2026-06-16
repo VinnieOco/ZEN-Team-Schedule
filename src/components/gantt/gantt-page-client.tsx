@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { addWeeks, startOfWeek, subWeeks } from "date-fns";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { startOfMonth, startOfWeek, subWeeks } from "date-fns";
+import { Search } from "lucide-react";
 
 import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
+import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -18,10 +19,9 @@ import {
   GANTT_PROJECT_COLUMN_WIDTH_PX,
   todayOffsetPx,
   timelineWidthPx,
+  visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
-
-const VISIBLE_WEEKS = 20;
 
 export function GanttPageClient() {
   const {
@@ -38,10 +38,12 @@ export function GanttPageClient() {
   const [rangeStart, setRangeStart] = useState(() =>
     startOfWeek(subWeeks(new Date(), 2), { weekStartsOn: 1 }),
   );
-  const zoom: GanttZoom = "weeks";
+  const [zoom, setZoom] = useState<GanttZoom>("weeks");
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const seededRef = useRef(false);
+
+  const columnCount = visibleColumnCount(zoom);
 
   const { dragState, setDragState, effectivePhases } = useGanttDrag({
     projectPhases,
@@ -54,6 +56,12 @@ export function GanttPageClient() {
     seededRef.current = true;
     void seedMissingProjectPhases();
   }, [isLoading, seedMissingProjectPhases]);
+
+  useEffect(() => {
+    setRangeStart((current) =>
+      zoom === "months" ? startOfMonth(current) : startOfWeek(current, { weekStartsOn: 1 }),
+    );
+  }, [zoom]);
 
   const rows = useMemo(() => {
     const built = buildGanttRows(projects, effectivePhases, timeEntries, {
@@ -69,7 +77,7 @@ export function GanttPageClient() {
     );
   }, [projects, effectivePhases, timeEntries, showInactive, search]);
 
-  const timelineWidth = timelineWidthPx(VISIBLE_WEEKS, zoom);
+  const timelineWidth = timelineWidthPx(columnCount, zoom);
   const todayLeft = todayOffsetPx(rangeStart, zoom);
 
   if (isLoading) {
@@ -89,30 +97,12 @@ export function GanttPageClient() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setRangeStart((d) => subWeeks(d, 4))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setRangeStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-          >
-            Today
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setRangeStart((d) => addWeeks(d, 4))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <GanttZoomControls
+            rangeStart={rangeStart}
+            zoom={zoom}
+            onRangeStartChange={setRangeStart}
+            onZoomChange={setZoom}
+          />
           <Button
             type="button"
             variant={showInactive ? "secondary" : "outline"}
@@ -139,7 +129,7 @@ export function GanttPageClient() {
       ) : (
         <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm">
           <div style={{ minWidth: GANTT_PROJECT_COLUMN_WIDTH_PX + timelineWidth }}>
-            <GanttTimelineHeader rangeStart={rangeStart} weekCount={VISIBLE_WEEKS} />
+            <GanttTimelineHeader rangeStart={rangeStart} columnCount={columnCount} zoom={zoom} />
             <div className="relative">
               <div
                 className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
@@ -164,11 +154,12 @@ export function GanttPageClient() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Thin bar under each phase shows hours logged vs phase budget. Open a{" "}
+        Thin bar under each phase shows hours logged vs phase budget. Click a project name to open
+        its{" "}
         <Link href="/projects" className="text-emerald-700 hover:underline">
-          project
-        </Link>{" "}
-        for phase-level editing.
+          Schedule tab
+        </Link>
+        .
       </p>
     </div>
   );

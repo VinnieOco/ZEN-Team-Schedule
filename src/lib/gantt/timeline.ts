@@ -1,65 +1,87 @@
 import {
   addDays,
+  addMonths,
   addWeeks,
   differenceInCalendarDays,
+  eachMonthOfInterval,
   eachWeekOfInterval,
   format,
   parseISO,
+  startOfMonth,
   startOfWeek,
 } from "date-fns";
 
 export const GANTT_WEEK_WIDTH_PX = 56;
+export const GANTT_MONTH_WIDTH_PX = 80;
 export const GANTT_ROW_HEIGHT_PX = 52;
 export const GANTT_PROJECT_COLUMN_WIDTH_PX = 240;
 
+export const GANTT_VISIBLE_WEEKS = 20;
+export const GANTT_VISIBLE_MONTHS = 14;
+
 export type GanttZoom = "weeks" | "months";
 
-export interface GanttWeekColumn {
-  weekStart: Date;
+export interface GanttTimelineColumn {
+  start: Date;
   label: string;
 }
 
-export function buildWeekColumns(rangeStart: Date, weekCount: number): GanttWeekColumn[] {
-  const end = addWeeks(rangeStart, weekCount);
-  const weeks = eachWeekOfInterval({ start: rangeStart, end }, { weekStartsOn: 1 });
-  return weeks.slice(0, weekCount).map((weekStart) => ({
-    weekStart,
-    label: format(weekStart, "MMM d"),
-  }));
+export function pixelsPerDay(zoom: GanttZoom): number {
+  return zoom === "months" ? GANTT_MONTH_WIDTH_PX / 30 : GANTT_WEEK_WIDTH_PX / 7;
 }
 
-export function dateToOffsetPx(
-  date: Date,
+export function dayDeltaFromPixels(deltaPx: number, zoom: GanttZoom): number {
+  return Math.round(deltaPx / pixelsPerDay(zoom));
+}
+
+export function buildTimelineColumns(
   rangeStart: Date,
+  count: number,
   zoom: GanttZoom,
-): number {
+): GanttTimelineColumn[] {
+  if (zoom === "months") {
+    const start = startOfMonth(rangeStart);
+    const end = addMonths(start, count);
+    return eachMonthOfInterval({ start, end })
+      .slice(0, count)
+      .map((monthStart) => ({
+        start: monthStart,
+        label: format(monthStart, "MMM yyyy"),
+      }));
+  }
+  const end = addWeeks(rangeStart, count);
+  return eachWeekOfInterval({ start: rangeStart, end }, { weekStartsOn: 1 })
+    .slice(0, count)
+    .map((weekStart) => ({
+      start: weekStart,
+      label: format(weekStart, "MMM d"),
+    }));
+}
+
+export function columnWidthPx(zoom: GanttZoom): number {
+  return zoom === "months" ? GANTT_MONTH_WIDTH_PX : GANTT_WEEK_WIDTH_PX;
+}
+
+export function dateToOffsetPx(date: Date, rangeStart: Date, zoom: GanttZoom): number {
   const days = differenceInCalendarDays(date, rangeStart);
-  if (zoom === "months") {
-    return (days / 30) * GANTT_WEEK_WIDTH_PX * 4;
-  }
-  return (days / 7) * GANTT_WEEK_WIDTH_PX;
+  return days * pixelsPerDay(zoom);
 }
 
-export function offsetPxToDate(
-  offsetPx: number,
-  rangeStart: Date,
-  zoom: GanttZoom,
-): Date {
-  if (zoom === "months") {
-    const days = Math.round((offsetPx / (GANTT_WEEK_WIDTH_PX * 4)) * 30);
-    return addDays(rangeStart, days);
-  }
-  const weeks = offsetPx / GANTT_WEEK_WIDTH_PX;
-  return addDays(rangeStart, Math.round(weeks * 7));
+export function offsetPxToDate(offsetPx: number, rangeStart: Date, zoom: GanttZoom): Date {
+  const days = Math.round(offsetPx / pixelsPerDay(zoom));
+  return addDays(rangeStart, days);
 }
 
 export function snapToWeek(date: Date): Date {
   return startOfWeek(date, { weekStartsOn: 1 });
 }
 
-export function timelineWidthPx(weekCount: number, zoom: GanttZoom): number {
-  if (zoom === "months") return weekCount * GANTT_WEEK_WIDTH_PX;
-  return weekCount * GANTT_WEEK_WIDTH_PX;
+export function timelineWidthPx(columnCount: number, zoom: GanttZoom): number {
+  return columnCount * columnWidthPx(zoom);
+}
+
+export function visibleColumnCount(zoom: GanttZoom): number {
+  return zoom === "months" ? GANTT_VISIBLE_MONTHS : GANTT_VISIBLE_WEEKS;
 }
 
 export function barGeometry(
@@ -80,3 +102,10 @@ export function barGeometry(
 export function todayOffsetPx(rangeStart: Date, zoom: GanttZoom): number {
   return dateToOffsetPx(new Date(), rangeStart, zoom);
 }
+
+/** @deprecated Use buildTimelineColumns */
+export function buildWeekColumns(rangeStart: Date, weekCount: number): GanttTimelineColumn[] {
+  return buildTimelineColumns(rangeStart, weekCount, "weeks");
+}
+
+export type GanttWeekColumn = GanttTimelineColumn;
