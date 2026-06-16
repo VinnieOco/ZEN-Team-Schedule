@@ -24,6 +24,7 @@ import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
 import {
   insertProjectPhases as insertPhases,
   listProjectPhases as fetchProjectPhases,
+  syncProjectPhases as syncPhases,
   upsertProjectPhases as upsertPhases,
 } from "@/lib/data/project-phases-repository";
 import {
@@ -126,6 +127,10 @@ export function createSupabaseRepository(
 
     async insertProjectPhases(phases: ScheduledProjectPhase[]) {
       return insertPhases(supabase, phases);
+    },
+
+    async syncProjectPhases(projectId: string, phases: ScheduledProjectPhase[]) {
+      return syncPhases(supabase, projectId, phases);
     },
 
     async listProjectMilestones() {

@@ -762,7 +762,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         const next = [...prev.filter((p) => p.project_id !== projectId), ...phases];
         if (repoRef.current) {
           void persistAsync(
-            () => repoRef.current!.upsertProjectPhases(phases),
+            () => repoRef.current!.syncProjectPhases(projectId, phases),
             () => setProjectPhases(snapshot),
           );
         }

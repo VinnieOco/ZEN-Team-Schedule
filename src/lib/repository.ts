@@ -25,6 +25,7 @@ export interface SchedulingRepository {
   listProjectPhases(): Promise<ScheduledProjectPhase[]>;
   upsertProjectPhases(phases: ScheduledProjectPhase[]): Promise<void>;
   insertProjectPhases(phases: ScheduledProjectPhase[]): Promise<void>;
+  syncProjectPhases(projectId: string, phases: ScheduledProjectPhase[]): Promise<void>;
   listProjectMilestones(): Promise<ProjectMilestone[]>;
   syncProjectMilestones(projectId: string, milestones: ProjectMilestone[]): Promise<void>;
   listClients(): Promise<Client[]>;

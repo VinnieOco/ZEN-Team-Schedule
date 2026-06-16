@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { differenceInCalendarDays, parseISO, startOfWeek, subWeeks } from "date-fns";
-import { Link2, Link2Off } from "lucide-react";
+import { Link2, Link2Off, Plus, Trash2 } from "lucide-react";
 
 import {
   GanttSingleProjectChart,
@@ -10,8 +10,16 @@ import {
   updatePhaseField,
 } from "@/components/gantt/gantt-single-project-chart";
 import { ProjectMilestonesCard } from "@/components/projects/project-milestones-card";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -26,9 +34,14 @@ import {
   computePhaseProgress,
   hoursForPhase,
 } from "@/lib/gantt/phase-progress";
+import {
+  addPhaseToSchedule,
+  availablePhaseKeysToAdd,
+  removePhaseFromSchedule,
+} from "@/lib/gantt/phase-schedule";
 import { phasesForProject, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
-import type { Project, TimeEntry } from "@/types";
+import type { Project, ProjectPhase, TimeEntry } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface ProjectScheduleSectionProps {
@@ -63,6 +76,11 @@ export function ProjectScheduleSection({
     () => phasesForProject(projectPhases, project.id),
     [projectPhases, project.id],
   );
+  const availablePhases = useMemo(
+    () => availablePhaseKeysToAdd(project, phases),
+    [project, phases],
+  );
+  const [phaseToAdd, setPhaseToAdd] = useState<string>("");
 
   useEffect(() => {
     if (isLoading || seededRef.current) return;
@@ -91,17 +109,63 @@ export function ProjectScheduleSection({
     handleCommit(togglePhaseLinked(phases, phaseId, linked));
   };
 
+  const handleAddPhase = () => {
+    if (!phaseToAdd) return;
+    handleCommit(addPhaseToSchedule(project, phases, phaseToAdd as ProjectPhase));
+    setPhaseToAdd("");
+  };
+
+  const handleRemovePhase = (phaseId: string) => {
+    handleCommit(removePhaseFromSchedule(phases, phaseId));
+  };
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Phase schedule</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Edit dates in the table or drag bars on the timeline. Linked phases shift when a
-            predecessor changes.
-          </p>
+        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="text-base">Phase schedule</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Add or remove phases, edit dates in the table, or drag bars on the timeline. Linked
+              phases shift when a predecessor changes.
+            </p>
+          </div>
+          {canEdit && availablePhases.length > 0 && (
+            <div className="flex shrink-0 items-center gap-2">
+              <Select value={phaseToAdd} onValueChange={setPhaseToAdd}>
+                <SelectTrigger className="h-8 w-[180px]">
+                  <SelectValue placeholder="Choose phase…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePhases.map((phaseKey) => (
+                    <SelectItem key={phaseKey} value={phaseKey}>
+                      {phaseKey}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!phaseToAdd}
+                onClick={handleAddPhase}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="overflow-x-auto p-0 sm:p-0">
+          {phases.length === 0 ? (
+            <p className="px-6 pb-6 text-sm text-muted-foreground">
+              No phases on this schedule yet.
+              {canEdit && availablePhases.length > 0
+                ? " Choose a phase above and click Add."
+                : ""}
+            </p>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -114,6 +178,7 @@ export function ProjectScheduleSection({
                 <TableHead className="min-w-[120px]">Progress</TableHead>
                 <TableHead className="text-right">Fee budget</TableHead>
                 <TableHead className="w-10 text-center">Link</TableHead>
+                {canEdit && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,11 +277,25 @@ export function ProjectScheduleSection({
                         </button>
                       )}
                     </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemovePhase(phase.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
