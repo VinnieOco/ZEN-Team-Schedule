@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 
+import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-markers";
 import { GanttPhaseBar } from "@/components/gantt/gantt-phase-bar";
 import { GanttProjectLabel } from "@/components/gantt/gantt-project-label";
 import type { GanttProjectRow } from "@/lib/gantt/build-gantt-rows";
@@ -13,7 +14,7 @@ import {
   GANTT_ROW_HEIGHT_PX,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
-import type { ScheduledProjectPhase } from "@/types";
+import type { ProjectMilestone, ScheduledProjectPhase } from "@/types";
 
 export type GanttDragMode = "move" | "resize-start" | "resize-end";
 
@@ -33,6 +34,7 @@ interface GanttProjectRowViewProps {
   timelineWidth: number;
   canEdit: boolean;
   projectPhases: ScheduledProjectPhase[];
+  milestones: ProjectMilestone[];
   dragState: GanttDragState | null;
   onDragStart: (state: GanttDragState) => void;
 }
@@ -44,6 +46,7 @@ export function GanttProjectRowView({
   timelineWidth,
   canEdit,
   projectPhases,
+  milestones,
   dragState,
   onDragStart,
 }: GanttProjectRowViewProps) {
@@ -58,6 +61,12 @@ export function GanttProjectRowView({
         className="relative border-b border-slate-200 bg-white"
         style={{ width: timelineWidth, minWidth: timelineWidth }}
       >
+        <GanttMilestoneMarkers
+          milestones={milestones}
+          rangeStart={rangeStart}
+          zoom={zoom}
+          compact
+        />
         {row.phases.map((segment) => {
           const phase = previewPhases.find((p) => p.id === segment.phase.id) ?? segment.phase;
           const geom = barGeometry(phase.start_date, phase.end_date, rangeStart, zoom);

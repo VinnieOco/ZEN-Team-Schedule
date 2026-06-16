@@ -62,6 +62,7 @@ import type {
   ClientNote,
   ClientFormValues,
   ProjectNote,
+  ProjectMilestone,
   ScheduledProjectPhase,
   EmployeeFormValues,
   ProjectFormValues,
@@ -84,6 +85,7 @@ interface PersistedState {
   allocations: Allocation[];
   timeEntries: TimeEntry[];
   projectPhases?: ScheduledProjectPhase[];
+  projectMilestones?: ProjectMilestone[];
   settings: CompanySettings;
 }
 
@@ -102,6 +104,7 @@ interface SchedulingContextValue {
   allocations: Allocation[];
   timeEntries: TimeEntry[];
   projectPhases: ScheduledProjectPhase[];
+  projectMilestones: ProjectMilestone[];
   settings: CompanySettings;
   selectedWeekStart: Date;
   filters: SchedulingFilters;
@@ -144,6 +147,7 @@ interface SchedulingContextValue {
   getProjectById: (id: string) => Project | undefined;
   getEmployeeById: (id: string) => Employee | undefined;
   replaceProjectPhases: (projectId: string, phases: ScheduledProjectPhase[]) => void;
+  replaceProjectMilestones: (projectId: string, milestones: ProjectMilestone[]) => void;
   seedMissingProjectPhases: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -254,6 +258,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [projectPhases, setProjectPhases] = useState<ScheduledProjectPhase[]>(
     useSupabase ? [] : (persisted?.projectPhases ?? []),
   );
+  const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>(
+    useSupabase ? [] : (persisted?.projectMilestones ?? []),
+  );
   const [settings, setSettings] = useState<CompanySettings>(() =>
     normalizeCompanySettings(persisted?.settings ?? seedSettings),
   );
@@ -329,6 +336,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const milestonesData = await repo.listProjectMilestones();
+        setProjectMilestones(milestonesData);
+      } catch {
+        setProjectMilestones([]);
+      }
+
+      try {
         const persistence = createQueueStatePersistence(supabase);
         initQueuePersistence(persistence, { useRemote: true });
         await flushPersistQueue();
@@ -377,6 +391,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       allocations,
       timeEntries,
       projectPhases,
+      projectMilestones,
       settings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -391,6 +406,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     allocations,
     timeEntries,
     projectPhases,
+    projectMilestones,
     settings,
   ]);
 
@@ -748,6 +764,23 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           void persistAsync(
             () => repoRef.current!.upsertProjectPhases(phases),
             () => setProjectPhases(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const replaceProjectMilestones = useCallback(
+    (projectId: string, milestones: ProjectMilestone[]) => {
+      setProjectMilestones((prev) => {
+        const snapshot = prev;
+        const next = [...prev.filter((m) => m.project_id !== projectId), ...milestones];
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.syncProjectMilestones(projectId, milestones),
+            () => setProjectMilestones(snapshot),
           );
         }
         return next;
@@ -1282,6 +1315,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       allocations,
       timeEntries,
       projectPhases,
+      projectMilestones,
       settings,
       selectedWeekStart,
       filters,
@@ -1323,6 +1357,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       getProjectById,
       getEmployeeById,
       replaceProjectPhases,
+      replaceProjectMilestones,
       seedMissingProjectPhases,
       refreshData,
     }),
@@ -1340,6 +1375,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       allocations,
       timeEntries,
       projectPhases,
+      projectMilestones,
       settings,
       selectedWeekStart,
       filters,
@@ -1381,6 +1417,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       getProjectById,
       getEmployeeById,
       replaceProjectPhases,
+      replaceProjectMilestones,
       seedMissingProjectPhases,
       refreshData,
     ],

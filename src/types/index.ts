@@ -82,6 +82,24 @@ export interface ScheduledProjectPhase {
   notes?: string;
 }
 
+export type ProjectMilestoneKind =
+  | "submittal"
+  | "client_review"
+  | "permit"
+  | "delivery"
+  | "other";
+
+/** Single-date marker on a project Gantt (submittal, review, permit, etc.). */
+export interface ProjectMilestone {
+  id: string;
+  project_id: string;
+  title: string;
+  milestone_date: string;
+  kind: ProjectMilestoneKind;
+  sort_order: number;
+  notes?: string;
+}
+
 export interface ProjectNote {
   id: string;
   project_id: string;

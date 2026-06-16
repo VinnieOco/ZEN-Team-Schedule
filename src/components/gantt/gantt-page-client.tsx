@@ -15,6 +15,7 @@ import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
 import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
+import { milestonesForProject } from "@/lib/gantt/milestones";
 import {
   GANTT_PROJECT_COLUMN_WIDTH_PX,
   todayOffsetPx,
@@ -29,6 +30,7 @@ export function GanttPageClient() {
     projectPhases,
     timeEntries,
     isLoading,
+    projectMilestones,
     replaceProjectPhases,
     seedMissingProjectPhases,
   } = useScheduling();
@@ -144,6 +146,7 @@ export function GanttPageClient() {
                   timelineWidth={timelineWidth}
                   canEdit={canEdit}
                   projectPhases={effectivePhases}
+                  milestones={milestonesForProject(projectMilestones, row.project.id)}
                   dragState={dragState}
                   onDragStart={setDragState}
                 />

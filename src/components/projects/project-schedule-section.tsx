@@ -9,6 +9,7 @@ import {
   togglePhaseLinked,
   updatePhaseField,
 } from "@/components/gantt/gantt-single-project-chart";
+import { ProjectMilestonesCard } from "@/components/projects/project-milestones-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -52,7 +53,8 @@ export function ProjectScheduleSection({
   timeEntries,
   canEdit,
 }: ProjectScheduleSectionProps) {
-  const { projectPhases, replaceProjectPhases, isLoading } = useScheduling();
+  const { projectPhases, projectMilestones, replaceProjectPhases, replaceProjectMilestones, isLoading } =
+    useScheduling();
   const seededRef = useRef(false);
   const [rangeStart, setRangeStart] = useState(() =>
     startOfWeek(subWeeks(new Date(), 2), { weekStartsOn: 1 }),
@@ -206,9 +208,17 @@ export function ProjectScheduleSection({
         </CardContent>
       </Card>
 
+      <ProjectMilestonesCard
+        project={project}
+        projectMilestones={projectMilestones}
+        canEdit={canEdit}
+        onCommit={(milestones) => replaceProjectMilestones(project.id, milestones)}
+      />
+
       <GanttSingleProjectChart
         project={project}
         projectPhases={projectPhases}
+        projectMilestones={projectMilestones}
         timeEntries={timeEntries}
         canEdit={canEdit}
         rangeStart={rangeStart}

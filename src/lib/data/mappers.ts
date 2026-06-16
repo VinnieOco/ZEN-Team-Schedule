@@ -9,6 +9,8 @@ import type {
   Project,
   ClientNote,
   ProjectNote,
+  ProjectMilestone,
+  ProjectMilestoneKind,
   ScheduledProjectPhase,
   TimeEntry,
 } from "@/types";
@@ -433,5 +435,51 @@ export function scheduledProjectPhaseToRow(phase: ScheduledProjectPhase) {
     budget_amount: phase.budget_amount ?? null,
     linked_to_previous: phase.linked_to_previous,
     notes: phase.notes?.trim() || null,
+  };
+}
+
+type ProjectMilestoneRow = {
+  id: string;
+  project_id: string;
+  title: string;
+  milestone_date: string;
+  kind: string;
+  sort_order: number;
+  notes: string | null;
+};
+
+const MILESTONE_KINDS = new Set([
+  "submittal",
+  "client_review",
+  "permit",
+  "delivery",
+  "other",
+]);
+
+function normalizeMilestoneKind(kind: string): ProjectMilestoneKind {
+  return MILESTONE_KINDS.has(kind) ? (kind as ProjectMilestoneKind) : "other";
+}
+
+export function mapProjectMilestone(row: ProjectMilestoneRow): ProjectMilestone {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    title: row.title,
+    milestone_date: row.milestone_date,
+    kind: normalizeMilestoneKind(row.kind),
+    sort_order: row.sort_order,
+    notes: row.notes ?? undefined,
+  };
+}
+
+export function projectMilestoneToRow(milestone: ProjectMilestone) {
+  return {
+    id: milestone.id,
+    project_id: milestone.project_id,
+    title: milestone.title.trim(),
+    milestone_date: milestone.milestone_date,
+    kind: milestone.kind,
+    sort_order: milestone.sort_order,
+    notes: milestone.notes?.trim() || null,
   };
 }

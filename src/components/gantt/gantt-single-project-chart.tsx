@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-markers";
 import { GanttPhaseRowView, PHASE_LABEL_WIDTH } from "@/components/gantt/gantt-phase-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
 import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { applyPhaseDateChange } from "@/lib/gantt/phase-links";
+import { milestonesForProject } from "@/lib/gantt/milestones";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import {
   todayOffsetPx,
@@ -15,12 +17,13 @@ import {
   visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
-import type { Project, ScheduledProjectPhase, TimeEntry } from "@/types";
+import type { Project, ProjectMilestone, ScheduledProjectPhase, TimeEntry } from "@/types";
 import { startOfMonth, startOfWeek } from "date-fns";
 
 interface GanttSingleProjectChartProps {
   project: Project;
   projectPhases: ScheduledProjectPhase[];
+  projectMilestones: ProjectMilestone[];
   timeEntries: TimeEntry[];
   canEdit: boolean;
   rangeStart: Date;
@@ -31,6 +34,7 @@ interface GanttSingleProjectChartProps {
 export function GanttSingleProjectChart({
   project,
   projectPhases,
+  projectMilestones,
   timeEntries,
   canEdit,
   rangeStart,
@@ -65,6 +69,8 @@ export function GanttSingleProjectChart({
   }, [project, effectivePhases, timeEntries]);
 
   const phases = phasesForProject(effectivePhases, project.id);
+  const milestones = milestonesForProject(projectMilestones, project.id);
+  const hasMilestones = milestones.length > 0;
 
   if (!row) {
     return (
@@ -98,6 +104,26 @@ export function GanttSingleProjectChart({
               className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
               style={{ left: PHASE_LABEL_WIDTH + todayLeft }}
             />
+            {hasMilestones && (
+              <div className="flex border-b border-slate-100" style={{ height: 28 }}>
+                <div
+                  className="shrink-0 border-r border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+                  style={{ width: PHASE_LABEL_WIDTH }}
+                >
+                  Milestones
+                </div>
+                <div
+                  className="relative flex-1"
+                  style={{ width: timelineWidth, minWidth: timelineWidth, height: 28 }}
+                >
+                  <GanttMilestoneMarkers
+                    milestones={milestones}
+                    rangeStart={rangeStart}
+                    zoom={zoom}
+                  />
+                </div>
+              </div>
+            )}
             {row.phases.map((segment) => {
               const phase = phases.find((p) => p.id === segment.phase.id) ?? segment.phase;
               return (

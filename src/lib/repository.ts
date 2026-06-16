@@ -8,6 +8,7 @@ import type {
   Project,
   ClientNote,
   ProjectNote,
+  ProjectMilestone,
   ScheduledProjectPhase,
   TimeEntry,
 } from "@/types";
@@ -24,6 +25,8 @@ export interface SchedulingRepository {
   listProjectPhases(): Promise<ScheduledProjectPhase[]>;
   upsertProjectPhases(phases: ScheduledProjectPhase[]): Promise<void>;
   insertProjectPhases(phases: ScheduledProjectPhase[]): Promise<void>;
+  listProjectMilestones(): Promise<ProjectMilestone[]>;
+  syncProjectMilestones(projectId: string, milestones: ProjectMilestone[]): Promise<void>;
   listClients(): Promise<Client[]>;
   upsertClient(client: Client): Promise<Client>;
   updateClient(client: Client): Promise<Client>;

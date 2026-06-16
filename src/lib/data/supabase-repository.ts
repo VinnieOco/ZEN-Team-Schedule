@@ -26,6 +26,10 @@ import {
   listProjectPhases as fetchProjectPhases,
   upsertProjectPhases as upsertPhases,
 } from "@/lib/data/project-phases-repository";
+import {
+  listProjectMilestones as fetchProjectMilestones,
+  syncProjectMilestones as syncMilestones,
+} from "@/lib/data/project-milestones-repository";
 import type { SchedulingRepository } from "@/lib/repository";
 import type {
   Allocation,
@@ -36,6 +40,7 @@ import type {
   Project,
   ClientNote,
   ProjectNote,
+  ProjectMilestone,
   ScheduledProjectPhase,
   TimeEntry,
 } from "@/types";
@@ -121,6 +126,14 @@ export function createSupabaseRepository(
 
     async insertProjectPhases(phases: ScheduledProjectPhase[]) {
       return insertPhases(supabase, phases);
+    },
+
+    async listProjectMilestones() {
+      return fetchProjectMilestones(supabase);
+    },
+
+    async syncProjectMilestones(projectId: string, milestones: ProjectMilestone[]) {
+      return syncMilestones(supabase, projectId, milestones);
     },
 
     async listClients() {
