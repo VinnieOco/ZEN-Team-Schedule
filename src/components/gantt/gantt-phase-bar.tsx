@@ -15,6 +15,7 @@ interface GanttPhaseBarProps {
   left: number;
   width: number;
   canEdit: boolean;
+  className?: string;
   onPointerDownMove: (e: React.PointerEvent) => void;
   onPointerDownResizeStart: (e: React.PointerEvent) => void;
   onPointerDownResizeEnd: (e: React.PointerEvent) => void;
@@ -77,6 +78,7 @@ export function GanttPhaseBar({
   left,
   width,
   canEdit,
+  className,
   onPointerDownMove,
   onPointerDownResizeStart,
   onPointerDownResizeEnd,
@@ -102,7 +104,7 @@ export function GanttPhaseBar({
         />
       }
     >
-      <div className="absolute top-2 h-8" style={{ left, width }}>
+      <div className={cn("absolute top-2 z-10 h-8", className)} style={{ left, width }}>
         <div
           className={cn(
             "relative flex h-full items-center overflow-hidden rounded-md border border-slate-200/90 text-slate-900 shadow-sm",

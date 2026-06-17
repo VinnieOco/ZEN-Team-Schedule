@@ -20,6 +20,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
+import { useGanttTimelineLayout } from "@/hooks/use-gantt-timeline-layout";
+import { useGanttTimelinePan } from "@/hooks/use-gantt-timeline-pan";
 import { buildGanttRows, filterGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import {
@@ -30,8 +32,6 @@ import {
 import {
   GANTT_PROJECT_COLUMN_WIDTH_PX,
   todayOffsetPx,
-  timelineWidthPx,
-  visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
 
@@ -60,6 +60,7 @@ export function GanttPageClient() {
   const [zoom, setZoom] = useState<GanttZoom>("weeks");
   const [filters, setFilters] = useState<ProjectFilters>(defaultGanttFilters);
   const seededRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [timelineMenu, setTimelineMenu] = useState<{
     projectId: string;
     projectLabel: string;
@@ -73,12 +74,23 @@ export function GanttPageClient() {
     date: string;
   } | null>(null);
 
-  const columnCount = visibleColumnCount(zoom);
+  const { columnCount, timelineWidth } = useGanttTimelineLayout(
+    scrollRef,
+    zoom,
+    GANTT_PROJECT_COLUMN_WIDTH_PX,
+  );
 
   const { dragState, setDragState, effectivePhases } = useGanttDrag({
     projectPhases,
     zoom,
     onCommit: replaceProjectPhases,
+  });
+
+  const { onPanLayerPointerDown, isPanning } = useGanttTimelinePan({
+    rangeStart,
+    zoom,
+    onRangeStartChange: setRangeStart,
+    disabled: dragState !== null,
   });
 
   useEffect(() => {
@@ -110,7 +122,6 @@ export function GanttPageClient() {
   const resultCount = useMemo(() => countParentRows(rows), [rows]);
   const hasActiveFilters = projectFiltersActive(filters);
 
-  const timelineWidth = timelineWidthPx(columnCount, zoom);
   const todayLeft = todayOffsetPx(rangeStart, zoom);
 
   const updateFilters = (partial: Partial<ProjectFilters>) => {
@@ -173,11 +184,12 @@ export function GanttPageClient() {
         />
       </div>
 
-      {canEdit && (
+      {rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Drag phase bars to move schedules. Drag bar edges to resize. Linked phases shift
-          automatically when you change a predecessor. Right-click a project timeline to add a
-          milestone.
+          Drag empty timeline space to move through earlier or later dates. Use the arrows or Today
+          button for larger jumps.
+          {canEdit &&
+            " Drag phase bars to move schedules, drag bar edges to resize, and right-click a timeline to add a milestone."}
         </p>
       )}
 
@@ -193,9 +205,21 @@ export function GanttPageClient() {
           onAction={hasActiveFilters ? () => setFilters(defaultGanttFilters()) : undefined}
         />
       ) : (
-        <div className="schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm">
+        <div
+          ref={scrollRef}
+          className={`schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm ${
+            isPanning ? "cursor-grabbing select-none" : ""
+          }`}
+        >
           <div style={{ minWidth: GANTT_PROJECT_COLUMN_WIDTH_PX + timelineWidth }}>
-            <GanttTimelineHeader rangeStart={rangeStart} columnCount={columnCount} zoom={zoom} />
+            <GanttTimelineHeader
+              rangeStart={rangeStart}
+              columnCount={columnCount}
+              zoom={zoom}
+              timelineWidth={timelineWidth}
+              onPanLayerPointerDown={onPanLayerPointerDown}
+              isPanning={isPanning}
+            />
             <GanttTooltipProvider>
               <div className="relative">
                 <div
@@ -219,6 +243,7 @@ export function GanttPageClient() {
                         ? (request) => handleTimelineContextMenu(row.project.id, request)
                         : undefined
                     }
+                    onPanLayerPointerDown={onPanLayerPointerDown}
                   />
                 ))}
               </div>

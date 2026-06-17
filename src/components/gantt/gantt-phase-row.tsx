@@ -33,6 +33,7 @@ interface GanttPhaseRowViewProps {
   phaseOverride?: ScheduledProjectPhase;
   /** Committed phase dates for staffing — avoids row layout shifts while dragging. */
   staffingPhase?: ScheduledProjectPhase;
+  onPanLayerPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export function GanttPhaseRowView({
@@ -48,6 +49,7 @@ export function GanttPhaseRowView({
   onDragStart,
   phaseOverride,
   staffingPhase,
+  onPanLayerPointerDown,
 }: GanttPhaseRowViewProps) {
   const phase = phaseOverride ?? segment.phase;
   const geom = barGeometry(phase.start_date, phase.end_date, rangeStart, zoom);
@@ -92,6 +94,13 @@ export function GanttPhaseRowView({
         className="relative shrink-0 overflow-hidden"
         style={{ width: timelineWidth, minWidth: timelineWidth, height: rowHeight }}
       >
+        {onPanLayerPointerDown && (
+          <div
+            className="absolute inset-0 z-0 touch-none cursor-grab active:cursor-grabbing"
+            aria-hidden
+            onPointerDown={onPanLayerPointerDown}
+          />
+        )}
         <div
           className="absolute inset-x-0 top-0"
           style={{ height: PHASE_BAR_TRACK_HEIGHT }}

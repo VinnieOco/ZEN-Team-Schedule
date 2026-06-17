@@ -9,14 +9,14 @@ import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
+import { useGanttTimelineLayout } from "@/hooks/use-gantt-timeline-layout";
+import { useGanttTimelinePan } from "@/hooks/use-gantt-timeline-pan";
 import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { applyPhaseDateChange } from "@/lib/gantt/phase-links";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import {
   todayOffsetPx,
-  timelineWidthPx,
-  visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
 import type { Allocation, Employee, Project, ProjectMilestone, ScheduledProjectPhase, TimeEntry } from "@/types";
@@ -49,14 +49,26 @@ export function GanttSingleProjectChart({
 }: GanttSingleProjectChartProps) {
   const [zoom, setZoom] = useState<GanttZoom>("weeks");
   const prevZoomRef = useRef(zoom);
-  const columnCount = visibleColumnCount(zoom);
-  const timelineWidth = timelineWidthPx(columnCount, zoom);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { columnCount, timelineWidth } = useGanttTimelineLayout(
+    scrollRef,
+    zoom,
+    PHASE_LABEL_WIDTH,
+  );
   const todayLeft = todayOffsetPx(rangeStart, zoom);
 
   const { dragState, setDragState, effectivePhases } = useGanttDrag({
     projectPhases,
     zoom,
     onCommit: (_projectId, phases) => onCommitPhases(phases),
+  });
+
+  const { onPanLayerPointerDown, isPanning } = useGanttTimelinePan({
+    rangeStart,
+    zoom,
+    onRangeStartChange,
+    disabled: dragState !== null,
   });
 
   useEffect(() => {
@@ -98,12 +110,20 @@ export function GanttSingleProjectChart({
 
       <GanttProgressLegend />
 
-      <div className="schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm">
+      <div
+        ref={scrollRef}
+        className={`schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm ${
+          isPanning ? "cursor-grabbing select-none" : ""
+        }`}
+      >
         <div style={{ minWidth: PHASE_LABEL_WIDTH + timelineWidth }}>
           <GanttTimelineHeader
             rangeStart={rangeStart}
             columnCount={columnCount}
             zoom={zoom}
+            timelineWidth={timelineWidth}
+            onPanLayerPointerDown={onPanLayerPointerDown}
+            isPanning={isPanning}
             showProjectColumn={false}
             sideLabel="Phase"
             sideLabelWidth={PHASE_LABEL_WIDTH}
@@ -126,6 +146,11 @@ export function GanttSingleProjectChart({
                   className="relative flex-1"
                   style={{ width: timelineWidth, minWidth: timelineWidth, height: 28 }}
                 >
+                  <div
+                    className="absolute inset-0 z-0 touch-none cursor-grab active:cursor-grabbing"
+                    aria-hidden
+                    onPointerDown={onPanLayerPointerDown}
+                  />
                   <GanttMilestoneMarkers
                     milestones={milestones}
                     rangeStart={rangeStart}
@@ -153,6 +178,7 @@ export function GanttSingleProjectChart({
                   onDragStart={setDragState}
                   phaseOverride={phase}
                   staffingPhase={committedPhase}
+                  onPanLayerPointerDown={onPanLayerPointerDown}
                 />
               );
             })}

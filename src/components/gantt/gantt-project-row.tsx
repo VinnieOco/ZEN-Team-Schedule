@@ -45,6 +45,7 @@ interface GanttProjectRowViewProps {
   dragState: GanttDragState | null;
   onDragStart: (state: GanttDragState) => void;
   onTimelineContextMenu?: (request: GanttTimelineContextRequest) => void;
+  onPanLayerPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export function GanttProjectRowView({
@@ -58,6 +59,7 @@ export function GanttProjectRowView({
   dragState,
   onDragStart,
   onTimelineContextMenu,
+  onPanLayerPointerDown,
 }: GanttProjectRowViewProps) {
   const phases = phasesForProject(projectPhases, row.project.id);
   const previewPhases =
@@ -82,6 +84,13 @@ export function GanttProjectRowView({
           });
         }}
       >
+        {onPanLayerPointerDown && (
+          <div
+            className="absolute inset-0 z-0 touch-none cursor-grab active:cursor-grabbing"
+            aria-hidden
+            onPointerDown={onPanLayerPointerDown}
+          />
+        )}
         <GanttMilestoneMarkers
           milestones={milestones}
           rangeStart={rangeStart}
