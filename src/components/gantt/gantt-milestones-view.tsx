@@ -117,22 +117,7 @@ function MilestoneRow({
         {milestone.title}
       </TableCell>
       <TableCell className="py-2">{milestoneKindLabel(milestone.kind)}</TableCell>
-      <TableCell className="py-2">
-        {project ? (
-          <Link
-            href={`/projects/${project.id}?tab=schedule`}
-            className={cn(
-              "hover:text-emerald-700 hover:underline",
-              completed ? "text-slate-600" : "text-slate-900",
-            )}
-          >
-            {projectLabel(project)}
-          </Link>
-        ) : (
-          "—"
-        )}
-      </TableCell>
-      <TableCell className="min-w-[150px] py-2">
+      <TableCell className="w-[8.5rem] max-w-[8.5rem] py-2 pr-2">
         {canEdit ? (
           <SearchableSelect
             size="sm"
@@ -143,16 +128,33 @@ function MilestoneRow({
             }
             placeholder="Unassigned"
             searchPlaceholder="Search team…"
-            triggerClassName={cn("h-8", completed && "opacity-70")}
+            triggerClassName={cn("h-8 w-full max-w-[8.5rem]", completed && "opacity-70")}
           />
         ) : (
-          <span className={cn("text-sm", completed && "text-muted-foreground")}>
+          <span className={cn("block truncate text-sm", completed && "text-muted-foreground")}>
             {assignee ? getEmployeeFullName(assignee) : "—"}
           </span>
         )}
       </TableCell>
-      <TableCell className="max-w-[200px] truncate py-2 text-muted-foreground">
-        {milestone.notes?.trim() || "—"}
+      <TableCell className="max-w-[12rem] py-2">
+        {project ? (
+          <Link
+            href={`/projects/${project.id}?tab=schedule`}
+            className={cn(
+              "block truncate hover:text-emerald-700 hover:underline",
+              completed ? "text-slate-600" : "text-slate-900",
+            )}
+          >
+            {projectLabel(project)}
+          </Link>
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell className="min-w-[12rem] py-2 text-muted-foreground">
+        <span className="line-clamp-2 whitespace-normal break-words">
+          {milestone.notes?.trim() || "—"}
+        </span>
       </TableCell>
     </TableRow>
   );
@@ -184,15 +186,15 @@ function MilestonesTable({
   }
 
   return (
-    <Table>
+    <Table className="table-fixed">
       <TableHeader>
         <TableRow>
           <TableHead className="w-12" />
-          <TableHead>Date</TableHead>
-          <TableHead>Milestone</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Project</TableHead>
-          <TableHead>Assigned</TableHead>
+          <TableHead className="w-[6.5rem]">Date</TableHead>
+          <TableHead className="w-[10rem]">Milestone</TableHead>
+          <TableHead className="w-[7rem]">Type</TableHead>
+          <TableHead className="w-[8.5rem]">Assigned</TableHead>
+          <TableHead className="w-[12rem]">Project</TableHead>
           <TableHead>Notes</TableHead>
         </TableRow>
       </TableHeader>
