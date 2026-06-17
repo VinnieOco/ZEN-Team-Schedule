@@ -7,7 +7,7 @@ export default function GanttPage() {
       <div className="min-w-0">
         <h1 className="text-2xl font-bold text-slate-900">Project schedules</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Firm-wide Gantt view — phase timelines across all active projects.
+          Firm-wide phase timelines and milestone tracking across all active projects.
         </p>
       </div>
       <GanttPageClient />

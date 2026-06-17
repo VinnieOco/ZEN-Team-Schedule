@@ -13,7 +13,7 @@ import { useGanttTimelineLayout } from "@/hooks/use-gantt-timeline-layout";
 import { useGanttTimelinePan } from "@/hooks/use-gantt-timeline-pan";
 import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { applyPhaseDateChange } from "@/lib/gantt/phase-links";
-import { milestonesForProject } from "@/lib/gantt/milestones";
+import { openMilestonesForProject } from "@/lib/gantt/milestones";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import {
   todayOffsetPx,
@@ -88,7 +88,7 @@ export function GanttSingleProjectChart({
 
   const phases = phasesForProject(effectivePhases, project.id);
   const committedPhases = phasesForProject(projectPhases, project.id);
-  const milestones = milestonesForProject(projectMilestones, project.id);
+  const milestones = openMilestonesForProject(projectMilestones, project.id);
   const hasMilestones = milestones.length > 0;
 
   if (!row) {

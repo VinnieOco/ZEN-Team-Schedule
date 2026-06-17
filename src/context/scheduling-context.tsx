@@ -48,6 +48,7 @@ import {
   type ClientContactFields,
 } from "@/lib/clients";
 import { projectFromFormValues } from "@/lib/project-form";
+import { milestonesForProject } from "@/lib/gantt/milestones";
 import { projectsNeedingPhaseSeed, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { getMonthStart, getWeekStart } from "@/lib/week";
 import type {
@@ -148,6 +149,11 @@ interface SchedulingContextValue {
   getEmployeeById: (id: string) => Employee | undefined;
   replaceProjectPhases: (projectId: string, phases: ScheduledProjectPhase[]) => void;
   replaceProjectMilestones: (projectId: string, milestones: ProjectMilestone[]) => void;
+  toggleProjectMilestoneCompleted: (milestoneId: string, completed: boolean) => void;
+  updateProjectMilestoneAssigned: (
+    milestoneId: string,
+    assignedEmployeeId: string | undefined,
+  ) => void;
   seedMissingProjectPhases: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -801,6 +807,32 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  const toggleProjectMilestoneCompleted = useCallback(
+    (milestoneId: string, completed: boolean) => {
+      const target = projectMilestones.find((m) => m.id === milestoneId);
+      if (!target) return;
+      const completedAt = completed ? new Date().toISOString() : undefined;
+      const updatedForProject = milestonesForProject(projectMilestones, target.project_id).map(
+        (m) => (m.id === milestoneId ? { ...m, completed_at: completedAt } : m),
+      );
+      replaceProjectMilestones(target.project_id, updatedForProject);
+    },
+    [projectMilestones, replaceProjectMilestones],
+  );
+
+  const updateProjectMilestoneAssigned = useCallback(
+    (milestoneId: string, assignedEmployeeId: string | undefined) => {
+      const target = projectMilestones.find((m) => m.id === milestoneId);
+      if (!target) return;
+      const updatedForProject = milestonesForProject(projectMilestones, target.project_id).map(
+        (m) =>
+          m.id === milestoneId ? { ...m, assigned_employee_id: assignedEmployeeId } : m,
+      );
+      replaceProjectMilestones(target.project_id, updatedForProject);
+    },
+    [projectMilestones, replaceProjectMilestones],
+  );
+
   const seedMissingProjectPhases = useCallback(async () => {
     const missing = projectsNeedingPhaseSeed(projects, projectPhases);
     if (missing.length === 0) return;
@@ -1370,6 +1402,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       getEmployeeById,
       replaceProjectPhases,
       replaceProjectMilestones,
+      toggleProjectMilestoneCompleted,
+      updateProjectMilestoneAssigned,
       seedMissingProjectPhases,
       refreshData,
     }),
@@ -1430,6 +1464,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       getEmployeeById,
       replaceProjectPhases,
       replaceProjectMilestones,
+      toggleProjectMilestoneCompleted,
+      updateProjectMilestoneAssigned,
       seedMissingProjectPhases,
       refreshData,
     ],

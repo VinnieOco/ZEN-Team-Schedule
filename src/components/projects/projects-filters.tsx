@@ -21,6 +21,8 @@ interface ProjectsFiltersProps {
   onClear: () => void;
   resultCount: number;
   totalCount: number;
+  /** Plural label for the result summary line (default: projects). */
+  resultNoun?: string;
 }
 
 export function ProjectsFilters({
@@ -29,6 +31,7 @@ export function ProjectsFilters({
   onClear,
   resultCount,
   totalCount,
+  resultNoun = "project",
 }: ProjectsFiltersProps) {
   const { employees, settings, projects } = useScheduling();
   const departmentOptions = [
@@ -139,7 +142,8 @@ export function ProjectsFilters({
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Showing {resultCount} of {totalCount} project{totalCount === 1 ? "" : "s"}
+          Showing {resultCount} of {totalCount} {resultNoun}
+          {totalCount === 1 ? "" : "s"}
         </p>
       </div>
     </div>

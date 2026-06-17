@@ -446,6 +446,8 @@ type ProjectMilestoneRow = {
   kind: string;
   sort_order: number;
   notes: string | null;
+  completed_at: string | null;
+  assigned_employee_id: string | null;
 };
 
 const MILESTONE_KINDS = new Set([
@@ -475,6 +477,8 @@ export function mapProjectMilestone(row: ProjectMilestoneRow): ProjectMilestone 
     kind: normalizeMilestoneKind(row.kind),
     sort_order: row.sort_order,
     notes: row.notes ?? undefined,
+    completed_at: row.completed_at ?? undefined,
+    assigned_employee_id: row.assigned_employee_id ?? undefined,
   };
 }
 
@@ -487,5 +491,7 @@ export function projectMilestoneToRow(milestone: ProjectMilestone) {
     kind: milestone.kind,
     sort_order: milestone.sort_order,
     notes: milestone.notes?.trim() || null,
+    completed_at: milestone.completed_at ?? null,
+    assigned_employee_id: milestone.assigned_employee_id ?? null,
   };
 }

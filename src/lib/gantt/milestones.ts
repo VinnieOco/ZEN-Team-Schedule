@@ -1,4 +1,8 @@
 import type { ProjectMilestone, ProjectMilestoneKind } from "@/types";
+import { isChangeOrder } from "@/lib/change-orders";
+import type { ProjectFilters } from "@/lib/filter-projects";
+import { projectMatchesFilterCriteria } from "@/lib/filter-projects";
+import type { Employee, Project } from "@/types";
 
 export const MILESTONE_KIND_OPTIONS: { value: ProjectMilestoneKind; label: string }[] = [
   { value: "submittal", label: "Submittal" },
@@ -56,4 +60,64 @@ export function milestonesForProject(
       if (byDate !== 0) return byDate;
       return a.sort_order - b.sort_order;
     });
+}
+
+export function openMilestonesForProject(
+  allMilestones: ProjectMilestone[],
+  projectId: string,
+): ProjectMilestone[] {
+  return milestonesForProject(allMilestones, projectId).filter((m) => !m.completed_at);
+}
+
+export const FIRM_MILESTONE_COMPLETED_VISIBLE = 10;
+
+export function partitionFirmMilestones(milestones: ProjectMilestone[]): {
+  open: ProjectMilestone[];
+  completedRecent: ProjectMilestone[];
+  completedHiddenCount: number;
+} {
+  const open: ProjectMilestone[] = [];
+  const completed: ProjectMilestone[] = [];
+
+  for (const milestone of milestones) {
+    if (milestone.completed_at) {
+      completed.push(milestone);
+    } else {
+      open.push(milestone);
+    }
+  }
+
+  open.sort((a, b) => {
+    const byDate = a.milestone_date.localeCompare(b.milestone_date);
+    if (byDate !== 0) return byDate;
+    return a.sort_order - b.sort_order;
+  });
+
+  completed.sort((a, b) => {
+    const aCompleted = a.completed_at ?? "";
+    const bCompleted = b.completed_at ?? "";
+    return bCompleted.localeCompare(aCompleted);
+  });
+
+  const completedRecent = completed.slice(0, FIRM_MILESTONE_COMPLETED_VISIBLE);
+  const completedHiddenCount = Math.max(0, completed.length - completedRecent.length);
+
+  return { open, completedRecent, completedHiddenCount };
+}
+
+export function filterFirmMilestones(
+  milestones: ProjectMilestone[],
+  projects: Project[],
+  filters: ProjectFilters,
+  getEmployeeById: (id: string) => Employee | undefined,
+): ProjectMilestone[] {
+  const projectById = new Map(projects.map((project) => [project.id, project]));
+
+  return milestones.filter((milestone) => {
+    const project = projectById.get(milestone.project_id);
+    if (!project) return false;
+    if (!filters.showInactive && !project.active) return false;
+    if (!filters.showChangeOrders && isChangeOrder(project)) return false;
+    return projectMatchesFilterCriteria(project, filters, getEmployeeById);
+  });
 }

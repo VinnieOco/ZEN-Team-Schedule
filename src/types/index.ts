@@ -103,6 +103,10 @@ export interface ProjectMilestone {
   kind: ProjectMilestoneKind;
   sort_order: number;
   notes?: string;
+  /** Set when marked complete on the firm milestones list. */
+  completed_at?: string;
+  /** Milestone-only assignee; does not change project lead. */
+  assigned_employee_id?: string;
 }
 
 export interface ProjectNote {
