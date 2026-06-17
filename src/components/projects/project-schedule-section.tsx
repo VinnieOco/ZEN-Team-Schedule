@@ -14,13 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import {
   Table,
   TableBody,
@@ -45,11 +39,12 @@ import {
 import {
   addPhaseToSchedule,
   availablePhaseKeysToAdd,
+  normalizePhaseKey,
   removePhaseFromSchedule,
 } from "@/lib/gantt/phase-schedule";
 import { phasesForProject, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { formatProjectAmount, formatProjectHours, getProjectDesignAmount } from "@/lib/project-format";
-import type { Project, ProjectPhase, TimeEntry } from "@/types";
+import type { Project, TimeEntry } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface ProjectScheduleSectionProps {
@@ -96,6 +91,10 @@ export function ProjectScheduleSection({
   const availablePhases = useMemo(
     () => availablePhaseKeysToAdd(project, phases),
     [project, phases],
+  );
+  const availablePhaseOptions = useMemo(
+    () => availablePhases.map((phaseKey) => ({ value: phaseKey, label: phaseKey })),
+    [availablePhases],
   );
   const phaseHoursByKey = useMemo(
     () => buildPhaseHoursAllocation(phases, timeEntries, project.id),
@@ -188,8 +187,12 @@ export function ProjectScheduleSection({
   };
 
   const handleAddPhase = () => {
-    if (!phaseToAdd) return;
-    handleCommit(addPhaseToSchedule(project, phases, phaseToAdd as ProjectPhase));
+    const phaseKey = normalizePhaseKey(phaseToAdd);
+    if (!phaseKey) return;
+    if (phases.some((phase) => phase.phase_key.toLowerCase() === phaseKey.toLowerCase())) {
+      return;
+    }
+    handleCommit(addPhaseToSchedule(project, phases, phaseKey));
     setPhaseToAdd("");
   };
 
@@ -236,29 +239,28 @@ export function ProjectScheduleSection({
           <div>
             <CardTitle className="text-base">Phase schedule</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Add or remove phases and edit dates, budgets, and links in the table. Linked phases
-              shift when a predecessor changes.
+              Add or remove phases and edit dates, budgets, and links in the table. Choose a
+              standard phase from the list or type a custom name. Linked phases shift when a
+              predecessor changes.
             </p>
           </div>
-          {canEdit && availablePhases.length > 0 && (
+          {canEdit && (
             <div className="flex shrink-0 items-center gap-2">
-              <Select value={phaseToAdd} onValueChange={setPhaseToAdd}>
-                <SelectTrigger className="h-8 w-[180px]">
-                  <SelectValue placeholder="Choose phase…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availablePhases.map((phaseKey) => (
-                    <SelectItem key={phaseKey} value={phaseKey}>
-                      {phaseKey}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableCombobox
+                options={availablePhaseOptions}
+                value={phaseToAdd}
+                onValueChange={setPhaseToAdd}
+                placeholder="Choose or type phase…"
+                searchPlaceholder="Search phases…"
+                emptyMessage="No matching phases"
+                customOptionLabel={(query) => `Add phase "${query}"`}
+                className="w-[220px]"
+              />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!phaseToAdd}
+                disabled={!normalizePhaseKey(phaseToAdd)}
                 onClick={handleAddPhase}
               >
                 <Plus className="mr-1 h-4 w-4" />
@@ -271,9 +273,7 @@ export function ProjectScheduleSection({
           {phases.length === 0 ? (
             <p className="px-6 pb-6 text-sm text-muted-foreground">
               No phases on this schedule yet.
-              {canEdit && availablePhases.length > 0
-                ? " Choose a phase above and click Add."
-                : ""}
+              {canEdit ? " Choose a phase or type a custom name above and click Add." : ""}
             </p>
           ) : (
           <Table>

@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import type { GanttPendingPhaseDrag } from "@/components/gantt/gantt-phase-drag-confirm-dialog";
 import { commitGanttDrag, type GanttDragState } from "@/components/gantt/gantt-project-row";
+import { projectPhasesDateChanged } from "@/lib/gantt/drag-confirm";
 import { movePhaseByDays, resizePhaseEnd, resizePhaseStart } from "@/lib/gantt/phase-links";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
 import { dayDeltaFromPixels, type GanttZoom } from "@/lib/gantt/timeline";
@@ -21,8 +23,33 @@ export function useGanttDrag({
 }: UseGanttDragOptions) {
   const [dragState, setDragState] = useState<GanttDragState | null>(null);
   const [previewPhases, setPreviewPhases] = useState<ScheduledProjectPhase[] | null>(null);
+  const [pendingDrag, setPendingDrag] = useState<GanttPendingPhaseDrag | null>(null);
 
   const effectivePhases = previewPhases ?? projectPhases;
+
+  const beginDrag = useCallback(
+    (state: GanttDragState) => {
+      if (pendingDrag) return;
+      setDragState(state);
+    },
+    [pendingDrag],
+  );
+
+  const clearDrag = useCallback(() => {
+    setDragState(null);
+    setPreviewPhases(null);
+    setPendingDrag(null);
+  }, []);
+
+  const confirmPendingDrag = useCallback(() => {
+    if (!pendingDrag) return;
+    onCommit(pendingDrag.projectId, pendingDrag.nextPhases);
+    clearDrag();
+  }, [pendingDrag, onCommit, clearDrag]);
+
+  const cancelPendingDrag = useCallback(() => {
+    clearDrag();
+  }, [clearDrag]);
 
   const handlePointerMove = useCallback(
     (e: PointerEvent) => {
@@ -56,12 +83,29 @@ export function useGanttDrag({
     (e: PointerEvent) => {
       if (!dragState) return;
       const deltaPx = e.clientX - dragState.startX;
-      const next = commitGanttDrag(projectPhases, dragState, deltaPx, zoom);
-      onCommit(dragState.projectId, next);
+      const previousPhases = phasesForProject(projectPhases, dragState.projectId);
+      const nextPhases = commitGanttDrag(projectPhases, dragState, deltaPx, zoom);
+
       setDragState(null);
-      setPreviewPhases(null);
+
+      if (!projectPhasesDateChanged(previousPhases, nextPhases)) {
+        setPreviewPhases(null);
+        return;
+      }
+
+      setPreviewPhases([
+        ...projectPhases.filter((p) => p.project_id !== dragState.projectId),
+        ...nextPhases,
+      ]);
+      setPendingDrag({
+        projectId: dragState.projectId,
+        phaseId: dragState.phaseId,
+        mode: dragState.mode,
+        previousPhases,
+        nextPhases,
+      });
     },
-    [dragState, projectPhases, zoom, onCommit],
+    [dragState, projectPhases, zoom],
   );
 
   useEffect(() => {
@@ -76,7 +120,10 @@ export function useGanttDrag({
 
   return {
     dragState,
-    setDragState,
+    setDragState: beginDrag,
     effectivePhases,
+    pendingDrag,
+    confirmPendingDrag,
+    cancelPendingDrag,
   };
 }

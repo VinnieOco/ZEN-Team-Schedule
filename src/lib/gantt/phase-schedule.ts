@@ -2,28 +2,33 @@ import { addDays, addWeeks, format, parseISO } from "date-fns";
 
 import { defaultPhaseKeysForProject } from "@/lib/gantt/phase-display";
 import { PROJECT_PHASES } from "@/lib/project-options";
-import type { Project, ProjectPhase, ScheduledProjectPhase } from "@/types";
+import type { Project, ScheduledProjectPhase } from "@/types";
 
 function generateId(): string {
   return crypto.randomUUID();
+}
+
+export function normalizePhaseKey(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
 }
 
 /** Phase keys not already on this project's schedule. */
 export function availablePhaseKeysToAdd(
   project: Project,
   currentPhases: ScheduledProjectPhase[],
-): ProjectPhase[] {
-  const used = new Set(currentPhases.map((p) => p.phase_key));
+): string[] {
+  const used = new Set(currentPhases.map((p) => p.phase_key.toLowerCase()));
   const preferred = defaultPhaseKeysForProject(project);
   const pool = [...new Set([...preferred, ...PROJECT_PHASES])];
-  return pool.filter((key) => !used.has(key));
+  return pool.filter((key) => !used.has(key.toLowerCase()));
 }
 
 export function createPhaseForProject(
   project: Project,
-  phaseKey: ProjectPhase,
+  phaseKey: string,
   existingPhases: ScheduledProjectPhase[],
 ): ScheduledProjectPhase {
+  const normalizedKey = normalizePhaseKey(phaseKey);
   const sortOrder = existingPhases.length;
   const lastPhase = existingPhases[existingPhases.length - 1];
 
@@ -43,7 +48,7 @@ export function createPhaseForProject(
   return {
     id: generateId(),
     project_id: project.id,
-    phase_key: phaseKey,
+    phase_key: normalizedKey,
     sort_order: sortOrder,
     start_date: format(start, "yyyy-MM-dd"),
     end_date: format(end, "yyyy-MM-dd"),
@@ -68,7 +73,7 @@ export function removePhaseFromSchedule(
 export function addPhaseToSchedule(
   project: Project,
   phases: ScheduledProjectPhase[],
-  phaseKey: ProjectPhase,
+  phaseKey: string,
 ): ScheduledProjectPhase[] {
   return [...phases, createPhaseForProject(project, phaseKey, phases)];
 }

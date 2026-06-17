@@ -50,11 +50,12 @@ export function GanttMilestoneMarkers({
         return (
           <div
             key={milestone.id}
-            className="absolute z-20"
+            className="absolute z-20 flex items-center justify-center"
             style={{
               left: left - hitSize / 2,
-              top: compact ? 2 : 4,
+              top: 0,
               width: hitSize,
+              height: "100%",
             }}
           >
             <GanttTooltip
@@ -88,7 +89,7 @@ export function GanttMilestoneMarkers({
               </button>
             </GanttTooltip>
             {!compact && (
-              <span className="pointer-events-none absolute left-1/2 top-full mt-1 max-w-[72px] -translate-x-1/2 truncate text-center text-[9px] font-medium text-slate-600">
+              <span className="pointer-events-none absolute left-1/2 top-[calc(100%+2px)] max-w-[88px] -translate-x-1/2 truncate text-center text-[9px] font-medium leading-tight text-slate-600">
                 {title}
               </span>
             )}

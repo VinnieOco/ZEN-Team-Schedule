@@ -13,8 +13,16 @@ import {
 
 export const GANTT_WEEK_WIDTH_PX = 56;
 export const GANTT_MONTH_WIDTH_PX = 80;
-export const GANTT_ROW_HEIGHT_PX = 52;
+/** Vertical space for one phase bar row (firm Gantt project rows). */
+export const GANTT_PHASE_BAR_HEIGHT_PX = 30;
+export const GANTT_PHASE_BAR_TRACK_HEIGHT_PX = 50;
+export const GANTT_ROW_HEIGHT_PX = GANTT_PHASE_BAR_TRACK_HEIGHT_PX;
+export const GANTT_MILESTONE_ROW_HEIGHT_PX = 36;
 export const GANTT_PROJECT_COLUMN_WIDTH_PX = 240;
+
+export function ganttPhaseBarTopPx(): number {
+  return (GANTT_PHASE_BAR_TRACK_HEIGHT_PX - GANTT_PHASE_BAR_HEIGHT_PX) / 2;
+}
 
 export const GANTT_VISIBLE_WEEKS = 20;
 export const GANTT_VISIBLE_MONTHS = 14;

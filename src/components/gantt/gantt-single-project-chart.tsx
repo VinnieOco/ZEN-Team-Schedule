@@ -6,6 +6,7 @@ import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-marker
 import { GanttTooltipProvider } from "@/components/gantt/gantt-chart-tooltip";
 import { GanttPhaseRowView, PHASE_LABEL_WIDTH } from "@/components/gantt/gantt-phase-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
+import { GanttPhaseDragConfirmDialog } from "@/components/gantt/gantt-phase-drag-confirm-dialog";
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { useGanttDrag } from "@/hooks/use-gantt-drag";
@@ -15,10 +16,7 @@ import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { applyPhaseDateChange } from "@/lib/gantt/phase-links";
 import { openMilestonesForProject } from "@/lib/gantt/milestones";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
-import {
-  todayOffsetPx,
-  type GanttZoom,
-} from "@/lib/gantt/timeline";
+import { GANTT_MILESTONE_ROW_HEIGHT_PX, todayOffsetPx, type GanttZoom } from "@/lib/gantt/timeline";
 import type { Allocation, Employee, Project, ProjectMilestone, ScheduledProjectPhase, TimeEntry } from "@/types";
 import { startOfMonth, startOfWeek } from "date-fns";
 
@@ -58,7 +56,8 @@ export function GanttSingleProjectChart({
   );
   const todayLeft = todayOffsetPx(rangeStart, zoom);
 
-  const { dragState, setDragState, effectivePhases } = useGanttDrag({
+  const { dragState, setDragState, effectivePhases, pendingDrag, confirmPendingDrag, cancelPendingDrag } =
+    useGanttDrag({
     projectPhases,
     zoom,
     onCommit: (_projectId, phases) => onCommitPhases(phases),
@@ -68,7 +67,7 @@ export function GanttSingleProjectChart({
     rangeStart,
     zoom,
     onRangeStartChange,
-    disabled: dragState !== null,
+    disabled: dragState !== null || pendingDrag !== null,
   });
 
   useEffect(() => {
@@ -112,7 +111,7 @@ export function GanttSingleProjectChart({
 
       <p className="text-xs text-muted-foreground">
         Drag empty timeline space to move through earlier or later dates.
-        {canEdit && " Drag phase bars to adjust dates."}
+        {canEdit && " Drag phase bars to adjust dates — you will be asked to confirm before changes are saved."}
       </p>
 
       <div
@@ -140,16 +139,16 @@ export function GanttSingleProjectChart({
                 style={{ left: PHASE_LABEL_WIDTH + todayLeft }}
               />
               {hasMilestones && (
-              <div className="flex border-b border-slate-100" style={{ height: 28 }}>
+              <div className="flex border-b border-slate-200/80" style={{ height: GANTT_MILESTONE_ROW_HEIGHT_PX }}>
                 <div
-                  className="shrink-0 border-r border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
-                  style={{ width: PHASE_LABEL_WIDTH }}
+                  className="flex shrink-0 items-center border-r border-slate-200 bg-slate-50 px-3 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+                  style={{ width: PHASE_LABEL_WIDTH, height: GANTT_MILESTONE_ROW_HEIGHT_PX }}
                 >
                   Milestones
                 </div>
                 <div
                   className="relative flex-1"
-                  style={{ width: timelineWidth, minWidth: timelineWidth, height: 28 }}
+                  style={{ width: timelineWidth, minWidth: timelineWidth, height: GANTT_MILESTONE_ROW_HEIGHT_PX }}
                 >
                   <div
                     className="absolute inset-0 z-0 touch-none cursor-grab active:cursor-grabbing"
@@ -191,6 +190,14 @@ export function GanttSingleProjectChart({
           </GanttTooltipProvider>
         </div>
       </div>
+
+      <GanttPhaseDragConfirmDialog
+        open={pendingDrag !== null}
+        pending={pendingDrag}
+        projectLabel={project.project_name}
+        onConfirm={confirmPendingDrag}
+        onCancel={cancelPendingDrag}
+      />
     </div>
   );
 }

@@ -12,12 +12,11 @@ import {
 import type { GanttPhaseSegment } from "@/lib/gantt/build-gantt-rows";
 import { staffingForPhase } from "@/lib/gantt/phase-staffing";
 import type { GanttDragState } from "@/components/gantt/gantt-project-row";
-import { barGeometry, type GanttZoom } from "@/lib/gantt/timeline";
+import { barGeometry, GANTT_PHASE_BAR_TRACK_HEIGHT_PX, type GanttZoom } from "@/lib/gantt/timeline";
 import type { Allocation, Employee, ScheduledProjectPhase } from "@/types";
 
 const PHASE_LABEL_WIDTH = 160;
-/** Matches GanttPhaseBar (`top-2` + `h-8`). */
-const PHASE_BAR_TRACK_HEIGHT = 40;
+const PHASE_BAR_TRACK_HEIGHT = GANTT_PHASE_BAR_TRACK_HEIGHT_PX;
 
 interface GanttPhaseRowViewProps {
   segment: GanttPhaseSegment;
@@ -73,13 +72,13 @@ export function GanttPhaseRowView({
     (hasStaffing ? STAFFING_TRACK_GAP + staffingHeight : 0);
 
   return (
-    <div className="flex border-b border-slate-100" style={{ height: rowHeight }}>
+    <div className="flex border-b border-slate-200/80" style={{ height: rowHeight }}>
       <div
         className="flex shrink-0 flex-col border-r border-slate-200"
         style={{ width: PHASE_LABEL_WIDTH, height: rowHeight }}
       >
         <div
-          className="flex items-center px-2 text-xs font-medium"
+          className="flex items-center px-3 text-xs font-medium"
           style={{ height: PHASE_BAR_TRACK_HEIGHT }}
         >
           <span className="truncate text-slate-900">{phase.phase_key}</span>

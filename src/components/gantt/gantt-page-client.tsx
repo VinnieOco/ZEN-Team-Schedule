@@ -10,6 +10,7 @@ import {
   GanttMilestoneFormDialog,
   type GanttMilestoneFormValues,
 } from "@/components/gantt/gantt-milestone-form-dialog";
+import { GanttPhaseDragConfirmDialog } from "@/components/gantt/gantt-phase-drag-confirm-dialog";
 import { GanttTimelineContextMenu } from "@/components/gantt/gantt-timeline-context-menu";
 import { GanttTooltipProvider } from "@/components/gantt/gantt-chart-tooltip";
 import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
@@ -89,7 +90,8 @@ export function GanttPageClient() {
     GANTT_PROJECT_COLUMN_WIDTH_PX,
   );
 
-  const { dragState, setDragState, effectivePhases } = useGanttDrag({
+  const { dragState, setDragState, effectivePhases, pendingDrag, confirmPendingDrag, cancelPendingDrag } =
+    useGanttDrag({
     projectPhases,
     zoom,
     onCommit: replaceProjectPhases,
@@ -99,7 +101,7 @@ export function GanttPageClient() {
     rangeStart,
     zoom,
     onRangeStartChange: setRangeStart,
-    disabled: dragState !== null,
+    disabled: dragState !== null || pendingDrag !== null,
   });
 
   useEffect(() => {
@@ -221,7 +223,7 @@ export function GanttPageClient() {
               Drag empty timeline space to move through earlier or later dates. Use the arrows or
               Today button for larger jumps.
               {canEdit &&
-                " Drag phase bars to move schedules, drag bar edges to resize, and right-click a timeline to add a milestone."}
+                " Drag phase bars to move schedules or resize dates — you will be asked to confirm before changes are saved. Right-click a timeline to add a milestone."}
             </p>
           )}
 
@@ -339,6 +341,14 @@ export function GanttPageClient() {
         projectLabel={milestoneDialog?.projectLabel ?? ""}
         initialDate={milestoneDialog?.date ?? new Date().toISOString().slice(0, 10)}
         onSave={handleSaveMilestone}
+      />
+
+      <GanttPhaseDragConfirmDialog
+        open={pendingDrag !== null}
+        pending={pendingDrag}
+        projectLabel={pendingDrag ? projectLabelForRow(pendingDrag.projectId) : undefined}
+        onConfirm={confirmPendingDrag}
+        onCancel={cancelPendingDrag}
       />
     </div>
   );

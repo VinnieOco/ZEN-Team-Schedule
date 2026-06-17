@@ -6,6 +6,10 @@ import { GanttTooltip } from "@/components/gantt/gantt-chart-tooltip";
 import { GanttPhaseProgressOverlay } from "@/components/gantt/phase-progress-bar";
 import { phaseAbbreviation, phaseBarColors } from "@/lib/gantt/phase-display";
 import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
+import {
+  GANTT_PHASE_BAR_HEIGHT_PX,
+  ganttPhaseBarTopPx,
+} from "@/lib/gantt/timeline";
 import type { GanttPhaseSegment } from "@/lib/gantt/build-gantt-rows";
 import type { PhaseProgress } from "@/lib/gantt/phase-progress";
 import { cn } from "@/lib/utils";
@@ -92,6 +96,7 @@ export function GanttPhaseBar({
     width >= 52 &&
     segment.progress.hoursBudget > 0 &&
     segment.progress.hoursPercent > 0;
+  const barTop = ganttPhaseBarTopPx();
 
   return (
     <GanttTooltip
@@ -104,7 +109,10 @@ export function GanttPhaseBar({
         />
       }
     >
-      <div className={cn("pointer-events-auto absolute top-2 z-10 h-8", className)} style={{ left, width }}>
+      <div
+        className={cn("pointer-events-auto absolute z-10 px-0.5", className)}
+        style={{ left, width, top: barTop, height: GANTT_PHASE_BAR_HEIGHT_PX }}
+      >
         <div
           className={cn(
             "relative flex h-full items-center overflow-hidden rounded-md border border-slate-200/90 text-slate-900 shadow-sm",
