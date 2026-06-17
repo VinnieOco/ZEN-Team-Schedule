@@ -102,7 +102,7 @@ export function GanttPhaseRowView({
           />
         )}
         <div
-          className="absolute inset-x-0 top-0"
+          className="pointer-events-none absolute inset-x-0 top-0"
           style={{ height: PHASE_BAR_TRACK_HEIGHT }}
         >
           {geom && (
@@ -155,7 +155,7 @@ export function GanttPhaseRowView({
         </div>
         {hasStaffing && (
           <div
-            className="absolute inset-x-0"
+            className="pointer-events-none absolute inset-x-0"
             style={{
               top: PHASE_BAR_TRACK_HEIGHT + STAFFING_TRACK_GAP,
               height: staffingHeight,

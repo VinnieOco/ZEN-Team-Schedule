@@ -110,6 +110,11 @@ export function GanttSingleProjectChart({
 
       <GanttProgressLegend />
 
+      <p className="text-xs text-muted-foreground">
+        Drag empty timeline space to move through earlier or later dates.
+        {canEdit && " Drag phase bars to adjust dates."}
+      </p>
+
       <div
         ref={scrollRef}
         className={`schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm ${

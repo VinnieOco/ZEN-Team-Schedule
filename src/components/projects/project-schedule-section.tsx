@@ -203,9 +203,9 @@ export function ProjectScheduleSection({
         <CardHeader>
           <CardTitle className="text-base">Schedule timeline</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Drag phase bars to adjust dates. A staffing lane under each phase shows who is
-            scheduled from Team Scheduling, with one row per person. Milestone markers appear when
-            milestones are set below.
+            Drag empty timeline space to move through earlier or later dates. Drag phase bars to
+            adjust dates. Staffing lanes under each phase show who is scheduled from Team
+            Scheduling. Milestone markers appear when milestones are set below.
           </p>
         </CardHeader>
         <CardContent>

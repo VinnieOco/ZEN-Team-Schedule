@@ -104,7 +104,7 @@ export function GanttPhaseBar({
         />
       }
     >
-      <div className={cn("absolute top-2 z-10 h-8", className)} style={{ left, width }}>
+      <div className={cn("pointer-events-auto absolute top-2 z-10 h-8", className)} style={{ left, width }}>
         <div
           className={cn(
             "relative flex h-full items-center overflow-hidden rounded-md border border-slate-200/90 text-slate-900 shadow-sm",
