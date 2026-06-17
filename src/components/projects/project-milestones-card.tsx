@@ -122,7 +122,7 @@ export function ProjectMilestonesCard({
         <div>
           <CardTitle className="text-base">Milestones</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Submittals, client reviews, permits, and other key dates appear as diamonds on the
+            Submittals, meetings, reviews, permits, and other key dates appear as diamonds on the
             timeline.
           </p>
         </div>

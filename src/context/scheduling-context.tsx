@@ -215,6 +215,7 @@ function buildTimeEntry(values: TimeEntryFormValues, id?: string): TimeEntry {
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const useSupabase = isSupabaseConfigured();
   const repoRef = useRef<SchedulingRepository | null>(null);
+  const milestoneSyncSeqRef = useRef(new Map<string, number>());
 
   const persisted = !useSupabase ? loadPersistedState() : null;
 
@@ -414,7 +415,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     async <T,>(action: () => Promise<T>, rollback: () => void): Promise<T | undefined> => {
       if (!repoRef.current) return undefined;
       try {
-        return await action();
+        const result = await action();
+        setError(null);
+        return result;
       } catch (err) {
         rollback();
         setError(getPersistErrorMessage(err));
@@ -774,13 +777,22 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   const replaceProjectMilestones = useCallback(
     (projectId: string, milestones: ProjectMilestone[]) => {
+      const seq = (milestoneSyncSeqRef.current.get(projectId) ?? 0) + 1;
+      milestoneSyncSeqRef.current.set(projectId, seq);
+
       setProjectMilestones((prev) => {
         const snapshot = prev;
         const next = [...prev.filter((m) => m.project_id !== projectId), ...milestones];
         if (repoRef.current) {
           void persistAsync(
-            () => repoRef.current!.syncProjectMilestones(projectId, milestones),
-            () => setProjectMilestones(snapshot),
+            async () => {
+              if (milestoneSyncSeqRef.current.get(projectId) !== seq) return;
+              await repoRef.current!.syncProjectMilestones(projectId, milestones);
+            },
+            () => {
+              if (milestoneSyncSeqRef.current.get(projectId) !== seq) return;
+              setProjectMilestones(snapshot);
+            },
           );
         }
         return next;

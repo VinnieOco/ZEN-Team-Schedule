@@ -450,13 +450,19 @@ type ProjectMilestoneRow = {
 
 const MILESTONE_KINDS = new Set([
   "submittal",
-  "client_review",
+  "meeting",
+  "presentation",
+  "budget",
+  "cost_proposal",
+  "contract",
+  "review",
   "permit",
   "delivery",
   "other",
 ]);
 
 function normalizeMilestoneKind(kind: string): ProjectMilestoneKind {
+  if (kind === "client_review") return "review";
   return MILESTONE_KINDS.has(kind) ? (kind as ProjectMilestoneKind) : "other";
 }
 

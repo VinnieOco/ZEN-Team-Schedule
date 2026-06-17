@@ -84,7 +84,12 @@ export interface ScheduledProjectPhase {
 
 export type ProjectMilestoneKind =
   | "submittal"
-  | "client_review"
+  | "meeting"
+  | "presentation"
+  | "budget"
+  | "cost_proposal"
+  | "contract"
+  | "review"
   | "permit"
   | "delivery"
   | "other";

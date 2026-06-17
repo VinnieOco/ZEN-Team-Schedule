@@ -16,21 +16,35 @@ export async function listProjectMilestones(
   return (data ?? []).map(mapProjectMilestone);
 }
 
-/** Replace all milestones for a project (delete + insert). */
+/** Upsert current milestones and delete rows removed from the project. */
 export async function syncProjectMilestones(
   supabase: SupabaseClient,
   projectId: string,
   milestones: ProjectMilestone[],
 ): Promise<void> {
-  const { error: deleteError } = await supabase
+  const { data: existing, error: listError } = await supabase
     .from("project_milestones")
-    .delete()
+    .select("id")
     .eq("project_id", projectId);
-  if (deleteError) throw deleteError;
+  if (listError) throw listError;
 
-  if (milestones.length === 0) return;
-  const { error: insertError } = await supabase
+  const uniqueMilestones = [
+    ...new Map(milestones.map((milestone) => [milestone.id, milestone])).values(),
+  ];
+  const keepIds = new Set(uniqueMilestones.map((m) => m.id));
+  const toDelete = (existing ?? []).map((row) => row.id).filter((id) => !keepIds.has(id));
+
+  if (toDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("project_milestones")
+      .delete()
+      .in("id", toDelete);
+    if (deleteError) throw deleteError;
+  }
+
+  if (uniqueMilestones.length === 0) return;
+  const { error: upsertError } = await supabase
     .from("project_milestones")
-    .insert(milestones.map(projectMilestoneToRow));
-  if (insertError) throw insertError;
+    .upsert(uniqueMilestones.map(projectMilestoneToRow), { onConflict: "id" });
+  if (upsertError) throw upsertError;
 }
