@@ -84,12 +84,6 @@ export function GanttPageClient() {
     date: string;
   } | null>(null);
 
-  const { columnCount, timelineWidth } = useGanttTimelineLayout(
-    scrollRef,
-    zoom,
-    GANTT_PROJECT_COLUMN_WIDTH_PX,
-  );
-
   const { dragState, setDragState, effectivePhases, pendingDrag, confirmPendingDrag, cancelPendingDrag } =
     useGanttDrag({
     projectPhases,
@@ -127,6 +121,15 @@ export function GanttPageClient() {
   const rows = useMemo(
     () => filterGanttRows(builtRows, projects, filters, getEmployeeById),
     [builtRows, projects, filters, getEmployeeById],
+  );
+
+  const timelineReady = activeTab === "timeline" && rows.length > 0 && !isLoading;
+
+  const { columnCount, timelineWidth } = useGanttTimelineLayout(
+    scrollRef,
+    zoom,
+    GANTT_PROJECT_COLUMN_WIDTH_PX,
+    timelineReady,
   );
 
   const totalCount = useMemo(() => countParentRows(builtRows), [builtRows]);
