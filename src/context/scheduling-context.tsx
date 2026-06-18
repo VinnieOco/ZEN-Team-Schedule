@@ -39,13 +39,21 @@ import {
   normalizeCompanySettings,
 } from "@/lib/team-options";
 import {
+  clientRouteKey,
   findRegistryClientByName,
   hydrateClientsFromProjects,
+  mergeClientRegistry,
+  moveProjectsToClientName,
   normalizeClientName,
   projectsForClientKey,
+  renameClientRegistry,
+  rekeyClientNotes,
+  validateClientMerge,
+  validateClientRename,
   withClientContact,
   withClientRegistryContact,
   type ClientContactFields,
+  type ClientNameActionResult,
 } from "@/lib/clients";
 import { projectFromFormValues } from "@/lib/project-form";
 import { milestonesForProject } from "@/lib/gantt/milestones";
@@ -131,6 +139,8 @@ interface SchedulingContextValue {
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
   /** Sync address, phone, and email to registry + every project for this client key. */
   updateClientContact: (clientKey: string, contact: ClientContactFields) => void;
+  renameClient: (sourceKey: string, newName: string) => ClientNameActionResult;
+  mergeClients: (sourceKey: string, targetKey: string) => ClientNameActionResult;
   addProjectNote: (projectId: string, body: string) => void;
   updateProjectNote: (id: string, body: string) => void;
   deleteProjectNote: (id: string) => void;
@@ -940,6 +950,117 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [projects, clients, persistAsync, ensureClientInRegistry],
   );
 
+  const renameClient = useCallback(
+    (sourceKey: string, newName: string): ClientNameActionResult => {
+      const validation = validateClientRename(sourceKey, newName, projects, clients);
+      if (!validation.ok) return validation;
+
+      const { sourceKey: source, newKey, newName: trimmedName } = validation;
+      const projectsSnapshot = projects;
+      const clientsSnapshot = clients;
+      const notesSnapshot = clientNotes;
+
+      const matchingIds = new Set(
+        projectsForClientKey(projects, source).map((project) => project.id),
+      );
+      const updatedProjects = projects.map((project) =>
+        matchingIds.has(project.id) ? { ...project, client_name: trimmedName } : project,
+      );
+      const updatedNotes = rekeyClientNotes(clientNotes, source, newKey);
+      const { clients: updatedClients, upsertClients } = renameClientRegistry(
+        clients,
+        source,
+        trimmedName,
+      );
+
+      setProjects(updatedProjects);
+      setClientNotes(updatedNotes);
+      setClients(updatedClients);
+
+      if (repoRef.current) {
+        void persistAsync(
+          async () => {
+            const repo = repoRef.current!;
+            const changedProjects = updatedProjects.filter((project) =>
+              matchingIds.has(project.id),
+            );
+            await Promise.all(changedProjects.map((project) => repo.updateProject(project)));
+            await Promise.all(upsertClients.map((client) => repo.updateClient(client)));
+            if (source !== newKey) {
+              await repo.rekeyClientNotes(source, newKey);
+            }
+          },
+          () => {
+            setProjects(projectsSnapshot);
+            setClients(clientsSnapshot);
+            setClientNotes(notesSnapshot);
+          },
+        );
+      }
+
+      return {
+        ok: true,
+        routeKey: clientRouteKey(trimmedName),
+        displayName: trimmedName,
+      };
+    },
+    [projects, clients, clientNotes, persistAsync],
+  );
+
+  const mergeClients = useCallback(
+    (sourceKey: string, targetKey: string): ClientNameActionResult => {
+      const validation = validateClientMerge(sourceKey, targetKey, projects, clients);
+      if (!validation.ok) return validation;
+
+      const { sourceKey: source, targetKey: target, targetDisplayName } = validation;
+      const projectsSnapshot = projects;
+      const clientsSnapshot = clients;
+      const notesSnapshot = clientNotes;
+
+      const sourceProjectIds = new Set(
+        projectsForClientKey(projects, source).map((project) => project.id),
+      );
+      const updatedProjects = moveProjectsToClientName(projects, source, targetDisplayName);
+      const updatedNotes = rekeyClientNotes(clientNotes, source, target);
+      const {
+        clients: updatedClients,
+        deleteClientIds,
+        upsertClients,
+      } = mergeClientRegistry(clients, source, target, targetDisplayName);
+
+      setProjects(updatedProjects);
+      setClientNotes(updatedNotes);
+      setClients(updatedClients);
+
+      if (repoRef.current) {
+        void persistAsync(
+          async () => {
+            const repo = repoRef.current!;
+            const changedProjects = updatedProjects.filter((project) =>
+              sourceProjectIds.has(project.id),
+            );
+            await Promise.all(changedProjects.map((project) => repo.updateProject(project)));
+            await Promise.all(upsertClients.map((client) => repo.updateClient(client)));
+            await Promise.all(deleteClientIds.map((id) => repo.deleteClient(id)));
+            await repo.rekeyClientNotes(source, target);
+          },
+          () => {
+            setProjects(projectsSnapshot);
+            setClients(clientsSnapshot);
+            setClientNotes(notesSnapshot);
+          },
+        );
+      }
+
+      return {
+        ok: true,
+        routeKey: clientRouteKey(targetDisplayName),
+        displayName: targetDisplayName,
+      };
+    },
+    [projects, clients, clientNotes, persistAsync],
+  );
+
   const addProjectNote = useCallback(
     (projectId: string, body: string) => {
       const trimmed = body.trim();
@@ -1386,6 +1507,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProject,
       addClient,
       updateClientContact,
+      renameClient,
+      mergeClients,
       addProjectNote,
       updateProjectNote,
       deleteProjectNote,
@@ -1448,6 +1571,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProject,
       addClient,
       updateClientContact,
+      renameClient,
+      mergeClients,
       addProjectNote,
       updateProjectNote,
       deleteProjectNote,

@@ -171,6 +171,23 @@ export function createSupabaseRepository(
       return mapClient(data);
     },
 
+    async deleteClient(id: string) {
+      const { error } = await supabase.from("clients").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async rekeyClientNotes(oldKey: string, newKey: string) {
+      const normalizedOld = oldKey.trim().toLowerCase();
+      const normalizedNew = newKey.trim().toLowerCase();
+      if (!normalizedOld || !normalizedNew || normalizedOld === normalizedNew) return;
+
+      const { error } = await supabase
+        .from("client_notes")
+        .update({ client_key: normalizedNew })
+        .eq("client_key", normalizedOld);
+      if (error) throw error;
+    },
+
     async getSettings() {
       const { data, error } = await supabase
         .from("company_settings")

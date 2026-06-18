@@ -31,6 +31,8 @@ export interface SchedulingRepository {
   listClients(): Promise<Client[]>;
   upsertClient(client: Client): Promise<Client>;
   updateClient(client: Client): Promise<Client>;
+  deleteClient(id: string): Promise<void>;
+  rekeyClientNotes(oldKey: string, newKey: string): Promise<void>;
   getSettings(): Promise<CompanySettings>;
   upsertAllocation(allocation: Allocation): Promise<Allocation>;
   deleteAllocation(id: string): Promise<void>;

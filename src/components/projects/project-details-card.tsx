@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { format, parseISO } from "date-fns";
 import { Building2, Calendar, Mail, MapPin, Pencil, Phone } from "lucide-react";
 
+import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Employee, Project } from "@/types";
@@ -73,9 +74,10 @@ export function ProjectDetailsCard({
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Client
             </h3>
-            <p className="text-lg font-semibold text-slate-900">
-              {project.client_name?.trim() || "—"}
-            </p>
+            <ClientCrmLink
+              clientName={project.client_name}
+              className="text-lg font-semibold text-slate-900 hover:text-emerald-900"
+            />
             <div className="space-y-3 border-t border-border/60 pt-4">
               <ContactRow icon={MapPin}>
                 {project.address?.trim() ? (

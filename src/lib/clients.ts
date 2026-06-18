@@ -1,5 +1,5 @@
 import { isParentProject } from "@/lib/change-orders";
-import type { Client, Project } from "@/types";
+import type { Client, ClientNote, Project } from "@/types";
 import { getProjectDesignAmount } from "@/lib/project-format";
 
 export interface ClientSummary {
@@ -324,4 +324,212 @@ export function findRegistryClientByName(
   const key = normalizeClientName(clientName);
   if (!key) return undefined;
   return registry.find((c) => normalizeClientName(c.name) === key);
+}
+
+export function clientExists(
+  projects: Project[],
+  registry: Client[],
+  clientKey: string,
+): boolean {
+  const key = normalizeClientName(clientKey);
+  if (!key) return false;
+  return (
+    registry.some((c) => normalizeClientName(c.name) === key) ||
+    projects.some((p) => normalizeClientName(p.client_name ?? "") === key)
+  );
+}
+
+/** Canonical display name for a client key from projects or registry. */
+export function getClientDisplayName(
+  projects: Project[],
+  registry: Client[],
+  clientKey: string,
+): string | undefined {
+  const key = normalizeClientName(clientKey);
+  if (!key) return undefined;
+
+  const clientProjects = projectsForClientKey(projects, key);
+  if (clientProjects.length > 0) {
+    return (
+      pickPrimaryProject(clientProjects).client_name?.trim() ||
+      clientProjects[0].client_name?.trim()
+    );
+  }
+
+  return findRegistryClientByName(registry, key)?.name.trim();
+}
+
+export type ClientNameActionResult =
+  | { ok: true; routeKey: string; displayName: string }
+  | { ok: false; message: string };
+
+type ClientRenameValidation =
+  | { ok: false; message: string }
+  | { ok: true; sourceKey: string; newKey: string; newName: string };
+
+type ClientMergeValidation =
+  | { ok: false; message: string }
+  | { ok: true; sourceKey: string; targetKey: string; targetDisplayName: string };
+
+export function validateClientRename(
+  sourceKey: string,
+  newName: string,
+  projects: Project[],
+  registry: Client[],
+): ClientRenameValidation {
+  const source = normalizeClientName(sourceKey);
+  const trimmedName = newName.trim();
+  const newKey = normalizeClientName(trimmedName);
+
+  if (!source) {
+    return { ok: false, message: "Client not found." };
+  }
+  if (!newKey) {
+    return { ok: false, message: "Client name is required." };
+  }
+  if (!clientExists(projects, registry, source)) {
+    return { ok: false, message: "Client not found." };
+  }
+
+  if (newKey !== source && clientExists(projects, registry, newKey)) {
+    return {
+      ok: false,
+      message: "A client with this name already exists. Use merge to combine clients.",
+    };
+  }
+
+  return { ok: true, sourceKey: source, newKey, newName: trimmedName };
+}
+
+export function validateClientMerge(
+  sourceKey: string,
+  targetKey: string,
+  projects: Project[],
+  registry: Client[],
+): ClientMergeValidation {
+  const source = normalizeClientName(sourceKey);
+  const target = normalizeClientName(targetKey);
+
+  if (!source || !target) {
+    return { ok: false, message: "Select a client to merge into." };
+  }
+  if (source === target) {
+    return { ok: false, message: "Cannot merge a client with itself." };
+  }
+  if (!clientExists(projects, registry, source)) {
+    return { ok: false, message: "Source client not found." };
+  }
+  if (!clientExists(projects, registry, target)) {
+    return { ok: false, message: "Target client not found." };
+  }
+
+  const targetDisplayName = getClientDisplayName(projects, registry, target);
+  if (!targetDisplayName) {
+    return { ok: false, message: "Target client not found." };
+  }
+
+  return { ok: true, sourceKey: source, targetKey: target, targetDisplayName };
+}
+
+export interface MergeRegistryResult {
+  clients: Client[];
+  deleteClientIds: string[];
+  upsertClients: Client[];
+}
+
+/** Resolve registry rows after merging source into target. */
+export function mergeClientRegistry(
+  registry: Client[],
+  sourceKey: string,
+  targetKey: string,
+  targetDisplayName: string,
+): MergeRegistryResult {
+  const sourceReg = findRegistryClientByName(registry, sourceKey);
+  const targetReg = findRegistryClientByName(registry, targetKey);
+
+  if (!sourceReg) {
+    if (!targetReg) {
+      return { clients: registry, deleteClientIds: [], upsertClients: [] };
+    }
+    return { clients: registry, deleteClientIds: [], upsertClients: [] };
+  }
+
+  if (!targetReg) {
+    const rekeyed = withClientRegistryContact(
+      { ...sourceReg, name: targetDisplayName },
+      sourceReg,
+    );
+    return {
+      clients: registry.map((c) => (c.id === sourceReg.id ? rekeyed : c)),
+      deleteClientIds: [],
+      upsertClients: [rekeyed],
+    };
+  }
+
+  if (sourceReg.id === targetReg.id) {
+    return { clients: registry, deleteClientIds: [], upsertClients: [] };
+  }
+
+  const mergedTarget = withClientRegistryContact(targetReg, {
+    address: targetReg.address || sourceReg.address,
+    phone: targetReg.phone || sourceReg.phone,
+    email: targetReg.email || sourceReg.email,
+  });
+
+  return {
+    clients: registry
+      .filter((c) => c.id !== sourceReg.id)
+      .map((c) => (c.id === targetReg.id ? mergedTarget : c)),
+    deleteClientIds: [sourceReg.id],
+    upsertClients: [mergedTarget],
+  };
+}
+
+export function renameClientRegistry(
+  registry: Client[],
+  sourceKey: string,
+  newName: string,
+): { clients: Client[]; upsertClients: Client[] } {
+  const sourceReg = findRegistryClientByName(registry, sourceKey);
+  if (!sourceReg) {
+    return { clients: registry, upsertClients: [] };
+  }
+
+  const renamed = withClientRegistryContact({ ...sourceReg, name: newName }, sourceReg);
+  return {
+    clients: registry.map((c) => (c.id === sourceReg.id ? renamed : c)),
+    upsertClients: [renamed],
+  };
+}
+
+export function rekeyClientNotes(
+  notes: ClientNote[],
+  sourceKey: string,
+  targetKey: string,
+): ClientNote[] {
+  const source = normalizeClientName(sourceKey);
+  const target = normalizeClientName(targetKey);
+  if (!source || !target || source === target) return notes;
+
+  const now = new Date().toISOString();
+  return notes.map((note) =>
+    normalizeClientName(note.client_key) === source
+      ? { ...note, client_key: target, updated_at: now }
+      : note,
+  );
+}
+
+export function moveProjectsToClientName(
+  projects: Project[],
+  sourceKey: string,
+  targetDisplayName: string,
+): Project[] {
+  const source = normalizeClientName(sourceKey);
+  if (!source) return projects;
+
+  return projects.map((project) =>
+    normalizeClientName(project.client_name ?? "") === source
+      ? { ...project, client_name: targetDisplayName }
+      : project,
+  );
 }

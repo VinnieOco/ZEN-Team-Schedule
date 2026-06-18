@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
+import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
 import { ProjectScheduleSection } from "@/components/projects/project-schedule-section";
 import { AppPage } from "@/components/layout/app-page";
@@ -94,7 +95,10 @@ export default function ProjectDetailPage() {
 
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{project.project_name}</h1>
-        <p className="mt-1 text-muted-foreground">{project.client_name}</p>
+        <ClientCrmLink
+          clientName={project.client_name}
+          className="mt-1 text-muted-foreground hover:text-emerald-900"
+        />
         {parentProject && (
           <p className="mt-2 text-sm">
             <span className="rounded-md bg-amber-100 px-2 py-0.5 font-medium text-amber-900">

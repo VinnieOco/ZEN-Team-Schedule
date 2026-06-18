@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ExternalLink, FolderOpen, Pencil, Plus } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
+import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectsFilters } from "@/components/projects/projects-filters";
 import { ProjectsTableSkeleton } from "@/components/projects/projects-table-skeleton";
@@ -173,7 +174,9 @@ export function ProjectsTable() {
                         <ExternalLink className="h-3 w-3 opacity-50" />
                       </Link>
                     </TableCell>
-                    <TableCell>{project.client_name}</TableCell>
+                    <TableCell>
+                      <ClientCrmLink clientName={project.client_name} />
+                    </TableCell>
                     <TableCell>{formatProjectDepartment(project.department)}</TableCell>
                     <TableCell>{project.phase}</TableCell>
                     <TableCell>{lead ? getEmployeeFullName(lead) : "—"}</TableCell>

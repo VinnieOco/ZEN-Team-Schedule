@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, GitMerge, Pencil } from "lucide-react";
 
 import { AppPage } from "@/components/layout/app-page";
 import { ClientContactSection } from "@/components/crm/client-contact-section";
+import { ClientMergeDialog } from "@/components/crm/client-merge-dialog";
 import { ClientNotesSection } from "@/components/crm/client-notes-section";
 import { ClientProjectsTable } from "@/components/crm/client-projects-table";
+import { ClientRenameDialog } from "@/components/crm/client-rename-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -20,10 +22,13 @@ import { formatProjectAmount } from "@/lib/project-format";
 
 export default function ClientDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const routeKey = params.key as string;
-  const { projects, clients, isLoading } = useScheduling();
+  const { projects, clients, clientNotes, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [showInactive, setShowInactive] = useState(true);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   const client = useMemo(
     () => findClientByRouteKey(projects, routeKey, clients),
@@ -50,6 +55,11 @@ export default function ClientDetailPage() {
   }
 
   const activeProjectCount = client.projects.filter((p) => p.active).length;
+  const noteCount = clientNotes.filter((note) => note.client_key === client.key).length;
+
+  const navigateToClient = (nextRouteKey: string) => {
+    router.replace(`/crm/${nextRouteKey}`);
+  };
 
   return (
     <AppPage className="space-y-6">
@@ -62,9 +72,41 @@ export default function ClientDetailPage() {
         </Button>
       </div>
 
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900">{client.displayName}</h1>
+        {permissions.editProjects && (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setRenameOpen(true)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Rename
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+              <GitMerge className="mr-2 h-4 w-4" />
+              Merge
+            </Button>
+          </div>
+        )}
       </div>
+
+      <ClientRenameDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        clientKey={client.key}
+        displayName={client.displayName}
+        projectCount={client.projects.length}
+        noteCount={noteCount}
+        onRenamed={navigateToClient}
+      />
+
+      <ClientMergeDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        clientKey={client.key}
+        displayName={client.displayName}
+        projectCount={client.projects.length}
+        noteCount={noteCount}
+        onMerged={navigateToClient}
+      />
 
       <ClientContactSection
         clientKey={client.key}
