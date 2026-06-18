@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useScheduling } from "@/context/scheduling-context";
+import { schedulingViewSettings } from "@/lib/scheduling-view";
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { projectMatchesDepartmentFilter } from "@/lib/departments";
 import {
@@ -25,13 +26,14 @@ export function useFilteredProjectRows({
   const { projects, allocations, employees, settings, selectedWeekStart, filters, clearFilters } =
     useScheduling();
 
+  const viewSettings = schedulingViewSettings(settings, filters);
   const monthStart = getMonthStart(selectedWeekStart);
-  const weekDays = getWeekDays(selectedWeekStart, settings);
-  const monthDays = getMonthDays(monthStart, settings);
+  const weekDays = getWeekDays(selectedWeekStart, viewSettings);
+  const monthDays = getMonthDays(monthStart, viewSettings);
   const periodDays = period === "month" ? monthDays : weekDays;
 
-  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
-  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
+  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, viewSettings);
+  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, viewSettings);
   const periodAllocations = period === "month" ? monthAllocations : weekAllocations;
 
   const rows: Project[] = useMemo(() => {

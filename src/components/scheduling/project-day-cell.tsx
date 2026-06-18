@@ -27,7 +27,7 @@ export function ProjectDayCell({
   const dayTotal = allocations.reduce((sum, a) => sum + a.hours, 0);
 
   return (
-    <td className="border-r p-1.5 align-top last:border-r-0">
+    <td className="schedule-grid-scroll-cell border-r p-1.5 align-top last:border-r-0">
       <div className="flex min-h-[52px] flex-col gap-1">
         {dayTotal > 0 && (
           <p className="text-center text-[10px] font-medium text-muted-foreground">{dayTotal}h</p>

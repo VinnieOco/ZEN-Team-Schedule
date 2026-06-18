@@ -92,10 +92,10 @@ export function AvailabilityView() {
       </p>
 
       <div className="schedule-scroll relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="w-full min-w-[880px] border-collapse text-sm">
+        <table className="schedule-grid-table w-full min-w-[880px] text-sm">
           <thead>
-            <tr className="border-b bg-slate-50">
-              <th className="sticky left-0 z-20 min-w-[200px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+            <tr className="bg-slate-50">
+              <th className="schedule-grid-sticky-header min-w-[200px] border-r px-4 py-3 text-left font-medium text-muted-foreground">
                 Team member
               </th>
               {weekDays.map((day) => (
@@ -118,8 +118,8 @@ export function AvailabilityView() {
               const weekRemaining =
                 Math.round((capacity - stats.scheduledHours) * 10) / 10;
               return (
-                <tr key={employee.id} className="border-b align-middle hover:bg-slate-50/40">
-                  <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                <tr key={employee.id} className="group align-middle hover:bg-slate-50/40">
+                  <td className="schedule-grid-sticky-cell border-r px-4 py-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8 shrink-0">
                         <AvatarFallback className="bg-emerald-100 text-xs font-medium text-emerald-800">
@@ -148,7 +148,7 @@ export function AvailabilityView() {
                     const cap = employee.daily_capacity_hours;
                     const remaining = Math.round((cap - scheduled) * 10) / 10;
                     return (
-                      <td key={formatDateKey(day)} className="border-r p-1 last:border-r-0">
+                      <td key={formatDateKey(day)} className="schedule-grid-scroll-cell border-r p-1 last:border-r-0">
                         <div
                           className={cn(
                             "mx-auto flex h-10 w-full max-w-[64px] flex-col items-center justify-center rounded-md text-xs tabular-nums",
@@ -180,8 +180,8 @@ export function AvailabilityView() {
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 bg-slate-100">
-              <td className="sticky left-0 z-20 border-r bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+            <tr className="bg-slate-100">
+              <td className="schedule-grid-sticky-footer border-r px-4 py-2.5 text-xs font-semibold text-slate-700">
                 Totals
               </td>
               {dayOpenTotals.map(({ dateKey, openHours }) => (

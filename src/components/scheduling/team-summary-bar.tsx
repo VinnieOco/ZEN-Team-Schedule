@@ -6,6 +6,7 @@ import type { ScheduleCalendarView } from "@/components/scheduling/scheduling-he
 import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
 import { useScheduling } from "@/context/scheduling-context";
 import { filterEmployeesByDepartment } from "@/lib/departments";
+import { schedulingViewSettings } from "@/lib/scheduling-view";
 import { getTeamMonthSummary, getTeamSummary } from "@/lib/utilization";
 import { getMonthStart } from "@/lib/week";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface TeamSummaryBarProps {
 
 export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
   const { allocations, employees, selectedWeekStart, settings, filters } = useScheduling();
+  const viewSettings = schedulingViewSettings(settings, filters);
   const period = calendarView === "month" ? "month" : "week";
   const { rows } = useFilteredEmployeeRows({ period });
   const overCount = rows.filter((r) => r.stats.status === "over").length;
@@ -30,9 +32,9 @@ export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
           allocations,
           scopedEmployees,
           getMonthStart(selectedWeekStart),
-          settings,
+          viewSettings,
         )
-      : getTeamSummary(allocations, scopedEmployees, selectedWeekStart, settings);
+      : getTeamSummary(allocations, scopedEmployees, selectedWeekStart, viewSettings);
 
   const items = [
     {

@@ -112,10 +112,10 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
       </p>
 
       <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="w-full min-w-[560px] border-collapse text-sm sm:min-w-[960px]">
+        <table className="schedule-grid-table w-full min-w-[560px] text-sm sm:min-w-[960px]">
           <thead>
-            <tr className="border-b bg-slate-50">
-              <th className="sticky left-0 z-20 min-w-[220px] border-r bg-slate-50 px-4 py-3 text-left font-medium text-muted-foreground shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+            <tr className="bg-slate-50">
+              <th className="schedule-grid-sticky-header min-w-[220px] border-r px-4 py-3 text-left font-medium text-muted-foreground">
                 Project
               </th>
               {periodDays.map((day) => (
@@ -136,8 +136,8 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
               const weekHours = projectWeekHours.get(project.id) ?? 0;
 
               return (
-                <tr key={project.id} className="border-b align-top hover:bg-slate-50/40">
-                  <td className="sticky left-0 z-10 border-r bg-white px-4 py-3 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] group-hover:bg-slate-50/40">
+                <tr key={project.id} className="group align-top hover:bg-slate-50/40">
+                  <td className="schedule-grid-sticky-cell border-r px-4 py-3">
                     <Link
                       href={`/projects/${project.id}`}
                       className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:text-emerald-900 hover:underline"
@@ -175,8 +175,8 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 bg-slate-100">
-              <td className="sticky left-0 z-20 border-r bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+            <tr className="bg-slate-100">
+              <td className="schedule-grid-sticky-footer border-r px-4 py-2.5 text-xs font-semibold text-slate-700">
                 Totals
               </td>
               {dayTotals.map(({ dateKey, employeeCount, totalHours }) => (

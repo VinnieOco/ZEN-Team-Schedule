@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useScheduling } from "@/context/scheduling-context";
+import { schedulingViewSettings } from "@/lib/scheduling-view";
 import {
   filterAllocationsForMonth,
   filterAllocationsForWeek,
@@ -48,13 +49,14 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
   const { employees, allocations, settings, selectedWeekStart, filters, clearFilters } =
     useScheduling();
 
+  const viewSettings = schedulingViewSettings(settings, filters);
   const monthStart = getMonthStart(selectedWeekStart);
-  const weekDays = getWeekDays(selectedWeekStart, settings);
-  const monthDays = getMonthDays(monthStart, settings);
+  const weekDays = getWeekDays(selectedWeekStart, viewSettings);
+  const monthDays = getMonthDays(monthStart, viewSettings);
   const periodDays = period === "month" ? monthDays : weekDays;
 
-  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
-  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
+  const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, viewSettings);
+  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, viewSettings);
   const periodAllocations = period === "month" ? monthAllocations : weekAllocations;
 
   const rows: EmployeeWeekRow[] = useMemo(() => {
@@ -79,8 +81,8 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
         employee,
         stats:
           period === "month"
-            ? getEmployeeMonthStats(employee, allocations, monthStart, settings)
-            : getEmployeeWeekStats(employee, allocations, selectedWeekStart, settings),
+            ? getEmployeeMonthStats(employee, allocations, monthStart, viewSettings)
+            : getEmployeeWeekStats(employee, allocations, selectedWeekStart, viewSettings),
       }));
 
     if (sortByUtilization) {
@@ -93,7 +95,7 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
     periodAllocations,
     allocations,
     selectedWeekStart,
-    settings,
+    viewSettings,
     period,
     monthStart,
     sortByUtilization,

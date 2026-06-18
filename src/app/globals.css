@@ -115,6 +115,62 @@ body {
   border-radius: 3px;
 }
 
+/* Sticky name column in horizontally scrollable schedule tables */
+.schedule-grid-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.schedule-grid-table thead th {
+  border-bottom: 1px solid rgb(226 232 240);
+}
+
+.schedule-grid-table tbody td {
+  border-bottom: 1px solid rgb(226 232 240);
+}
+
+.schedule-grid-table tfoot td {
+  border-top: 2px solid rgb(226 232 240);
+  border-bottom: none;
+}
+
+.schedule-grid-sticky-header {
+  position: sticky;
+  left: 0;
+  z-index: 30;
+  background-color: rgb(248 250 252);
+  box-shadow: 4px 0 8px -2px rgb(0 0 0 / 0.08);
+}
+
+.schedule-grid-sticky-cell {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background-color: #fff;
+  box-shadow: 4px 0 8px -2px rgb(0 0 0 / 0.08);
+}
+
+.schedule-grid-sticky-footer {
+  position: sticky;
+  left: 0;
+  z-index: 30;
+  background-color: rgb(241 245 249);
+  box-shadow: 4px 0 8px -2px rgb(0 0 0 / 0.08);
+}
+
+.schedule-grid-table tbody tr:hover .schedule-grid-sticky-cell {
+  background-color: rgb(248 250 252);
+}
+
+.schedule-grid-scroll-cell {
+  position: relative;
+  z-index: 0;
+}
+
+.schedule-grid-table tbody tr:hover .schedule-grid-scroll-cell:not([class*="bg-"]) {
+  background-color: rgb(248 250 252 / 0.4);
+}
+
 /* Fade hint on narrow screens when the schedule grid scrolls horizontally */
 @media (max-width: 1023px) {
   .schedule-scroll-fade::after {
@@ -143,6 +199,13 @@ body {
 
   .schedule-print-root {
     padding: 0 !important;
+  }
+
+  .schedule-grid-sticky-header,
+  .schedule-grid-sticky-cell,
+  .schedule-grid-sticky-footer {
+    position: static;
+    box-shadow: none;
   }
 
   main {

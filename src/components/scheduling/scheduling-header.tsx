@@ -6,6 +6,7 @@ import { PageToolbar } from "@/components/layout/page-toolbar";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import { departmentFilterLabel } from "@/lib/departments";
+import { schedulingViewSettings } from "@/lib/scheduling-view";
 import { formatMonthRange, formatWeekRange } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
@@ -42,9 +43,10 @@ export function SchedulingHeader({
   } = useScheduling();
 
   const isMonth = calendarView === "month";
+  const viewSettings = schedulingViewSettings(settings, filters);
   const periodLabel = isMonth
     ? formatMonthRange(selectedWeekStart)
-    : formatWeekRange(selectedWeekStart, settings);
+    : formatWeekRange(selectedWeekStart, viewSettings);
   const departmentSuffix = filters.department
     ? ` · ${departmentFilterLabel(filters.department)}`
     : "";

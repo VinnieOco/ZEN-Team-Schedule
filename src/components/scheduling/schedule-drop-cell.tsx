@@ -52,7 +52,7 @@ export function ScheduleDropCell({
   return (
     <td
       className={cn(
-        "border-r p-1.5 align-top last:border-r-0",
+        "schedule-grid-scroll-cell border-r p-1.5 align-top last:border-r-0",
         isOverDay && "bg-red-50/60",
         isOver && canEdit && "bg-emerald-50 ring-2 ring-inset ring-emerald-400",
       )}

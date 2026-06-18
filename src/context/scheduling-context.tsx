@@ -280,6 +280,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     projectId: null,
     categoryId: null,
     showHours: true,
+    showWeekend: false,
     onlyWithAllocations: false,
   });
 
@@ -474,9 +475,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       department: null,
       projectId: null,
       categoryId: null,
-      showHours: true,
-      onlyWithAllocations: false,
-    });
+    showHours: true,
+    showWeekend: false,
+    onlyWithAllocations: false,
+  });
   }, []);
 
   const getCategoryById = useCallback(

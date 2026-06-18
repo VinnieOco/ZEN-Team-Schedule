@@ -50,7 +50,7 @@ export function ScheduleMonthCell({
   return (
     <td
       className={cn(
-        "border-r p-1 align-top last:border-r-0",
+        "schedule-grid-scroll-cell border-r p-1 align-top last:border-r-0",
         isOverDay && "bg-red-50/50",
         today && "bg-emerald-50/40",
       )}

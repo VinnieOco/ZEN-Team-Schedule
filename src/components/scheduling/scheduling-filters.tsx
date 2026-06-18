@@ -60,6 +60,7 @@ export function SchedulingFilters({ showScheduledOnlyToggle = false }: Schedulin
     Boolean(filters.department) ||
     Boolean(filters.projectId) ||
     Boolean(filters.categoryId) ||
+    filters.showWeekend ||
     filters.onlyWithAllocations;
 
   return (
@@ -106,6 +107,16 @@ export function SchedulingFilters({ showScheduledOnlyToggle = false }: Schedulin
           />
           <Label htmlFor="show-hours" className="text-sm whitespace-nowrap">
             Show hours
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-weekend"
+            checked={filters.showWeekend}
+            onCheckedChange={(v) => setFilters({ showWeekend: v })}
+          />
+          <Label htmlFor="show-weekend" className="text-sm whitespace-nowrap">
+            Show weekend
           </Label>
         </div>
         {showScheduledOnlyToggle && (
@@ -177,6 +188,19 @@ export function SchedulingFilters({ showScheduledOnlyToggle = false }: Schedulin
                 className="ml-1 rounded-full p-0.5 hover:bg-slate-200"
                 onClick={() => setFilters({ categoryId: null })}
                 aria-label="Clear category filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.showWeekend && (
+            <Badge variant="secondary" className="gap-1 pr-1">
+              Weekends shown
+              <button
+                type="button"
+                className="ml-1 rounded-full p-0.5 hover:bg-slate-200"
+                onClick={() => setFilters({ showWeekend: false })}
+                aria-label="Hide weekends"
               >
                 <X className="h-3 w-3" />
               </button>
