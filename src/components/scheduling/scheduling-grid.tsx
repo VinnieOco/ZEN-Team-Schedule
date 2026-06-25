@@ -235,7 +235,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
                         />
                       );
                     })}
-                    <td className="bg-slate-50/30 px-3 py-3 text-center">
+                    <td className="bg-slate-50/30 px-3 py-3 text-center print:bg-white">
                       <span
                         className={cn(
                           "text-sm font-semibold",

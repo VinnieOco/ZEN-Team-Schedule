@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { GanttMilestoneMarkers } from "@/components/gantt/gantt-milestone-markers";
 import { GanttTooltipProvider } from "@/components/gantt/gantt-chart-tooltip";
@@ -16,7 +16,8 @@ import { buildGanttRows } from "@/lib/gantt/build-gantt-rows";
 import { applyPhaseDateChange } from "@/lib/gantt/phase-links";
 import { openMilestonesForProject } from "@/lib/gantt/milestones";
 import { phasesForProject } from "@/lib/gantt/seed-phases";
-import { GANTT_MILESTONE_ROW_HEIGHT_PX, todayOffsetPx, type GanttZoom } from "@/lib/gantt/timeline";
+import { GANTT_MILESTONE_ROW_HEIGHT_PX, timelineWidthPx, todayOffsetPx, type GanttZoom } from "@/lib/gantt/timeline";
+import type { GanttPrintLayout } from "@/lib/gantt/print-range";
 import type { Allocation, Employee, Project, ProjectMilestone, ScheduledProjectPhase, TimeEntry } from "@/types";
 import { startOfMonth, startOfWeek } from "date-fns";
 
@@ -30,6 +31,9 @@ interface GanttSingleProjectChartProps {
   canEdit: boolean;
   rangeStart: Date;
   onRangeStartChange: (date: Date) => void;
+  zoom: GanttZoom;
+  onZoomChange: (zoom: GanttZoom) => void;
+  printLayout?: GanttPrintLayout | null;
   onCommitPhases: (phases: ScheduledProjectPhase[]) => void;
 }
 
@@ -43,34 +47,42 @@ export function GanttSingleProjectChart({
   canEdit,
   rangeStart,
   onRangeStartChange,
+  zoom,
+  onZoomChange,
+  printLayout = null,
   onCommitPhases,
 }: GanttSingleProjectChartProps) {
-  const [zoom, setZoom] = useState<GanttZoom>("weeks");
   const prevZoomRef = useRef(zoom);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isPrinting = printLayout !== null;
 
-  const { columnCount, timelineWidth } = useGanttTimelineLayout(
-    scrollRef,
-    zoom,
-    PHASE_LABEL_WIDTH,
-  );
-  const todayLeft = todayOffsetPx(rangeStart, zoom);
+  const effectiveZoom = printLayout?.zoom ?? zoom;
+  const effectiveRangeStart = printLayout?.rangeStart ?? rangeStart;
+
+  const { columnCount: layoutColumnCount, timelineWidth: layoutTimelineWidth } =
+    useGanttTimelineLayout(scrollRef, effectiveZoom, PHASE_LABEL_WIDTH, !isPrinting);
+  const columnCount = printLayout?.columnCount ?? layoutColumnCount;
+  const timelineWidth = isPrinting
+    ? timelineWidthPx(columnCount, effectiveZoom)
+    : layoutTimelineWidth;
+  const todayLeft = todayOffsetPx(effectiveRangeStart, effectiveZoom);
 
   const { dragState, setDragState, effectivePhases, pendingDrag, confirmPendingDrag, cancelPendingDrag } =
     useGanttDrag({
     projectPhases,
-    zoom,
+    zoom: effectiveZoom,
     onCommit: (_projectId, phases) => onCommitPhases(phases),
   });
 
   const { onPanLayerPointerDown, isPanning } = useGanttTimelinePan({
-    rangeStart,
-    zoom,
+    rangeStart: effectiveRangeStart,
+    zoom: effectiveZoom,
     onRangeStartChange,
-    disabled: dragState !== null || pendingDrag !== null,
+    disabled: isPrinting || dragState !== null || pendingDrag !== null,
   });
 
   useEffect(() => {
+    if (isPrinting) return;
     if (prevZoomRef.current === zoom) return;
     prevZoomRef.current = zoom;
     onRangeStartChange(
@@ -78,7 +90,7 @@ export function GanttSingleProjectChart({
         ? startOfMonth(rangeStart)
         : startOfWeek(rangeStart, { weekStartsOn: 1 }),
     );
-  }, [zoom, rangeStart, onRangeStartChange]);
+  }, [zoom, rangeStart, onRangeStartChange, isPrinting]);
 
   const row = useMemo(() => {
     const rows = buildGanttRows([project], effectivePhases, timeEntries, { activeOnly: false });
@@ -100,31 +112,35 @@ export function GanttSingleProjectChart({
 
   return (
     <div className="space-y-2">
-      <GanttZoomControls
-        rangeStart={rangeStart}
-        zoom={zoom}
-        onRangeStartChange={onRangeStartChange}
-        onZoomChange={setZoom}
-      />
+      <div className="print:hidden">
+        <GanttZoomControls
+          rangeStart={rangeStart}
+          zoom={zoom}
+          onRangeStartChange={onRangeStartChange}
+          onZoomChange={onZoomChange}
+        />
+      </div>
 
-      <GanttProgressLegend />
+      <div className="print:hidden">
+        <GanttProgressLegend />
+      </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground print:hidden">
         Drag empty timeline space to move through earlier or later dates.
         {canEdit && " Drag phase bars to adjust dates — you will be asked to confirm before changes are saved."}
       </p>
 
       <div
         ref={scrollRef}
-        className={`schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm ${
+        className={`schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none ${
           isPanning ? "cursor-grabbing select-none" : ""
         }`}
       >
         <div style={{ minWidth: PHASE_LABEL_WIDTH + timelineWidth }}>
           <GanttTimelineHeader
-            rangeStart={rangeStart}
+            rangeStart={effectiveRangeStart}
             columnCount={columnCount}
-            zoom={zoom}
+            zoom={effectiveZoom}
             timelineWidth={timelineWidth}
             onPanLayerPointerDown={onPanLayerPointerDown}
             isPanning={isPanning}
@@ -135,7 +151,7 @@ export function GanttSingleProjectChart({
           <GanttTooltipProvider>
             <div className="relative">
               <div
-                className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
+                className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80 print:hidden"
                 style={{ left: PHASE_LABEL_WIDTH + todayLeft }}
               />
               {hasMilestones && (
@@ -157,8 +173,8 @@ export function GanttSingleProjectChart({
                   />
                   <GanttMilestoneMarkers
                     milestones={milestones}
-                    rangeStart={rangeStart}
-                    zoom={zoom}
+                    rangeStart={effectiveRangeStart}
+                    zoom={effectiveZoom}
                   />
                 </div>
               </div>
@@ -172,10 +188,10 @@ export function GanttSingleProjectChart({
                   key={segment.phase.id}
                   segment={segment}
                   projectId={project.id}
-                  rangeStart={rangeStart}
-                  zoom={zoom}
+                  rangeStart={effectiveRangeStart}
+                  zoom={effectiveZoom}
                   timelineWidth={timelineWidth}
-                  canEdit={canEdit}
+                  canEdit={canEdit && !isPrinting}
                   allocations={allocations}
                   employees={employees}
                   dragState={dragState}
@@ -191,13 +207,15 @@ export function GanttSingleProjectChart({
         </div>
       </div>
 
-      <GanttPhaseDragConfirmDialog
-        open={pendingDrag !== null}
-        pending={pendingDrag}
-        projectLabel={project.project_name}
-        onConfirm={confirmPendingDrag}
-        onCancel={cancelPendingDrag}
-      />
+      <div className="print:hidden">
+        <GanttPhaseDragConfirmDialog
+          open={pendingDrag !== null}
+          pending={pendingDrag}
+          projectLabel={project.project_name}
+          onConfirm={confirmPendingDrag}
+          onCancel={cancelPendingDrag}
+        />
+      </div>
     </div>
   );
 }

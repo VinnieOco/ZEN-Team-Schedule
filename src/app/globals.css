@@ -197,8 +197,17 @@ body {
     -webkit-print-color-adjust: exact;
   }
 
-  .schedule-print-root {
+  .firm-gantt-print-root {
     padding: 0 !important;
+  }
+
+  .project-schedule-print-root {
+    padding: 0 !important;
+  }
+
+  .gantt-print-header,
+  .project-gantt-print-header {
+    break-inside: avoid;
   }
 
   .schedule-grid-sticky-header,

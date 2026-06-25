@@ -84,7 +84,7 @@ export default function ProjectDetailPage() {
 
   return (
     <AppPage className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Button variant="outline" size="sm" asChild>
           <Link href="/projects">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -93,7 +93,7 @@ export default function ProjectDetailPage() {
         </Button>
       </div>
 
-      <div>
+      <div className="print:hidden">
         <h1 className="text-2xl font-bold text-slate-900">{project.project_name}</h1>
         <ClientCrmLink
           clientName={project.client_name}
@@ -118,7 +118,7 @@ export default function ProjectDetailPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0">
-        <ScrollableTabsList>
+        <ScrollableTabsList className="print:hidden">
           <TabsTrigger value="overview" className="shrink-0 px-3">
             Overview
           </TabsTrigger>
@@ -127,7 +127,7 @@ export default function ProjectDetailPage() {
           </TabsTrigger>
         </ScrollableTabsList>
 
-        <TabsContent value="overview" className="mt-6 space-y-6">
+        <TabsContent value="overview" className="mt-6 space-y-6 print:hidden">
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Filter, Plus, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
 
 import { PageToolbar } from "@/components/layout/page-toolbar";
 import { Button } from "@/components/ui/button";
@@ -92,7 +92,7 @@ export function SchedulingHeader({
           )}
         </p>
       </div>
-      <PageToolbar className="print:hidden ms-auto w-full justify-end sm:w-auto">
+      <PageToolbar className="ms-auto w-full justify-end sm:w-auto">
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="icon" onClick={handlePrevious} aria-label="Previous period">
             <ChevronLeft />
@@ -133,10 +133,6 @@ export function SchedulingHeader({
             Filters
           </Button>
         )}
-        <Button variant="outline" size="sm" className="hidden shrink-0 sm:inline-flex" onClick={() => window.print()}>
-          <Printer />
-          Print
-        </Button>
         {canEditSchedule && onAddAllocation && (
           <Button onClick={onAddAllocation} className="shrink-0">
             <Plus />

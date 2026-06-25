@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { differenceInCalendarDays, format, parseISO, startOfWeek, subWeeks } from "date-fns";
-import { Link2, Link2Off, Plus, Trash2 } from "lucide-react";
+import { differenceInCalendarDays, format, parseISO, startOfMonth, startOfWeek, subWeeks } from "date-fns";
+import { Link2, Link2Off, Plus, Printer, Trash2 } from "lucide-react";
 
 import {
   GanttSingleProjectChart,
   togglePhaseLinked,
   updatePhaseField,
 } from "@/components/gantt/gantt-single-project-chart";
+import { GanttPrintDialog } from "@/components/gantt/gantt-print-dialog";
+import { ProjectGanttPrintBanner } from "@/components/projects/project-gantt-print-banner";
 import { ProjectMilestonesCard } from "@/components/projects/project-milestones-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +45,9 @@ import {
   removePhaseFromSchedule,
 } from "@/lib/gantt/phase-schedule";
 import { phasesForProject, seedPhasesForProject } from "@/lib/gantt/seed-phases";
+import type { GanttPrintLayout } from "@/lib/gantt/print-range";
+import type { GanttZoom } from "@/lib/gantt/timeline";
+import { visibleColumnCount } from "@/lib/gantt/timeline";
 import { formatProjectAmount, formatProjectHours, getProjectDesignAmount } from "@/lib/project-format";
 import type { Project, TimeEntry } from "@/types";
 import { cn } from "@/lib/utils";
@@ -83,6 +88,31 @@ export function ProjectScheduleSection({
   const [rangeStart, setRangeStart] = useState(() =>
     startOfWeek(subWeeks(new Date(), 2), { weekStartsOn: 1 }),
   );
+  const [zoom, setZoom] = useState<GanttZoom>("weeks");
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printLayout, setPrintLayout] = useState<GanttPrintLayout | null>(null);
+  const visibleColumns = visibleColumnCount(zoom);
+
+  useEffect(() => {
+    const clearPrintLayout = () => setPrintLayout(null);
+    window.addEventListener("afterprint", clearPrintLayout);
+    return () => window.removeEventListener("afterprint", clearPrintLayout);
+  }, []);
+
+  const handleZoomChange = (next: GanttZoom) => {
+    setZoom(next);
+    setRangeStart(
+      next === "months" ? startOfMonth(rangeStart) : startOfWeek(rangeStart, { weekStartsOn: 1 }),
+    );
+  };
+
+  const handleGanttPrint = (layout: GanttPrintLayout) => {
+    setPrintLayout(layout);
+    setPrintDialogOpen(false);
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  };
 
   const phases = useMemo(
     () => phasesForProject(projectPhases, project.id),
@@ -201,17 +231,33 @@ export function ProjectScheduleSection({
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Schedule timeline</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Drag empty timeline space to move through earlier or later dates. Drag phase bars to
-            adjust dates. Staffing lanes under each phase show who is scheduled from Team
-            Scheduling. Milestone markers appear when milestones are set below.
-          </p>
+    <div className="project-schedule-print-root space-y-6">
+      <ProjectGanttPrintBanner project={project} printLayout={printLayout} />
+
+      <Card className="print:border-0 print:shadow-none">
+        <CardHeader className="print:hidden">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Schedule timeline</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Drag empty timeline space to move through earlier or later dates. Drag phase bars to
+                adjust dates. Staffing lanes under each phase show who is scheduled from Team
+                Scheduling. Milestone markers appear when milestones are set below.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setPrintDialogOpen(true)}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="print:p-0">
           <GanttSingleProjectChart
             project={project}
             projectPhases={projectPhases}
@@ -222,11 +268,24 @@ export function ProjectScheduleSection({
             canEdit={canEdit}
             rangeStart={rangeStart}
             onRangeStartChange={setRangeStart}
+            zoom={zoom}
+            onZoomChange={handleZoomChange}
+            printLayout={printLayout}
             onCommitPhases={handleCommit}
           />
         </CardContent>
       </Card>
 
+      <GanttPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        rangeStart={rangeStart}
+        columnCount={visibleColumns}
+        zoom={zoom}
+        onPrint={handleGanttPrint}
+      />
+
+      <div className="print:hidden">
       <ProjectMilestonesCard
         project={project}
         projectMilestones={projectMilestones}
@@ -455,6 +514,7 @@ export function ProjectScheduleSection({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { startOfMonth, startOfWeek, subWeeks } from "date-fns";
+import { Printer } from "lucide-react";
 
+import { FirmGanttPrintBanner } from "@/components/gantt/firm-gantt-print-banner";
 import { GanttMilestonesView } from "@/components/gantt/gantt-milestones-view";
+import { GanttPrintDialog } from "@/components/gantt/gantt-print-dialog";
 import { GanttProgressLegend } from "@/components/gantt/gantt-progress-legend";
 import {
   buildProjectMilestone,
@@ -17,6 +20,7 @@ import { GanttProjectRowView } from "@/components/gantt/gantt-project-row";
 import { GanttTimelineHeader } from "@/components/gantt/gantt-timeline-header";
 import { GanttZoomControls } from "@/components/gantt/gantt-zoom-controls";
 import { ProjectsFilters } from "@/components/projects/projects-filters";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
@@ -30,6 +34,7 @@ import {
   milestonesForProject,
   openMilestonesForProject,
 } from "@/lib/gantt/milestones";
+import type { GanttPrintLayout } from "@/lib/gantt/print-range";
 import {
   defaultGanttFilters,
   projectFiltersActive,
@@ -37,7 +42,9 @@ import {
 } from "@/lib/filter-projects";
 import {
   GANTT_PROJECT_COLUMN_WIDTH_PX,
+  timelineWidthPx,
   todayOffsetPx,
+  visibleColumnCount,
   type GanttZoom,
 } from "@/lib/gantt/timeline";
 
@@ -83,19 +90,39 @@ export function GanttPageClient() {
     projectLabel: string;
     date: string;
   } | null>(null);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printLayout, setPrintLayout] = useState<GanttPrintLayout | null>(null);
+
+  const isPrinting = printLayout !== null;
+  const effectiveZoom = printLayout?.zoom ?? zoom;
+  const effectiveRangeStart = printLayout?.rangeStart ?? rangeStart;
+
+  useEffect(() => {
+    const clearPrintLayout = () => setPrintLayout(null);
+    window.addEventListener("afterprint", clearPrintLayout);
+    return () => window.removeEventListener("afterprint", clearPrintLayout);
+  }, []);
+
+  const handleGanttPrint = (layout: GanttPrintLayout) => {
+    setPrintLayout(layout);
+    setPrintDialogOpen(false);
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  };
 
   const { dragState, setDragState, effectivePhases, pendingDrag, confirmPendingDrag, cancelPendingDrag } =
     useGanttDrag({
     projectPhases,
-    zoom,
+    zoom: effectiveZoom,
     onCommit: replaceProjectPhases,
   });
 
   const { onPanLayerPointerDown, isPanning } = useGanttTimelinePan({
-    rangeStart,
-    zoom,
+    rangeStart: effectiveRangeStart,
+    zoom: effectiveZoom,
     onRangeStartChange: setRangeStart,
-    disabled: dragState !== null || pendingDrag !== null,
+    disabled: isPrinting || dragState !== null || pendingDrag !== null,
   });
 
   useEffect(() => {
@@ -125,12 +152,18 @@ export function GanttPageClient() {
 
   const timelineReady = activeTab === "timeline" && rows.length > 0 && !isLoading;
 
-  const { columnCount, timelineWidth } = useGanttTimelineLayout(
-    scrollRef,
-    zoom,
-    GANTT_PROJECT_COLUMN_WIDTH_PX,
-    timelineReady,
-  );
+  const { columnCount: layoutColumnCount, timelineWidth: layoutTimelineWidth } =
+    useGanttTimelineLayout(
+      scrollRef,
+      effectiveZoom,
+      GANTT_PROJECT_COLUMN_WIDTH_PX,
+      timelineReady && !isPrinting,
+    );
+  const columnCount = printLayout?.columnCount ?? layoutColumnCount;
+  const timelineWidth = isPrinting
+    ? timelineWidthPx(columnCount, effectiveZoom)
+    : layoutTimelineWidth;
+  const visibleColumns = visibleColumnCount(zoom);
 
   const totalCount = useMemo(() => countParentRows(builtRows), [builtRows]);
   const resultCount = useMemo(() => countParentRows(rows), [rows]);
@@ -148,7 +181,7 @@ export function GanttPageClient() {
     [projectMilestones],
   );
 
-  const todayLeft = todayOffsetPx(rangeStart, zoom);
+  const todayLeft = todayOffsetPx(effectiveRangeStart, effectiveZoom);
 
   const updateFilters = (partial: Partial<ProjectFilters>) => {
     setFilters((prev) => ({ ...prev, ...partial }));
@@ -192,37 +225,51 @@ export function GanttPageClient() {
   }
 
   return (
-    <div className="space-y-4">
-      <ProjectsFilters
-        filters={filters}
-        onChange={updateFilters}
-        onClear={() => setFilters(defaultGanttFilters())}
-        resultCount={activeTab === "milestones" ? openMilestoneCount : resultCount}
-        totalCount={activeTab === "milestones" ? totalOpenMilestones : totalCount}
-        resultNoun={activeTab === "milestones" ? "open milestone" : "project"}
-      />
+    <div className="firm-gantt-print-root space-y-4">
+      <div className="print:hidden">
+        <ProjectsFilters
+          filters={filters}
+          onChange={updateFilters}
+          onClear={() => setFilters(defaultGanttFilters())}
+          resultCount={activeTab === "milestones" ? openMilestoneCount : resultCount}
+          totalCount={activeTab === "milestones" ? totalOpenMilestones : totalCount}
+          resultNoun={activeTab === "milestones" ? "open milestone" : "project"}
+        />
+      </div>
 
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as "timeline" | "milestones")}
       >
-        <TabsList>
+        <TabsList className="print:hidden">
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="timeline" className="mt-4 space-y-4">
-          <div className="flex justify-end">
+        <TabsContent value="timeline" className="mt-4 space-y-4 print:mt-0">
+          <FirmGanttPrintBanner printLayout={printLayout} projectCount={resultCount} />
+
+          <div className="flex flex-wrap items-center justify-end gap-2 print:hidden">
             <GanttZoomControls
               rangeStart={rangeStart}
               zoom={zoom}
               onRangeStartChange={setRangeStart}
               onZoomChange={setZoom}
             />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPrintDialogOpen(true)}
+              disabled={rows.length === 0}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Print
+            </Button>
           </div>
 
           {rows.length > 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground print:hidden">
               Drag empty timeline space to move through earlier or later dates. Use the arrows or
               Today button for larger jumps.
               {canEdit &&
@@ -244,15 +291,15 @@ export function GanttPageClient() {
           ) : (
             <div
               ref={scrollRef}
-              className={`schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm ${
+              className={`schedule-scroll schedule-scroll-fade relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none ${
                 isPanning ? "cursor-grabbing select-none" : ""
               }`}
             >
               <div style={{ minWidth: GANTT_PROJECT_COLUMN_WIDTH_PX + timelineWidth }}>
                 <GanttTimelineHeader
-                  rangeStart={rangeStart}
+                  rangeStart={effectiveRangeStart}
                   columnCount={columnCount}
-                  zoom={zoom}
+                  zoom={effectiveZoom}
                   timelineWidth={timelineWidth}
                   onPanLayerPointerDown={onPanLayerPointerDown}
                   isPanning={isPanning}
@@ -260,17 +307,17 @@ export function GanttPageClient() {
                 <GanttTooltipProvider>
                   <div className="relative">
                     <div
-                      className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80"
+                      className="pointer-events-none absolute bottom-0 top-0 z-10 w-px bg-red-400/80 print:hidden"
                       style={{ left: GANTT_PROJECT_COLUMN_WIDTH_PX + todayLeft }}
                     />
                     {rows.map((row) => (
                       <GanttProjectRowView
                         key={row.project.id}
                         row={row}
-                        rangeStart={rangeStart}
-                        zoom={zoom}
+                        rangeStart={effectiveRangeStart}
+                        zoom={effectiveZoom}
                         timelineWidth={timelineWidth}
-                        canEdit={canEdit}
+                        canEdit={canEdit && !isPrinting}
                         projectPhases={effectivePhases}
                         milestones={openMilestonesForProject(projectMilestones, row.project.id)}
                         dragState={dragState}
@@ -289,16 +336,18 @@ export function GanttPageClient() {
             </div>
           )}
 
-          <GanttProgressLegend />
+          <div className="print:hidden">
+            <GanttProgressLegend />
+          </div>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground print:hidden">
             Phase bars show hours and fee burn from logged time. Change orders appear indented
             under their parent project. Completed milestones are hidden from the timeline — manage
             them on the Milestones tab.
           </p>
         </TabsContent>
 
-        <TabsContent value="milestones" className="mt-4 space-y-4">
+        <TabsContent value="milestones" className="mt-4 space-y-4 print:hidden">
           {canEdit && (
             <p className="text-xs text-muted-foreground">
               Check off milestones when they are done. Completed items move to the section below and
@@ -320,38 +369,51 @@ export function GanttPageClient() {
         </TabsContent>
       </Tabs>
 
-      <GanttTimelineContextMenu
-        open={timelineMenu !== null}
-        x={timelineMenu?.clientX ?? 0}
-        y={timelineMenu?.clientY ?? 0}
-        date={timelineMenu?.date ?? ""}
-        onClose={() => setTimelineMenu(null)}
-        onAddMilestone={() => {
-          if (!timelineMenu) return;
-          setMilestoneDialog({
-            projectId: timelineMenu.projectId,
-            projectLabel: timelineMenu.projectLabel,
-            date: timelineMenu.date,
-          });
-        }}
-      />
+      <div className="print:hidden">
+        <GanttTimelineContextMenu
+          open={timelineMenu !== null}
+          x={timelineMenu?.clientX ?? 0}
+          y={timelineMenu?.clientY ?? 0}
+          date={timelineMenu?.date ?? ""}
+          onClose={() => setTimelineMenu(null)}
+          onAddMilestone={() => {
+            if (!timelineMenu) return;
+            setMilestoneDialog({
+              projectId: timelineMenu.projectId,
+              projectLabel: timelineMenu.projectLabel,
+              date: timelineMenu.date,
+            });
+          }}
+        />
 
-      <GanttMilestoneFormDialog
-        open={milestoneDialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setMilestoneDialog(null);
-        }}
-        projectLabel={milestoneDialog?.projectLabel ?? ""}
-        initialDate={milestoneDialog?.date ?? new Date().toISOString().slice(0, 10)}
-        onSave={handleSaveMilestone}
-      />
+        <GanttMilestoneFormDialog
+          open={milestoneDialog !== null}
+          onOpenChange={(open) => {
+            if (!open) setMilestoneDialog(null);
+          }}
+          projectLabel={milestoneDialog?.projectLabel ?? ""}
+          initialDate={milestoneDialog?.date ?? new Date().toISOString().slice(0, 10)}
+          onSave={handleSaveMilestone}
+        />
 
-      <GanttPhaseDragConfirmDialog
-        open={pendingDrag !== null}
-        pending={pendingDrag}
-        projectLabel={pendingDrag ? projectLabelForRow(pendingDrag.projectId) : undefined}
-        onConfirm={confirmPendingDrag}
-        onCancel={cancelPendingDrag}
+        <GanttPhaseDragConfirmDialog
+          open={pendingDrag !== null}
+          pending={pendingDrag}
+          projectLabel={pendingDrag ? projectLabelForRow(pendingDrag.projectId) : undefined}
+          onConfirm={confirmPendingDrag}
+          onCancel={cancelPendingDrag}
+        />
+      </div>
+
+      <GanttPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        rangeStart={rangeStart}
+        columnCount={visibleColumns}
+        zoom={zoom}
+        onPrint={handleGanttPrint}
+        title="Print firm phase timeline"
+        description="Choose week or month view and the date range to include. Filtered projects on screen will be included. Use your browser's print dialog to save as PDF."
       />
     </div>
   );
