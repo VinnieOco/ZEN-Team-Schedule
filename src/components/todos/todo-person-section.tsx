@@ -13,14 +13,18 @@ interface TodoPersonSectionProps {
   employee: Employee;
   todos: Todo[];
   canToggle: boolean;
+  canDelete: boolean;
   onToggleCompleted: (id: string, completed: boolean) => void;
+  onDelete: (id: string) => void;
 }
 
 export function TodoPersonSection({
   employee,
   todos,
   canToggle,
+  canDelete,
   onToggleCompleted,
+  onDelete,
 }: TodoPersonSectionProps) {
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -66,6 +70,8 @@ export function TodoPersonSection({
                 key={todo.id}
                 todo={todo}
                 onToggleCompleted={canToggle ? onToggleCompleted : () => {}}
+                onDelete={onDelete}
+                canDelete={canDelete}
               />
             ))}
           </div>
@@ -89,6 +95,8 @@ export function TodoPersonSection({
                     key={todo.id}
                     todo={todo}
                     onToggleCompleted={canToggle ? onToggleCompleted : () => {}}
+                    onDelete={onDelete}
+                    canDelete={canDelete}
                   />
                 ))}
               </div>

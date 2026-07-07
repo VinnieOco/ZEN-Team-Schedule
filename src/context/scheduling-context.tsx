@@ -162,6 +162,7 @@ interface SchedulingContextValue {
   deleteClientNote: (id: string) => void;
   addTodo: (employeeId: string, body: string) => void;
   setTodoCompleted: (id: string, completed: boolean) => void;
+  deleteTodo: (id: string) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -1419,6 +1420,23 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  const deleteTodo = useCallback(
+    (id: string) => {
+      setTodos((previousTodos) => {
+        const snapshot = previousTodos;
+        const nextTodos = previousTodos.filter((todo) => todo.id !== id);
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteTodo(id),
+            () => setTodos(snapshot),
+          );
+        }
+        return nextTodos;
+      });
+    },
+    [persistAsync],
+  );
+
   const updateSettings = useCallback(
     (partial: Partial<CompanySettings>) => {
       const snapshot = settings;
@@ -1725,6 +1743,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteClientNote,
       addTodo,
       setTodoCompleted,
+      deleteTodo,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -1792,6 +1811,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteClientNote,
       addTodo,
       setTodoCompleted,
+      deleteTodo,
       updateSettings,
       updateEmployee,
       addEmployee,

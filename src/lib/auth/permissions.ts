@@ -42,8 +42,8 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
   { label: "Dashboard", admin: "View", manager: "View", member: "View", crew: "View" },
   {
     label: "To-dos",
-    admin: "View all; complete own",
-    manager: "View all; complete own",
+    admin: "View all; add and delete for anyone",
+    manager: "View all; add and delete for anyone",
     member: "View own; complete own",
     crew: "View own; complete own",
   },

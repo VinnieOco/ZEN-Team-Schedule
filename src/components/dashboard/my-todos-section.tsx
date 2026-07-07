@@ -14,7 +14,7 @@ interface MyTodosSectionProps {
 }
 
 export function MyTodosSection({ employee }: MyTodosSectionProps) {
-  const { todos, setTodoCompleted } = useScheduling();
+  const { todos, setTodoCompleted, deleteTodo } = useScheduling();
   const [showCompleted, setShowCompleted] = useState(false);
 
   const myTodos = useMemo(
@@ -60,7 +60,13 @@ export function MyTodosSection({ employee }: MyTodosSectionProps) {
         ) : (
           <div className="space-y-2">
             {openTodos.map((todo) => (
-              <TodoItem key={todo.id} todo={todo} onToggleCompleted={setTodoCompleted} />
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                onToggleCompleted={setTodoCompleted}
+                onDelete={deleteTodo}
+                canDelete
+              />
             ))}
           </div>
         )}
@@ -79,7 +85,13 @@ export function MyTodosSection({ employee }: MyTodosSectionProps) {
             {showCompleted && (
               <div className="space-y-2">
                 {completedTodos.map((todo) => (
-                  <TodoItem key={todo.id} todo={todo} onToggleCompleted={setTodoCompleted} />
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    onToggleCompleted={setTodoCompleted}
+                    onDelete={deleteTodo}
+                    canDelete
+                  />
                 ))}
               </div>
             )}

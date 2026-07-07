@@ -11,7 +11,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { getEmployeeFullName } from "@/lib/week";
 
 export function TodosPageClient() {
-  const { employees, todos, isLoading, addTodo, setTodoCompleted } = useScheduling();
+  const { employees, todos, isLoading, addTodo, setTodoCompleted, deleteTodo } = useScheduling();
   const { permissions, linkedEmployeeId } = usePermissions();
 
   const visibleEmployees = useMemo(() => {
@@ -77,7 +77,11 @@ export function TodosPageClient() {
               canToggle={
                 permissions.viewAllTodos || employee.id === linkedEmployeeId
               }
+              canDelete={
+                permissions.viewAllTodos || employee.id === linkedEmployeeId
+              }
               onToggleCompleted={setTodoCompleted}
+              onDelete={deleteTodo}
             />
           ))}
         </div>
