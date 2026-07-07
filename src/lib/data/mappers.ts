@@ -13,6 +13,7 @@ import type {
   ProjectMilestoneKind,
   ScheduledProjectPhase,
   TimeEntry,
+  Todo,
 } from "@/types";
 
 type EmployeeRow = {
@@ -27,6 +28,7 @@ type EmployeeRow = {
   daily_capacity_hours: number;
   department: string | null;
   active: boolean;
+  handle: string | null;
 };
 
 type ProjectRow = {
@@ -142,6 +144,7 @@ export function mapEmployee(row: EmployeeRow): Employee {
     daily_capacity_hours: Number(row.daily_capacity_hours),
     department: row.department ?? undefined,
     active: row.active,
+    handle: row.handle ?? undefined,
   };
 }
 
@@ -241,6 +244,61 @@ export function clientNoteToRow(note: ClientNote) {
   };
 }
 
+type TodoRow = {
+  id: string;
+  employee_id: string;
+  body: string;
+  status: string;
+  completed_at: string | null;
+  created_by: string | null;
+  source_type: string;
+  source_project_id: string | null;
+  source_client_key: string | null;
+  source_note_id: string | null;
+  source_note_type: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function mapTodo(row: TodoRow): Todo {
+  return {
+    id: row.id,
+    employee_id: row.employee_id,
+    body: row.body,
+    status: row.status === "completed" ? "completed" : "open",
+    completed_at: row.completed_at,
+    created_by: row.created_by,
+    source_type: row.source_type === "mention" ? "mention" : "manual",
+    source_project_id: row.source_project_id,
+    source_client_key: row.source_client_key,
+    source_note_id: row.source_note_id,
+    source_note_type:
+      row.source_note_type === "project" || row.source_note_type === "client"
+        ? row.source_note_type
+        : null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function todoToRow(todo: Todo) {
+  return {
+    id: todo.id,
+    employee_id: todo.employee_id,
+    body: todo.body.trim(),
+    status: todo.status,
+    completed_at: todo.completed_at ?? null,
+    created_by: todo.created_by ?? null,
+    source_type: todo.source_type,
+    source_project_id: todo.source_project_id ?? null,
+    source_client_key: todo.source_client_key ?? null,
+    source_note_id: todo.source_note_id ?? null,
+    source_note_type: todo.source_note_type ?? null,
+    created_at: todo.created_at,
+    updated_at: todo.updated_at,
+  };
+}
+
 export function mapCategory(row: CategoryRow): AllocationCategory {
   return {
     id: row.id,
@@ -308,6 +366,7 @@ export function employeeToRow(employee: Employee) {
     daily_capacity_hours: employee.daily_capacity_hours,
     department: employee.department ?? null,
     active: employee.active,
+    handle: employee.handle ?? null,
   };
 }
 

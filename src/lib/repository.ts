@@ -11,6 +11,8 @@ import type {
   ProjectMilestone,
   ScheduledProjectPhase,
   TimeEntry,
+  Todo,
+  TodoNoteSourceType,
 } from "@/types";
 
 export interface SchedulingRepository {
@@ -46,6 +48,10 @@ export interface SchedulingRepository {
   insertClientNote(note: ClientNote): Promise<ClientNote>;
   updateClientNote(note: ClientNote): Promise<ClientNote>;
   deleteClientNote(id: string): Promise<void>;
+  listTodos(): Promise<Todo[]>;
+  upsertTodo(todo: Todo): Promise<Todo>;
+  deleteTodo(id: string): Promise<void>;
+  deleteMentionTodosForNote(noteId: string, noteType: TodoNoteSourceType): Promise<void>;
   upsertEmployee(employee: Employee): Promise<Employee>;
   deleteEmployee(id: string): Promise<void>;
   upsertCategory(category: AllocationCategory): Promise<AllocationCategory>;

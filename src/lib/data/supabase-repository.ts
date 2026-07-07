@@ -15,10 +15,12 @@ import {
   clientToRow,
   mapSettings,
   mapTimeEntry,
+  mapTodo,
   projectNoteToRow,
   projectToRow,
   settingsToRow,
   timeEntryToRow,
+  todoToRow,
 } from "@/lib/data/mappers";
 import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
 import {
@@ -44,6 +46,8 @@ import type {
   ProjectMilestone,
   ScheduledProjectPhase,
   TimeEntry,
+  Todo,
+  TodoNoteSourceType,
 } from "@/types";
 
 export function createSupabaseRepository(
@@ -309,6 +313,44 @@ export function createSupabaseRepository(
 
     async deleteClientNote(id: string) {
       const { error } = await supabase.from("client_notes").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async listTodos() {
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapTodo);
+    },
+
+    async upsertTodo(todo: Todo) {
+      const row = todoToRow(todo);
+      const isMentionTodo =
+        todo.source_type === "mention" && todo.source_note_id && todo.source_note_type;
+
+      const { data, error } = await supabase
+        .from("todos")
+        .upsert(row, isMentionTodo ? { onConflict: "employee_id,source_note_id,source_note_type" } : undefined)
+        .select()
+        .single();
+      if (error) throw error;
+      return mapTodo(data);
+    },
+
+    async deleteTodo(id: string) {
+      const { error } = await supabase.from("todos").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async deleteMentionTodosForNote(noteId: string, noteType: TodoNoteSourceType) {
+      const { error } = await supabase
+        .from("todos")
+        .delete()
+        .eq("source_note_id", noteId)
+        .eq("source_note_type", noteType)
+        .eq("source_type", "mention");
       if (error) throw error;
     },
 

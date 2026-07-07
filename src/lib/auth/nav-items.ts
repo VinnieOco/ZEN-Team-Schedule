@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   CalendarDays,
+  CheckSquare,
   FolderKanban,
   GanttChart,
   LayoutDashboard,
@@ -20,6 +21,7 @@ export interface AppNavItem {
   permission: keyof Pick<
     AppPermissions,
     | "viewDashboard"
+    | "viewTodos"
     | "viewScheduling"
     | "viewTimeTracking"
     | "viewProjects"
@@ -32,6 +34,7 @@ export interface AppNavItem {
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "viewDashboard" },
+  { href: "/todos", label: "To-dos", icon: CheckSquare, permission: "viewTodos" },
   { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays, permission: "viewScheduling" },
   { href: "/time-tracking", label: "Time Tracking", icon: Timer, permission: "viewTimeTracking" },
   { href: "/projects", label: "Projects", icon: FolderKanban, permission: "viewProjects" },

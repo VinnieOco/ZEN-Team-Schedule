@@ -36,6 +36,8 @@ export interface Employee {
   default_billable_target?: number;
   start_date?: string;
   notes?: string;
+  /** @mention handle, e.g. voliveira for @voliveira */
+  handle?: string;
 }
 
 export interface Project {
@@ -140,6 +142,26 @@ export interface ClientNote {
   client_key: string;
   body: string;
   created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TodoStatus = "open" | "completed";
+export type TodoSourceType = "manual" | "mention";
+export type TodoNoteSourceType = "project" | "client";
+
+export interface Todo {
+  id: string;
+  employee_id: string;
+  body: string;
+  status: TodoStatus;
+  completed_at?: string | null;
+  created_by?: string | null;
+  source_type: TodoSourceType;
+  source_project_id?: string | null;
+  source_client_key?: string | null;
+  source_note_id?: string | null;
+  source_note_type?: TodoNoteSourceType | null;
   created_at: string;
   updated_at: string;
 }
@@ -298,6 +320,7 @@ export interface EmployeeFormValues {
   last_name: string;
   role: string;
   email?: string;
+  handle?: string;
   department?: string;
   daily_capacity_hours: number;
   weekly_capacity_hours: number;

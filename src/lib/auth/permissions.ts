@@ -2,6 +2,8 @@ import { isAdminRole, isManagerOrAdminRole, type AppRole } from "@/lib/auth/role
 
 export interface AppPermissions {
   viewDashboard: boolean;
+  viewTodos: boolean;
+  viewAllTodos: boolean;
   viewProjects: boolean;
   editProjects: boolean;
   viewScheduling: boolean;
@@ -38,6 +40,13 @@ export interface PermissionRow {
 /** Human-readable matrix shown to admins in Settings */
 export const PERMISSION_MATRIX: PermissionRow[] = [
   { label: "Dashboard", admin: "View", manager: "View", member: "View", crew: "View" },
+  {
+    label: "To-dos",
+    admin: "View all; complete own",
+    manager: "View all; complete own",
+    member: "View own; complete own",
+    crew: "View own; complete own",
+  },
   {
     label: "Team scheduling",
     admin: "View and edit all",
@@ -102,6 +111,8 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
 function adminPermissions(): AppPermissions {
   return {
     viewDashboard: true,
+    viewTodos: true,
+    viewAllTodos: true,
     viewProjects: true,
     editProjects: true,
     viewScheduling: true,
@@ -126,6 +137,8 @@ function adminPermissions(): AppPermissions {
 function managerPermissions(): AppPermissions {
   return {
     viewDashboard: true,
+    viewTodos: true,
+    viewAllTodos: true,
     viewProjects: true,
     editProjects: true,
     viewScheduling: true,
@@ -150,6 +163,8 @@ function managerPermissions(): AppPermissions {
 function memberPermissions(): AppPermissions {
   return {
     viewDashboard: true,
+    viewTodos: true,
+    viewAllTodos: false,
     viewProjects: true,
     editProjects: false,
     viewScheduling: true,
@@ -174,6 +189,8 @@ function memberPermissions(): AppPermissions {
 function crewPermissions(): AppPermissions {
   return {
     viewDashboard: true,
+    viewTodos: true,
+    viewAllTodos: false,
     viewProjects: false,
     editProjects: false,
     viewScheduling: true,

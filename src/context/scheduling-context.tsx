@@ -58,7 +58,16 @@ import {
 import { projectFromFormValues } from "@/lib/project-form";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import { projectsNeedingPhaseSeed, seedPhasesForProject } from "@/lib/gantt/seed-phases";
+import { normalizeHandle, suggestEmployeeHandle } from "@/lib/todos/handles";
+import { resolveMentionedEmployees } from "@/lib/todos/mentions";
+import {
+  isSameMentionTodo,
+  mentionTodoKey,
+  removeMentionTodosForNote,
+  syncMentionTodos,
+} from "@/lib/todos/sync-mention-todos";
 import { getMonthStart, getWeekStart } from "@/lib/week";
+import { useAuth } from "@/context/auth-context";
 import type {
   Allocation,
   AllocationCategory,
@@ -78,6 +87,8 @@ import type {
   SchedulingFilters,
   TimeEntry,
   TimeEntryFormValues,
+  Todo,
+  TodoNoteSourceType,
 } from "@/types";
 
 const STORAGE_KEY = "zen-scheduling-state";
@@ -95,6 +106,7 @@ interface PersistedState {
   timeEntries: TimeEntry[];
   projectPhases?: ScheduledProjectPhase[];
   projectMilestones?: ProjectMilestone[];
+  todos?: Todo[];
   settings: CompanySettings;
 }
 
@@ -114,6 +126,7 @@ interface SchedulingContextValue {
   timeEntries: TimeEntry[];
   projectPhases: ScheduledProjectPhase[];
   projectMilestones: ProjectMilestone[];
+  todos: Todo[];
   settings: CompanySettings;
   selectedWeekStart: Date;
   filters: SchedulingFilters;
@@ -147,6 +160,8 @@ interface SchedulingContextValue {
   addClientNote: (clientKey: string, body: string) => void;
   updateClientNote: (id: string, body: string) => void;
   deleteClientNote: (id: string) => void;
+  addTodo: (employeeId: string, body: string) => void;
+  setTodoCompleted: (id: string, completed: boolean) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -230,6 +245,7 @@ function buildTimeEntry(values: TimeEntryFormValues, id?: string): TimeEntry {
 
 export function SchedulingProvider({ children }: { children: ReactNode }) {
   const useSupabase = isSupabaseConfigured();
+  const { profile } = useAuth();
   const repoRef = useRef<SchedulingRepository | null>(null);
   const milestoneSyncSeqRef = useRef(new Map<string, number>());
 
@@ -278,6 +294,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>(
     useSupabase ? [] : (persisted?.projectMilestones ?? []),
   );
+  const [todos, setTodos] = useState<Todo[]>(useSupabase ? [] : (persisted?.todos ?? []));
   const [settings, setSettings] = useState<CompanySettings>(() =>
     normalizeCompanySettings(persisted?.settings ?? seedSettings),
   );
@@ -361,6 +378,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const todosData = await repo.listTodos();
+        setTodos(todosData);
+      } catch {
+        setTodos([]);
+      }
+
+      try {
         const persistence = createQueueStatePersistence(supabase);
         initQueuePersistence(persistence, { useRemote: true });
         await flushPersistQueue();
@@ -410,6 +434,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       timeEntries,
       projectPhases,
       projectMilestones,
+      todos,
       settings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -425,6 +450,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     timeEntries,
     projectPhases,
     projectMilestones,
+    todos,
     settings,
   ]);
 
@@ -442,6 +468,80 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
     },
     [],
+  );
+
+  const persistTodoDiff = useCallback(
+    (previousTodos: Todo[], nextTodos: Todo[]) => {
+      const nextIds = new Set(nextTodos.map((todo) => todo.id));
+      const removed = previousTodos.filter((todo) => !nextIds.has(todo.id));
+      const upserted = nextTodos.filter((todo) => {
+        const previous = previousTodos.find((item) => item.id === todo.id);
+        return (
+          !previous ||
+          previous.body !== todo.body ||
+          previous.status !== todo.status ||
+          previous.completed_at !== todo.completed_at ||
+          previous.updated_at !== todo.updated_at
+        );
+      });
+
+      if (!repoRef.current) return;
+
+      const snapshot = previousTodos;
+      for (const todo of removed) {
+        void persistAsync(
+          () => repoRef.current!.deleteTodo(todo.id),
+          () => setTodos(snapshot),
+        );
+      }
+      for (const todo of upserted) {
+        void persistAsync(
+          () => repoRef.current!.upsertTodo(todo),
+          () => setTodos(snapshot),
+        ).then((saved) => {
+          if (saved) {
+            setTodos((current) => {
+              const merged = current.map((item) =>
+                item.id === todo.id || isSameMentionTodo(item, saved) ? saved : item,
+              );
+              const seen = new Set<string>();
+              return merged.filter((item) => {
+                const key = mentionTodoKey(item) ?? item.id;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+            });
+          }
+        });
+      }
+    },
+    [persistAsync],
+  );
+
+  const applyMentionTodoSync = useCallback(
+    (
+      noteId: string,
+      noteType: TodoNoteSourceType,
+      body: string,
+      context: { projectId?: string; clientKey?: string },
+    ) => {
+      const mentionedEmployees = resolveMentionedEmployees(body, employees);
+      setTodos((previousTodos) => {
+        const nextTodos = syncMentionTodos(previousTodos, {
+          noteId,
+          noteType,
+          body,
+          mentionedEmployees,
+          projectId: context.projectId,
+          clientKey: context.clientKey,
+          createdBy: profile?.id ?? null,
+        });
+        persistTodoDiff(previousTodos, nextTodos);
+        return nextTodos;
+      });
+    },
+    [employees, persistTodoDiff, profile?.id],
   );
 
   const setWeek = useCallback(
@@ -1070,6 +1170,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         id: generateId(),
         project_id: projectId,
         body: trimmed,
+        created_by: profile?.id ?? null,
         created_at: now,
         updated_at: now,
       };
@@ -1091,8 +1192,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
       });
+      applyMentionTodoSync(note.id, "project", trimmed, { projectId });
     },
-    [persistAsync],
+    [applyMentionTodoSync, persistAsync, profile?.id],
   );
 
   const updateProjectNote = useCallback(
@@ -1100,10 +1202,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const trimmed = body.trim();
       if (!trimmed) return;
       const now = new Date().toISOString();
+      const existing = projectNotes.find((note) => note.id === id);
+      if (!existing) return;
       setProjectNotes((prev) => {
         const snapshot = prev;
-        const existing = prev.find((n) => n.id === id);
-        if (!existing) return prev;
         const updated: ProjectNote = {
           ...existing,
           body: trimmed,
@@ -1124,8 +1226,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      applyMentionTodoSync(id, "project", trimmed, { projectId: existing.project_id });
     },
-    [persistAsync],
+    [applyMentionTodoSync, persistAsync, projectNotes],
   );
 
   const deleteProjectNote = useCallback(
@@ -1140,8 +1243,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return prev.filter((n) => n.id !== id);
       });
+      setTodos((previousTodos) => {
+        const nextTodos = removeMentionTodosForNote(previousTodos, id, "project");
+        persistTodoDiff(previousTodos, nextTodos);
+        return nextTodos;
+      });
     },
-    [persistAsync],
+    [persistAsync, persistTodoDiff],
   );
 
   const addClientNote = useCallback(
@@ -1154,6 +1262,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         id: generateId(),
         client_key: key,
         body: trimmed,
+        created_by: profile?.id ?? null,
         created_at: now,
         updated_at: now,
       };
@@ -1175,8 +1284,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
       });
+      applyMentionTodoSync(note.id, "client", trimmed, { clientKey: key });
     },
-    [persistAsync],
+    [applyMentionTodoSync, persistAsync, profile?.id],
   );
 
   const updateClientNote = useCallback(
@@ -1184,10 +1294,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const trimmed = body.trim();
       if (!trimmed) return;
       const now = new Date().toISOString();
+      const existing = clientNotes.find((note) => note.id === id);
+      if (!existing) return;
       setClientNotes((prev) => {
         const snapshot = prev;
-        const existing = prev.find((n) => n.id === id);
-        if (!existing) return prev;
         const updated: ClientNote = {
           ...existing,
           body: trimmed,
@@ -1208,8 +1318,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      applyMentionTodoSync(id, "client", trimmed, { clientKey: existing.client_key });
     },
-    [persistAsync],
+    [applyMentionTodoSync, clientNotes, persistAsync],
   );
 
   const deleteClientNote = useCallback(
@@ -1223,6 +1334,86 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           );
         }
         return prev.filter((n) => n.id !== id);
+      });
+      setTodos((previousTodos) => {
+        const nextTodos = removeMentionTodosForNote(previousTodos, id, "client");
+        persistTodoDiff(previousTodos, nextTodos);
+        return nextTodos;
+      });
+    },
+    [persistAsync, persistTodoDiff],
+  );
+
+  const addTodo = useCallback(
+    (employeeId: string, body: string) => {
+      const trimmed = body.trim();
+      if (!trimmed) return;
+      const now = new Date().toISOString();
+      const primaryTodo: Todo = {
+        id: generateId(),
+        employee_id: employeeId,
+        body: trimmed,
+        status: "open",
+        completed_at: null,
+        created_by: profile?.id ?? null,
+        source_type: "manual",
+        source_project_id: null,
+        source_client_key: null,
+        source_note_id: null,
+        source_note_type: null,
+        created_at: now,
+        updated_at: now,
+      };
+      const mentionTodos = resolveMentionedEmployees(trimmed, employees)
+        .filter((employee) => employee.id !== employeeId)
+        .map((employee) => ({
+          ...primaryTodo,
+          id: generateId(),
+          employee_id: employee.id,
+        }));
+
+      const createdTodos = [primaryTodo, ...mentionTodos];
+      setTodos((previousTodos) => {
+        const snapshot = previousTodos;
+        const nextTodos = [...createdTodos, ...previousTodos];
+        if (repoRef.current) {
+          for (const todo of createdTodos) {
+            void persistAsync(
+              () => repoRef.current!.upsertTodo(todo),
+              () => setTodos(snapshot),
+            );
+          }
+        }
+        return nextTodos;
+      });
+    },
+    [employees, persistAsync, profile?.id],
+  );
+
+  const setTodoCompleted = useCallback(
+    (id: string, completed: boolean) => {
+      const now = new Date().toISOString();
+      setTodos((previousTodos) => {
+        const snapshot = previousTodos;
+        const nextTodos = previousTodos.map((todo) => {
+          if (todo.id !== id) return todo;
+          return {
+            ...todo,
+            status: (completed ? "completed" : "open") as Todo["status"],
+            completed_at: completed ? now : null,
+            updated_at: now,
+          };
+        });
+        if (repoRef.current) {
+          const updated = nextTodos.find((todo) => todo.id === id);
+          if (updated) {
+            void persistAsync(
+              () => repoRef.current!.upsertTodo(updated),
+              () => setTodos(snapshot),
+            );
+          }
+        }
+        return nextTodos;
       });
     },
     [persistAsync],
@@ -1282,25 +1473,41 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
 
   const employeeFromForm = useCallback(
-    (id: string, values: EmployeeFormValues): Employee => ({
-      id,
-      first_name: values.first_name.trim(),
-      last_name: values.last_name.trim(),
-      role: values.role,
-      email: values.email?.trim() || undefined,
-      department: values.department?.trim() || undefined,
-      daily_capacity_hours: values.daily_capacity_hours,
-      weekly_capacity_hours: values.weekly_capacity_hours,
-      active: values.active,
-    }),
+    (id: string, values: EmployeeFormValues, allEmployees: Employee[]): Employee => {
+      const takenHandles = new Set(
+        allEmployees
+          .filter((employee) => employee.id !== id)
+          .map((employee) => employee.handle?.toLowerCase())
+          .filter((handle): handle is string => Boolean(handle)),
+      );
+      const requestedHandle = values.handle?.trim();
+      const handle = requestedHandle
+        ? normalizeHandle(requestedHandle)
+        : suggestEmployeeHandle(values, takenHandles);
+
+      return {
+        id,
+        first_name: values.first_name.trim(),
+        last_name: values.last_name.trim(),
+        role: values.role,
+        email: values.email?.trim() || undefined,
+        handle: handle || undefined,
+        department: values.department?.trim() || undefined,
+        daily_capacity_hours: values.daily_capacity_hours,
+        weekly_capacity_hours: values.weekly_capacity_hours,
+        active: values.active,
+      };
+    },
     [],
   );
 
   const addEmployee = useCallback(
     (values: EmployeeFormValues): Employee => {
-      const employee = employeeFromForm(generateId(), values);
+      let createdEmployee: Employee | null = null;
       setEmployees((prev) => {
         const snapshot = prev;
+        const employee = employeeFromForm(generateId(), values, prev);
+        createdEmployee = employee;
         const next = [...prev, employee];
         if (repoRef.current) {
           void persistAsync(
@@ -1317,17 +1524,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         return next;
       });
       ensureTeamMemberOptions(values);
-      return employee;
+      return createdEmployee!;
     },
     [employeeFromForm, persistAsync, ensureTeamMemberOptions],
   );
 
   const updateEmployeeFromForm = useCallback(
     (id: string, values: EmployeeFormValues) => {
-      const employee = employeeFromForm(id, values);
       ensureTeamMemberOptions(values);
       setEmployees((prev) => {
         const snapshot = prev;
+        const employee = employeeFromForm(id, values, prev);
         const next = prev.map((e) => (e.id === id ? employee : e));
         if (repoRef.current) {
           void persistAsync(
@@ -1483,6 +1690,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       timeEntries,
       projectPhases,
       projectMilestones,
+      todos,
       settings,
       selectedWeekStart,
       filters,
@@ -1515,6 +1723,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addClientNote,
       updateClientNote,
       deleteClientNote,
+      addTodo,
+      setTodoCompleted,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -1547,6 +1757,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       timeEntries,
       projectPhases,
       projectMilestones,
+      todos,
       settings,
       selectedWeekStart,
       filters,
@@ -1579,6 +1790,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addClientNote,
       updateClientNote,
       deleteClientNote,
+      addTodo,
+      setTodoCompleted,
       updateSettings,
       updateEmployee,
       addEmployee,

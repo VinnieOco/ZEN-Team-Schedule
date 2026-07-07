@@ -5,6 +5,7 @@ import { getHomePathForRole } from "@/lib/routes";
 type RoutePermissionKey = keyof Pick<
   AppPermissions,
   | "viewDashboard"
+  | "viewTodos"
   | "viewScheduling"
   | "viewTimeTracking"
   | "viewProjects"
@@ -20,6 +21,7 @@ const ROUTE_CHECKS: { prefix: string; permission: RoutePermissionKey }[] = [
   { prefix: "/projects", permission: "viewProjects" },
   { prefix: "/queue", permission: "viewQueue" },
   { prefix: "/reports", permission: "viewReports" },
+  { prefix: "/todos", permission: "viewTodos" },
   { prefix: "/scheduling", permission: "viewScheduling" },
   { prefix: "/time-tracking", permission: "viewTimeTracking" },
   { prefix: "/dashboard", permission: "viewDashboard" },
@@ -28,6 +30,7 @@ const ROUTE_CHECKS: { prefix: string; permission: RoutePermissionKey }[] = [
 const FALLBACK_PATH_ORDER: { path: string; permission: RoutePermissionKey }[] = [
   { path: "/time-tracking", permission: "viewTimeTracking" },
   { path: "/dashboard", permission: "viewDashboard" },
+  { path: "/todos", permission: "viewTodos" },
   { path: "/scheduling", permission: "viewScheduling" },
   { path: "/projects", permission: "viewProjects" },
   { path: "/queue", permission: "viewQueue" },

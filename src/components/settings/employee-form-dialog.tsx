@@ -53,6 +53,7 @@ function employeeToFormValues(employee: Employee): EmployeeFormValues {
     last_name: employee.last_name,
     role: employee.role,
     email: employee.email ?? "",
+    handle: employee.handle ?? "",
     department: employee.department ?? "",
     daily_capacity_hours: employee.daily_capacity_hours,
     weekly_capacity_hours: employee.weekly_capacity_hours,
@@ -139,6 +140,17 @@ export function EmployeeFormDialog({ open, onOpenChange, employee }: EmployeeFor
             <Input id="email" type="email" {...form.register("email")} />
             <p className="text-xs text-muted-foreground">
               Use the same email as their app login to link schedule and account automatically.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="handle">@mention handle</Label>
+            <Input
+              id="handle"
+              placeholder="voliveira"
+              {...form.register("handle")}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used for @mentions in notes and to-dos. Leave blank to auto-generate from email or name.
             </p>
           </div>
           <CreatableOptionField

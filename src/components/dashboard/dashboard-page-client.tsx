@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { PersonalWeekSection } from "@/components/dashboard/personal-week-section";
+import { MyTodosSection } from "@/components/dashboard/my-todos-section";
 import { AppPage } from "@/components/layout/app-page";
 import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
@@ -51,6 +52,7 @@ export function DashboardPageClient() {
 
       {linkProfileBanner}
       {personalWeekSection}
+      {linkedEmployee && <MyTodosSection employee={linkedEmployee} />}
 
       {isManagerOrAdmin && !linkedEmployee && (
         <p className="text-sm text-muted-foreground">

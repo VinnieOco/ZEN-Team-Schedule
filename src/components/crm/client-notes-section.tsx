@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Check } from "lucide-react";
 
+import { MentionText } from "@/components/todos/mention-text";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,7 +122,9 @@ function SavedClientNote({ note, onSave, onDelete }: SavedClientNoteProps) {
       <p className="w-[5.5rem] shrink-0 pt-0.5 text-xs text-muted-foreground">
         {formatNoteDate(note.created_at)}
       </p>
-      <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm leading-relaxed">{note.body}</p>
+      <p className="min-w-0 flex-1 text-sm leading-relaxed">
+        <MentionText text={note.body} />
+      </p>
       <Button
         type="button"
         variant="ghost"
@@ -180,7 +183,7 @@ export function ClientNotesSection({ clientKey }: ClientNotesSectionProps) {
       <CardHeader>
         <CardTitle className="text-base">Client notes</CardTitle>
         <CardDescription>
-          Save dated notes for this client. Past notes stay above; add new ones below.
+          Save dated notes for this client. Tag someone with @handle to add a to-do for them.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -220,7 +223,7 @@ export function ClientNotesSection({ clientKey }: ClientNotesSectionProps) {
               setDraft(e.target.value);
               setSaved(false);
             }}
-            placeholder="Relationship history, billing preferences, communication style…"
+            placeholder="Relationship history, billing preferences… Tag teammates with @handle"
             rows={6}
             className="min-h-[120px] resize-y"
           />
