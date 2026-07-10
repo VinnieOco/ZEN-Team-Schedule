@@ -48,7 +48,7 @@ export function TimesheetDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-[min(96vw,1100px)] gap-0 overflow-visible p-0 sm:max-w-[min(96vw,1100px)]">
+      <DialogContent className="flex h-[min(92vh,920px)] max-h-[92vh] max-w-[min(96vw,1100px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(96vw,1100px)]">
         <div className="shrink-0 border-b px-4 pb-4 pt-4 sm:px-6 sm:pt-6">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
