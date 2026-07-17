@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { Pencil, Plus, Save, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +89,7 @@ export function WeeklyTimesheet({
   const [employeeId, setEmployeeId] = useState(() => fixedEmployeeId ?? "");
   const hasInitializedEmployee = useRef(Boolean(fixedEmployeeId));
   const [rows, setRows] = useState<TimesheetRow[]>([]);
+  const [editingRowKeys, setEditingRowKeys] = useState<Set<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -96,9 +97,10 @@ export function WeeklyTimesheet({
     !editMode && !permissions.logTimeForAnyone && linkedEmployeeId != null;
   const canEdit = employeeId ? canEditEntry(employeeId) : false;
 
-  /** Saved rows are read-only on the log-timesheet screen; edit mode unlocks all fields. */
-  const isRowLocked = (row: TimesheetRow) => !editMode && isTimesheetRowLocked(row);
-  const canEditRowMetadata = (row: TimesheetRow) => canEdit && (editMode || !isTimesheetRowLocked(row));
+  /** Saved rows are read-only unless unlocked via Edit (or full editMode from Entries). */
+  const isRowLocked = (row: TimesheetRow) =>
+    !editMode && isTimesheetRowLocked(row) && !editingRowKeys.has(row.key);
+  const canEditRowMetadata = (row: TimesheetRow) => canEdit && !isRowLocked(row);
   const canEditRowHours = (row: TimesheetRow) => canEdit && !isRowLocked(row);
 
   const weekEntries = useMemo(() => {
@@ -108,12 +110,32 @@ export function WeeklyTimesheet({
 
   const loadRows = useCallback(() => {
     setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
+    setEditingRowKeys(new Set());
   }, [weekEntries, weekDateKeys]);
 
   useEffect(() => {
-    loadRows();
-  }, [loadRows]);
+    setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
+  }, [weekEntries, weekDateKeys]);
 
+  const startEditingRow = (rowKey: string) => {
+    setEditingRowKeys((prev) => new Set(prev).add(rowKey));
+    setSaveMessage(null);
+  };
+
+  const cancelEditingRow = (rowKey: string) => {
+    setEditingRowKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(rowKey);
+      return next;
+    });
+    const refreshed = entriesToTimesheetRows(weekEntries, weekDateKeys);
+    const restored = refreshed.find((row) => row.key === rowKey);
+    setRows((prev) => {
+      if (!restored) return prev.filter((row) => row.key !== rowKey);
+      return prev.map((row) => (row.key === rowKey ? restored : row));
+    });
+    setSaveMessage(null);
+  };
   useEffect(() => {
     if (fixedEmployeeId) {
       setEmployeeId(fixedEmployeeId);
@@ -193,11 +215,22 @@ export function WeeklyTimesheet({
   const removeRow = (rowKey: string) => {
     const row = rows.find((r) => r.key === rowKey);
     if (!row || isRowLocked(row)) return;
-    if (editMode && canEdit) {
+    const hasSavedEntries = Object.values(row.entryIdsByDay).some((id) => id != null);
+    if (hasSavedEntries) {
+      if (!window.confirm("Delete this saved timesheet line? This cannot be undone.")) {
+        return;
+      }
+    }
+    if (canEdit) {
       for (const id of Object.values(row.entryIdsByDay)) {
         if (id) deleteTimeEntry(id);
       }
     }
+    setEditingRowKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(rowKey);
+      return next;
+    });
     setRows((prev) => prev.filter((r) => r.key !== rowKey));
     setSaveMessage(null);
   };
@@ -255,12 +288,11 @@ export function WeeklyTimesheet({
       }
 
       // Rows reload from timeEntries via effect after optimistic inserts settle.
+      setEditingRowKeys(new Set());
       if (editMode) {
         setSaveMessage("Timesheet updated.");
       } else {
-        setSaveMessage(
-          "Timesheet saved. Saved lines are locked here — edit or delete them in the Entries tab.",
-        );
+        setSaveMessage("Timesheet saved.");
       }
       onSaved?.();
     } catch {
@@ -270,10 +302,11 @@ export function WeeklyTimesheet({
     }
   };
 
-  const hasDraftToSave = rows.some(
-    (row) =>
-      !isRowLocked(row) && weekDateKeys.some((d) => (row.hoursByDay[d] ?? 0) > 0),
-  );
+  const hasDraftToSave = rows.some((row) => {
+    if (isRowLocked(row)) return false;
+    if (editingRowKeys.has(row.key) || editMode) return true;
+    return weekDateKeys.some((d) => (row.hoursByDay[d] ?? 0) > 0);
+  });
 
   const activeProjects = useMemo(
     () => projects.filter((p) => p.active).sort((a, b) => a.project_name.localeCompare(b.project_name)),
@@ -451,7 +484,11 @@ export function WeeklyTimesheet({
               <th className="min-w-[52px] bg-slate-50 px-2 py-2 text-center text-xs font-semibold uppercase text-muted-foreground">
                 Bill
               </th>
-              {canEdit && <th className="w-10 bg-slate-50" />}
+              {canEdit && (
+                <th className="w-[72px] bg-slate-50 px-1 py-2 text-center text-xs font-semibold uppercase text-muted-foreground">
+                  Edit
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -651,18 +688,44 @@ export function WeeklyTimesheet({
                     </td>
                     {canEdit && (
                       <td className="px-1 py-2">
-                        {!locked && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600"
-                            onClick={() => removeRow(row.key)}
-                            aria-label="Remove line"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-center gap-0.5">
+                          {locked && isTimesheetRowLocked(row) && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-600"
+                              onClick={() => startEditingRow(row.key)}
+                              aria-label="Edit line"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {!locked && editingRowKeys.has(row.key) && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground"
+                              onClick={() => cancelEditingRow(row.key)}
+                              aria-label="Cancel edit"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {!locked && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600"
+                              onClick={() => removeRow(row.key)}
+                              aria-label="Remove line"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -708,10 +771,10 @@ export function WeeklyTimesheet({
         </p>
       )}
 
-      {canEdit && !editMode && rows.some((r) => isRowLocked(r)) && (
+      {canEdit && !editMode && rows.some((r) => isTimesheetRowLocked(r) && isRowLocked(r)) && (
         <p className="text-xs text-muted-foreground">
-          Grey rows are saved and locked on this screen. Use the{" "}
-          <span className="font-medium">Entries</span> tab to change or remove them.
+          Grey rows are saved. Click the pencil to edit a line, then{" "}
+          <span className="font-medium">Save timesheet</span>.
         </p>
       )}
     </div>
