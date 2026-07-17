@@ -254,7 +254,7 @@ export function WeeklyTimesheet({
         }
       }
 
-      loadRows();
+      // Rows reload from timeEntries via effect after optimistic inserts settle.
       if (editMode) {
         setSaveMessage("Timesheet updated.");
       } else {

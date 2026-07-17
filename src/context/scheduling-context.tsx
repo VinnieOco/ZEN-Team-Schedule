@@ -241,6 +241,7 @@ function buildTimeEntry(values: TimeEntryFormValues, id?: string): TimeEntry {
     task_name: values.task_name || undefined,
     notes: values.notes,
     class_code: values.class_code?.trim() || undefined,
+    timesheet_line_id: values.timesheet_line_id,
   };
 }
 

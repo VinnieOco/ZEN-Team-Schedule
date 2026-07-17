@@ -7,6 +7,8 @@ export const TIMESHEET_HOUR_STEP = 0.25;
 
 export interface TimesheetRow {
   key: string;
+  /** Stable id for this line across the week; stored on each day entry. */
+  timesheet_line_id: string;
   project_id: string | null;
   /** True when logging non-project time (PTO, admin, etc.). */
   is_non_project: boolean;
@@ -32,6 +34,32 @@ export function timesheetRowKey(parts: {
   return `${projectPart}:${parts.allocation_category_id}:${parts.is_billable ? "1" : "0"}:${classPart}`;
 }
 
+function groupingKeyForEntry(entry: TimeEntry): string {
+  if (entry.timesheet_line_id) return `line:${entry.timesheet_line_id}`;
+  return `legacy:${timesheetRowKey({
+    project_id: entry.project_id,
+    task_name: entry.task_name ?? "",
+    allocation_category_id: entry.allocation_category_id,
+    is_billable: entry.is_billable,
+    class_code: entry.class_code,
+  })}`;
+}
+
+/** Deterministic UUID so legacy grouped rows stay stable across reloads. */
+function stableUuidFromString(input: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  for (let i = 0; i < input.length; i++) {
+    h1 ^= input.charCodeAt(i);
+    h1 = Math.imul(h1, 0x01000193);
+    h2 ^= input.charCodeAt(i) + i * 17;
+    h2 = Math.imul(h2, 0x01000193);
+  }
+  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
+  const raw = `${hex(h1)}${hex(h2)}${hex(h1 ^ h2)}${hex(~h2)}`;
+  return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-5${raw.slice(13, 16)}-a${raw.slice(17, 20)}-${raw.slice(20, 32)}`;
+}
+
 export function entriesToTimesheetRows(
   entries: TimeEntry[],
   weekDateKeys: string[],
@@ -39,18 +67,14 @@ export function entriesToTimesheetRows(
   const map = new Map<string, TimesheetRow>();
 
   for (const entry of entries) {
-    const key = timesheetRowKey({
-      project_id: entry.project_id,
-      task_name: entry.task_name ?? "",
-      allocation_category_id: entry.allocation_category_id,
-      is_billable: entry.is_billable,
-      class_code: entry.class_code,
-    });
+    const groupKey = groupingKeyForEntry(entry);
+    const lineId = entry.timesheet_line_id ?? stableUuidFromString(groupKey);
 
-    let row = map.get(key);
+    let row = map.get(groupKey);
     if (!row) {
       row = {
-        key,
+        key: lineId,
+        timesheet_line_id: lineId,
         project_id: entry.project_id,
         is_non_project: entry.project_id == null,
         task_name: entry.task_name ?? "",
@@ -62,7 +86,7 @@ export function entriesToTimesheetRows(
         hoursByDay: Object.fromEntries(weekDateKeys.map((d) => [d, 0])),
         entryIdsByDay: Object.fromEntries(weekDateKeys.map((d) => [d, undefined])),
       };
-      map.set(key, row);
+      map.set(groupKey, row);
     }
 
     if (entry.notes && !row.notes) row.notes = entry.notes;
@@ -88,9 +112,10 @@ export function createEmptyTimesheetRow(
     class_code?: string;
   },
 ): TimesheetRow {
-  const key = `new-${crypto.randomUUID()}`;
+  const lineId = crypto.randomUUID();
   return {
-    key,
+    key: lineId,
+    timesheet_line_id: lineId,
     project_id: null,
     is_non_project: false,
     task_name: "",
@@ -137,6 +162,7 @@ export function rowToFormValues(
     phase: row.phase,
     notes: row.notes,
     class_code: row.class_code?.trim() || undefined,
+    timesheet_line_id: row.timesheet_line_id,
   };
 }
 

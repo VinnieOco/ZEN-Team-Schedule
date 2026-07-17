@@ -200,6 +200,11 @@ export interface TimeEntry {
   notes?: string;
   /** Time-tracking class code (configured in Settings). */
   class_code?: string;
+  /**
+   * Groups day cells that belong to one timesheet line.
+   * Lets the same project appear on multiple lines in a week.
+   */
+  timesheet_line_id?: string;
 }
 
 export interface CompanySettings {
@@ -277,6 +282,7 @@ export interface TimeEntryFormValues {
   phase?: string;
   notes?: string;
   class_code?: string;
+  timesheet_line_id?: string;
 }
 
 export interface EmployeeWeekTimeStats {

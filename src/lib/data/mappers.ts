@@ -118,6 +118,7 @@ type TimeEntryRow = {
   task_name: string | null;
   notes: string | null;
   class_code: string | null;
+  timesheet_line_id: string | null;
 };
 
 type SettingsRow = {
@@ -337,6 +338,7 @@ export function mapTimeEntry(row: TimeEntryRow): TimeEntry {
     task_name: row.task_name ?? undefined,
     notes: row.notes ?? undefined,
     class_code: row.class_code?.trim() || undefined,
+    timesheet_line_id: row.timesheet_line_id ?? undefined,
   };
 }
 
@@ -437,6 +439,7 @@ export function timeEntryToRow(entry: TimeEntry) {
     task_name: entry.task_name ?? null,
     notes: entry.notes ?? null,
     class_code: entry.class_code?.trim() || null,
+    timesheet_line_id: entry.timesheet_line_id ?? null,
   };
 }
 
