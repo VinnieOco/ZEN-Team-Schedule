@@ -11,6 +11,7 @@ import { TimesheetDialog } from "@/components/time-tracking/weekly-timesheet-dia
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScheduling } from "@/context/scheduling-context";
+import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { usePermissions } from "@/hooks/use-permissions";
 import { getLoggedHoursByProject } from "@/lib/logged-hours-by-project";
 import { formatProjectHours } from "@/lib/project-format";
@@ -27,6 +28,7 @@ export function PersonalWeekSection({ employee, weekStart }: PersonalWeekSection
   const { allocations, timeEntries, settings, getProjectById, getCategoryById } =
     useScheduling();
   const { canLogTime } = usePermissions();
+  const isNarrow = useIsNarrowViewport();
   const [logTimeOpen, setLogTimeOpen] = useState(false);
 
   const weekAllocations = filterAllocationsForWeek(allocations, weekStart, settings)
@@ -69,21 +71,31 @@ export function PersonalWeekSection({ employee, weekStart }: PersonalWeekSection
               Schedule
             </Link>
           </Button>
-          {canLogTime && (
-            <Button variant="outline" size="sm" onClick={() => setLogTimeOpen(true)}>
-              <Clock />
-              Log time
-            </Button>
-          )}
+          {canLogTime &&
+            (isNarrow ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/time-tracking">
+                  <Clock />
+                  Log time
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setLogTimeOpen(true)}>
+                <Clock />
+                Log time
+              </Button>
+            ))}
         </div>
       </div>
 
-      <TimesheetDialog
-        mode="log"
-        open={logTimeOpen}
-        onOpenChange={setLogTimeOpen}
-        employeeId={employee.id}
-      />
+      {!isNarrow && (
+        <TimesheetDialog
+          mode="log"
+          open={logTimeOpen}
+          onOpenChange={setLogTimeOpen}
+          employeeId={employee.id}
+        />
+      )}
 
       <Card>
         <CardHeader className="pb-3">
