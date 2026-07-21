@@ -7,7 +7,7 @@ import { employeeMatchesDepartmentFilter } from "@/lib/departments";
 import { filterTimeEntriesForWeek, getEmployeeWeekTimeStats } from "@/lib/time-tracking";
 import { filterAllocationsForWeek } from "@/lib/utilization";
 import type { EmployeeWeekTimeStats } from "@/types";
-import { getEmployeeFullName, getWeekDays } from "@/lib/week";
+import { getEmployeeFullName, getTimesheetSettings, getWeekDays } from "@/lib/week";
 import type { Employee } from "@/types";
 
 export interface TimeTrackingRow {
@@ -26,9 +26,11 @@ export function useFilteredTimeTrackingRows() {
     clearFilters,
   } = useScheduling();
 
-  const weekDays = getWeekDays(selectedWeekStart, settings);
+  const timesheetSettings = getTimesheetSettings(settings);
+  // Schedule columns stay on workdays; actual hours include weekend entries.
+  const weekDays = getWeekDays(selectedWeekStart, timesheetSettings);
   const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, settings);
-  const weekTimeEntries = filterTimeEntriesForWeek(timeEntries, selectedWeekStart, settings);
+  const weekTimeEntries = filterTimeEntriesForWeek(timeEntries, selectedWeekStart, timesheetSettings);
 
   const rows: TimeTrackingRow[] = useMemo(() => {
     return employees

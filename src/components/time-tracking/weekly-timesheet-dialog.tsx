@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { WeeklyTimesheet } from "@/components/time-tracking/weekly-timesheet";
 import { useScheduling } from "@/context/scheduling-context";
-import { formatWeekRange, getEmployeeFullName } from "@/lib/week";
+import { formatWeekRange, getEmployeeFullName, getTimesheetSettings } from "@/lib/week";
 
 export type TimesheetDialogMode = "log" | "edit";
 
@@ -30,7 +30,7 @@ export function TimesheetDialog({
   const { getEmployeeById, selectedWeekStart, settings } = useScheduling();
   const employee = employeeId ? getEmployeeById(employeeId) : null;
   const isEdit = mode === "edit";
-  const weekLabel = formatWeekRange(selectedWeekStart, settings);
+  const weekLabel = formatWeekRange(selectedWeekStart, getTimesheetSettings(settings));
 
   const title = isEdit
     ? employee

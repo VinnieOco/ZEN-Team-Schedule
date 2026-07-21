@@ -39,6 +39,11 @@ export function getWeekDays(
   return days;
 }
 
+/** Timesheets always show Sat/Sun, independent of the schedule weekend toggle. */
+export function getTimesheetSettings(settings: CompanySettings): CompanySettings {
+  return { ...settings, include_weekends: true };
+}
+
 export function formatDateKey(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }

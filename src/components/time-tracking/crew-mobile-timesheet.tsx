@@ -28,7 +28,7 @@ import {
   type TimesheetRow,
 } from "@/lib/timesheet";
 import { cn } from "@/lib/utils";
-import { formatDateKey, formatWeekRange, getEmployeeFullName, getWeekDays } from "@/lib/week";
+import { formatDateKey, formatWeekRange, getEmployeeFullName, getTimesheetSettings, getWeekDays } from "@/lib/week";
 
 const UNSELECTED_PROJECT = "__unselected__";
 const TASK_PROJECT_VALUE = "__task__";
@@ -61,11 +61,7 @@ export function CrewMobileTimesheet() {
   } = useScheduling();
   const { permissions, linkedEmployeeId, canEditEntry, authLoading } = usePermissions();
 
-  /** Always include Sat/Sun so weekend hours can be logged on mobile. */
-  const timesheetSettings = useMemo(
-    () => ({ ...settings, include_weekends: true }),
-    [settings],
-  );
+  const timesheetSettings = useMemo(() => getTimesheetSettings(settings), [settings]);
 
   const weekDays = useMemo(
     () => getWeekDays(selectedWeekStart, timesheetSettings),

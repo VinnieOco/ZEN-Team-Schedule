@@ -19,7 +19,7 @@ import {
   getTimesheetLineLabel,
   rowTotalHours,
 } from "@/lib/timesheet";
-import { formatDateKey, formatWeekRange, getEmployeeFullName, getWeekDays } from "@/lib/week";
+import { formatDateKey, formatWeekRange, getEmployeeFullName, getTimesheetSettings, getWeekDays } from "@/lib/week";
 
 export function TimeEntriesList() {
   const {
@@ -38,9 +38,11 @@ export function TimeEntriesList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [entriesSearch, setEntriesSearch] = useState("");
 
+  const timesheetSettings = useMemo(() => getTimesheetSettings(settings), [settings]);
+
   const weekTimeEntries = useMemo(
-    () => filterTimeEntriesForWeek(timeEntries, selectedWeekStart, settings),
-    [timeEntries, selectedWeekStart, settings],
+    () => filterTimeEntriesForWeek(timeEntries, selectedWeekStart, timesheetSettings),
+    [timeEntries, selectedWeekStart, timesheetSettings],
   );
 
   const scopedWeekEntries = useMemo(() => {
@@ -52,8 +54,8 @@ export function TimeEntriesList() {
   const canSearchEntries = isManagerOrAdmin;
 
   const weekDays = useMemo(
-    () => getWeekDays(selectedWeekStart, settings),
-    [selectedWeekStart, settings],
+    () => getWeekDays(selectedWeekStart, timesheetSettings),
+    [selectedWeekStart, timesheetSettings],
   );
   const weekDateKeys = useMemo(() => weekDays.map(formatDateKey), [weekDays]);
 
@@ -86,7 +88,7 @@ export function TimeEntriesList() {
     getCategoryById,
   ]);
 
-  const weekLabel = formatWeekRange(selectedWeekStart, settings);
+  const weekLabel = formatWeekRange(selectedWeekStart, timesheetSettings);
 
   const openEdit = (employeeId: string) => {
     setEditEmployeeId(employeeId);

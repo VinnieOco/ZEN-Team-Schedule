@@ -31,6 +31,7 @@ import {
   formatTimesheetDayHeader,
   formatWeekRange,
   getEmployeeFullName,
+  getTimesheetSettings,
   getWeekDays,
 } from "@/lib/week";
 import { cn } from "@/lib/utils";
@@ -75,9 +76,10 @@ export function WeeklyTimesheet({
   } = useScheduling();
   const { permissions, linkedEmployeeId, canEditEntry, authLoading } = usePermissions();
 
+  const timesheetSettings = useMemo(() => getTimesheetSettings(settings), [settings]);
   const weekDays = useMemo(
-    () => getWeekDays(selectedWeekStart, settings),
-    [selectedWeekStart, settings],
+    () => getWeekDays(selectedWeekStart, timesheetSettings),
+    [selectedWeekStart, timesheetSettings],
   );
   const weekDateKeys = useMemo(() => weekDays.map(formatDateKey), [weekDays]);
 
@@ -104,9 +106,9 @@ export function WeeklyTimesheet({
   const canEditRowHours = (row: TimesheetRow) => canEdit && !isRowLocked(row);
 
   const weekEntries = useMemo(() => {
-    const forWeek = filterTimeEntriesForWeek(timeEntries, selectedWeekStart, settings);
+    const forWeek = filterTimeEntriesForWeek(timeEntries, selectedWeekStart, timesheetSettings);
     return forWeek.filter((e) => e.employee_id === employeeId);
-  }, [timeEntries, selectedWeekStart, settings, employeeId]);
+  }, [timeEntries, selectedWeekStart, timesheetSettings, employeeId]);
 
   const loadRows = useCallback(() => {
     setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
@@ -377,7 +379,7 @@ export function WeeklyTimesheet({
           <div className="space-y-2">
             <Label>Week of</Label>
             <p className="rounded-md border bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800">
-              {formatWeekRange(selectedWeekStart, settings)}
+              {formatWeekRange(selectedWeekStart, timesheetSettings)}
             </p>
           </div>
         </div>
@@ -418,7 +420,7 @@ export function WeeklyTimesheet({
           <div className="space-y-2">
             <Label>Week of</Label>
             <p className="rounded-md border bg-white px-3 py-2 text-sm font-medium text-slate-800">
-              {formatWeekRange(selectedWeekStart, settings)}
+              {formatWeekRange(selectedWeekStart, timesheetSettings)}
             </p>
           </div>
         </div>
