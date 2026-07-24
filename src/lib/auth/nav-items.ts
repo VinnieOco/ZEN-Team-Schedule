@@ -6,10 +6,10 @@ import {
   FolderKanban,
   GanttChart,
   LayoutDashboard,
-  ListOrdered,
   Settings,
   Timer,
   Users,
+  Workflow,
 } from "lucide-react";
 
 import type { AppPermissions } from "@/lib/auth/permissions";
@@ -35,11 +35,11 @@ export interface AppNavItem {
 export const APP_NAV_ITEMS: AppNavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "viewDashboard" },
   { href: "/todos", label: "To-dos", icon: CheckSquare, permission: "viewTodos" },
+  { href: "/pipeline", label: "Pipeline", icon: Workflow, permission: "viewQueue" },
   { href: "/scheduling", label: "Team Scheduling", icon: CalendarDays, permission: "viewScheduling" },
   { href: "/time-tracking", label: "Time Tracking", icon: Timer, permission: "viewTimeTracking" },
   { href: "/projects", label: "Projects", icon: FolderKanban, permission: "viewProjects" },
   { href: "/gantt", label: "Schedules", icon: GanttChart, permission: "viewProjects" },
-  { href: "/queue", label: "Queue", icon: ListOrdered, permission: "viewQueue" },
   { href: "/crm", label: "CRM", icon: Users, permission: "viewCrm" },
   { href: "/reports", label: "Reports", icon: BarChart3, permission: "viewReports" },
   { href: "/settings", label: "Settings", icon: Settings, permission: "viewSettings" },

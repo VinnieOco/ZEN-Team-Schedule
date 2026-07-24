@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { addMonths, addWeeks, subMonths, subWeeks } from "date-fns";
+import { addMonths, addWeeks, format, subMonths, subWeeks } from "date-fns";
 
 import {
   categories as seedCategories,
@@ -89,6 +89,12 @@ import type {
   TimeEntryFormValues,
   Todo,
   TodoNoteSourceType,
+  Lead,
+  LeadFormValues,
+  Estimate,
+  EstimateFormValues,
+  EstimateResult,
+  EstimateStage,
 } from "@/types";
 
 const STORAGE_KEY = "zen-scheduling-state";
@@ -107,6 +113,8 @@ interface PersistedState {
   projectPhases?: ScheduledProjectPhase[];
   projectMilestones?: ProjectMilestone[];
   todos?: Todo[];
+  leads?: Lead[];
+  estimates?: Estimate[];
   settings: CompanySettings;
 }
 
@@ -127,6 +135,8 @@ interface SchedulingContextValue {
   projectPhases: ScheduledProjectPhase[];
   projectMilestones: ProjectMilestone[];
   todos: Todo[];
+  leads: Lead[];
+  estimates: Estimate[];
   settings: CompanySettings;
   selectedWeekStart: Date;
   filters: SchedulingFilters;
@@ -163,6 +173,21 @@ interface SchedulingContextValue {
   addTodo: (employeeId: string, body: string) => void;
   setTodoCompleted: (id: string, completed: boolean) => void;
   deleteTodo: (id: string) => void;
+  addLead: (values: LeadFormValues) => Lead;
+  updateLead: (id: string, values: LeadFormValues) => void;
+  deleteLead: (id: string) => void;
+  convertLeadToProject: (id: string) => Project | null;
+  addEstimate: (values: EstimateFormValues) => Estimate;
+  updateEstimate: (id: string, values: EstimateFormValues) => void;
+  deleteEstimate: (id: string) => void;
+  setEstimateStage: (id: string, stage: EstimateStage) => void;
+  markEstimateSubmitted: (id: string, submittedDate?: string) => void;
+  setEstimateResult: (id: string, result: EstimateResult) => void;
+  /** Clones an estimate as the next revision, back in pricing with result cleared. */
+  reviseEstimate: (id: string) => Estimate | null;
+  setEstimateChecklistItem: (id: string, itemId: string, done: boolean) => void;
+  addEstimateChecklistItem: (id: string, label: string) => void;
+  removeEstimateChecklistItem: (id: string, itemId: string) => void;
   updateSettings: (settings: Partial<CompanySettings>) => void;
   updateEmployee: (id: string, updates: Partial<Employee>) => void;
   addEmployee: (values: EmployeeFormValues) => Employee;
@@ -211,6 +236,13 @@ function getPersistErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return "Save failed";
+}
+
+/** Won/lost stages carry the result; any other stage means the package is still open. */
+function estimateResultForStage(stage: EstimateStage): EstimateResult {
+  if (stage === "won") return "won";
+  if (stage === "lost") return "lost";
+  return "pending";
 }
 
 function buildAllocation(values: AllocationFormValues, id?: string): Allocation {
@@ -297,6 +329,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     useSupabase ? [] : (persisted?.projectMilestones ?? []),
   );
   const [todos, setTodos] = useState<Todo[]>(useSupabase ? [] : (persisted?.todos ?? []));
+  const [leads, setLeads] = useState<Lead[]>(useSupabase ? [] : (persisted?.leads ?? []));
+  const [estimates, setEstimates] = useState<Estimate[]>(
+    useSupabase ? [] : (persisted?.estimates ?? []),
+  );
   const [settings, setSettings] = useState<CompanySettings>(() =>
     normalizeCompanySettings(persisted?.settings ?? seedSettings),
   );
@@ -387,6 +423,22 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const leadsData = await repo.listLeads();
+        setLeads(leadsData);
+      } catch {
+        // Table may be missing until migration 20260724160000_leads.sql is applied.
+        setLeads([]);
+      }
+
+      try {
+        const estimatesData = await repo.listEstimates();
+        setEstimates(estimatesData);
+      } catch {
+        // Table may be missing until migration 20260724170000_estimates.sql is applied.
+        setEstimates([]);
+      }
+
+      try {
         const persistence = createQueueStatePersistence(supabase);
         initQueuePersistence(persistence, { useRemote: true });
         await flushPersistQueue();
@@ -437,6 +489,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectPhases,
       projectMilestones,
       todos,
+      leads,
+      estimates,
       settings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -453,6 +507,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     projectPhases,
     projectMilestones,
     todos,
+    leads,
+    estimates,
     settings,
   ]);
 
@@ -1438,6 +1494,340 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  const leadFromFormValues = useCallback(
+    (values: LeadFormValues, existing?: Lead): Lead => {
+      const now = new Date().toISOString();
+      return {
+        id: existing?.id ?? generateId(),
+        title: values.title?.trim() || undefined,
+        client_name: values.client_name.trim(),
+        contact_name: values.contact_name?.trim() || undefined,
+        contact_phone: values.contact_phone?.trim() || undefined,
+        contact_email: values.contact_email?.trim() || undefined,
+        source: values.source,
+        status: values.status,
+        expected_value: values.expected_value,
+        probability: values.probability,
+        next_follow_up_date: values.next_follow_up_date || undefined,
+        owner_employee_id: values.owner_employee_id || undefined,
+        notes: values.notes?.trim() || undefined,
+        converted_project_id: existing?.converted_project_id,
+        created_at: existing?.created_at ?? now,
+        updated_at: now,
+      };
+    },
+    [],
+  );
+
+  const addLead = useCallback(
+    (values: LeadFormValues): Lead => {
+      const lead = leadFromFormValues(values);
+      setLeads((prev) => {
+        const snapshot = prev;
+        const next = [lead, ...prev];
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertLead(lead),
+            () => setLeads(snapshot),
+          );
+        }
+        return next;
+      });
+      return lead;
+    },
+    [leadFromFormValues, persistAsync],
+  );
+
+  const updateLead = useCallback(
+    (id: string, values: LeadFormValues) => {
+      setLeads((prev) => {
+        const existing = prev.find((l) => l.id === id);
+        if (!existing) return prev;
+        const snapshot = prev;
+        const updated = leadFromFormValues(values, existing);
+        const next = prev.map((l) => (l.id === id ? updated : l));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertLead(updated),
+            () => setLeads(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [leadFromFormValues, persistAsync],
+  );
+
+  const deleteLead = useCallback(
+    (id: string) => {
+      setLeads((prev) => {
+        const snapshot = prev;
+        const next = prev.filter((l) => l.id !== id);
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteLead(id),
+            () => setLeads(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const convertLeadToProject = useCallback(
+    (id: string): Project | null => {
+      const lead = leads.find((l) => l.id === id);
+      if (!lead || lead.converted_project_id) return null;
+
+      const projectName = lead.title?.trim() || lead.client_name.trim();
+      const project = addProject({
+        project_name: projectName,
+        client_name: lead.client_name,
+        department: "Design",
+        phase: "Concept",
+        lead_employee_id: lead.owner_employee_id,
+        budgeted_design_hours: 0,
+        design_amount: lead.expected_value,
+        phone: lead.contact_phone,
+        email: lead.contact_email,
+        scope_of_work: lead.notes,
+        active: true,
+      });
+
+      const now = new Date().toISOString();
+      setLeads((prev) => {
+        const snapshot = prev;
+        const next = prev.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                status: "won" as const,
+                converted_project_id: project.id,
+                updated_at: now,
+              }
+            : l,
+        );
+        const updated = next.find((l) => l.id === id);
+        if (repoRef.current && updated) {
+          void persistAsync(
+            () => repoRef.current!.upsertLead(updated),
+            () => setLeads(snapshot),
+          );
+        }
+        return next;
+      });
+
+      return project;
+    },
+    [leads, addProject, persistAsync],
+  );
+
+  const estimateFromFormValues = useCallback(
+    (values: EstimateFormValues, existing?: Estimate): Estimate => {
+      const now = new Date().toISOString();
+      return {
+        id: existing?.id ?? generateId(),
+        client_name: values.client_name.trim(),
+        project_id: values.project_id || undefined,
+        title: values.title?.trim() || undefined,
+        estimate_type: values.estimate_type,
+        revision_number: existing?.revision_number ?? 0,
+        revises_estimate_id: existing?.revises_estimate_id,
+        estimator_id: values.estimator_id || undefined,
+        received_date: values.received_date || undefined,
+        due_date: values.due_date || undefined,
+        submitted_date: values.submitted_date || undefined,
+        amount: values.amount,
+        stage: values.stage,
+        result: estimateResultForStage(values.stage),
+        checklist: existing?.checklist ?? [],
+        notes: values.notes?.trim() || undefined,
+        sort_order: existing?.sort_order ?? 0,
+        created_at: existing?.created_at ?? now,
+        updated_at: now,
+      };
+    },
+    [],
+  );
+
+  /** Applies a change to one estimate, persisting it and rolling back the list on failure. */
+  const mutateEstimate = useCallback(
+    (id: string, mutate: (estimate: Estimate) => Estimate) => {
+      setEstimates((prev) => {
+        const existing = prev.find((e) => e.id === id);
+        if (!existing) return prev;
+        const snapshot = prev;
+        const updated: Estimate = {
+          ...mutate(existing),
+          updated_at: new Date().toISOString(),
+        };
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertEstimate(updated),
+            () => setEstimates(snapshot),
+          );
+        }
+        return prev.map((e) => (e.id === id ? updated : e));
+      });
+    },
+    [persistAsync],
+  );
+
+  const addEstimate = useCallback(
+    (values: EstimateFormValues): Estimate => {
+      const estimate = estimateFromFormValues(values);
+      setEstimates((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertEstimate(estimate),
+            () => setEstimates(snapshot),
+          );
+        }
+        return [estimate, ...prev];
+      });
+      return estimate;
+    },
+    [estimateFromFormValues, persistAsync],
+  );
+
+  const updateEstimate = useCallback(
+    (id: string, values: EstimateFormValues) => {
+      mutateEstimate(id, (existing) => estimateFromFormValues(values, existing));
+    },
+    [estimateFromFormValues, mutateEstimate],
+  );
+
+  const deleteEstimate = useCallback(
+    (id: string) => {
+      setEstimates((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteEstimate(id),
+            () => setEstimates(snapshot),
+          );
+        }
+        return prev.filter((e) => e.id !== id);
+      });
+    },
+    [persistAsync],
+  );
+
+  const setEstimateStage = useCallback(
+    (id: string, stage: EstimateStage) => {
+      mutateEstimate(id, (existing) => ({
+        ...existing,
+        stage,
+        result: estimateResultForStage(stage),
+        submitted_date:
+          stage === "submitted" && !existing.submitted_date
+            ? format(new Date(), "yyyy-MM-dd")
+            : existing.submitted_date,
+      }));
+    },
+    [mutateEstimate],
+  );
+
+  const markEstimateSubmitted = useCallback(
+    (id: string, submittedDate?: string) => {
+      mutateEstimate(id, (existing) => ({
+        ...existing,
+        stage: "submitted",
+        result: "pending",
+        submitted_date:
+          submittedDate || existing.submitted_date || format(new Date(), "yyyy-MM-dd"),
+      }));
+    },
+    [mutateEstimate],
+  );
+
+  const setEstimateResult = useCallback(
+    (id: string, result: EstimateResult) => {
+      mutateEstimate(id, (existing) => {
+        if (result === "pending") {
+          const reopened =
+            existing.stage === "won" || existing.stage === "lost"
+              ? "follow_up"
+              : existing.stage;
+          return { ...existing, result, stage: reopened };
+        }
+        return { ...existing, result, stage: result };
+      });
+    },
+    [mutateEstimate],
+  );
+
+  const reviseEstimate = useCallback(
+    (id: string): Estimate | null => {
+      const source = estimates.find((e) => e.id === id);
+      if (!source) return null;
+
+      const now = new Date().toISOString();
+      const revision: Estimate = {
+        ...source,
+        id: generateId(),
+        revision_number: source.revision_number + 1,
+        revises_estimate_id: source.id,
+        stage: "pricing",
+        result: "pending",
+        submitted_date: undefined,
+        checklist: source.checklist.map((item) => ({ ...item, done: false })),
+        created_at: now,
+        updated_at: now,
+      };
+
+      setEstimates((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertEstimate(revision),
+            () => setEstimates(snapshot),
+          );
+        }
+        return [revision, ...prev];
+      });
+
+      return revision;
+    },
+    [estimates, persistAsync],
+  );
+
+  const setEstimateChecklistItem = useCallback(
+    (id: string, itemId: string, done: boolean) => {
+      mutateEstimate(id, (existing) => ({
+        ...existing,
+        checklist: existing.checklist.map((item) =>
+          item.id === itemId ? { ...item, done } : item,
+        ),
+      }));
+    },
+    [mutateEstimate],
+  );
+
+  const addEstimateChecklistItem = useCallback(
+    (id: string, label: string) => {
+      const trimmed = label.trim();
+      if (!trimmed) return;
+      mutateEstimate(id, (existing) => ({
+        ...existing,
+        checklist: [...existing.checklist, { id: generateId(), label: trimmed, done: false }],
+      }));
+    },
+    [mutateEstimate],
+  );
+
+  const removeEstimateChecklistItem = useCallback(
+    (id: string, itemId: string) => {
+      mutateEstimate(id, (existing) => ({
+        ...existing,
+        checklist: existing.checklist.filter((item) => item.id !== itemId),
+      }));
+    },
+    [mutateEstimate],
+  );
+
   const updateSettings = useCallback(
     (partial: Partial<CompanySettings>) => {
       const snapshot = settings;
@@ -1710,6 +2100,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectPhases,
       projectMilestones,
       todos,
+      leads,
+      estimates,
       settings,
       selectedWeekStart,
       filters,
@@ -1745,6 +2137,20 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addTodo,
       setTodoCompleted,
       deleteTodo,
+      addLead,
+      updateLead,
+      deleteLead,
+      convertLeadToProject,
+      addEstimate,
+      updateEstimate,
+      deleteEstimate,
+      setEstimateStage,
+      markEstimateSubmitted,
+      setEstimateResult,
+      reviseEstimate,
+      setEstimateChecklistItem,
+      addEstimateChecklistItem,
+      removeEstimateChecklistItem,
       updateSettings,
       updateEmployee,
       addEmployee,
@@ -1778,6 +2184,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectPhases,
       projectMilestones,
       todos,
+      leads,
+      estimates,
       settings,
       selectedWeekStart,
       filters,
@@ -1813,6 +2221,20 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addTodo,
       setTodoCompleted,
       deleteTodo,
+      addLead,
+      updateLead,
+      deleteLead,
+      convertLeadToProject,
+      addEstimate,
+      updateEstimate,
+      deleteEstimate,
+      setEstimateStage,
+      markEstimateSubmitted,
+      setEstimateResult,
+      reviseEstimate,
+      setEstimateChecklistItem,
+      addEstimateChecklistItem,
+      removeEstimateChecklistItem,
       updateSettings,
       updateEmployee,
       addEmployee,

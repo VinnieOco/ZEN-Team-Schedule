@@ -5,6 +5,8 @@ import type {
   Client,
   CompanySettings,
   Employee,
+  Estimate,
+  Lead,
   Project,
   ClientNote,
   ProjectNote,
@@ -52,6 +54,12 @@ export interface SchedulingRepository {
   upsertTodo(todo: Todo): Promise<Todo>;
   deleteTodo(id: string): Promise<void>;
   deleteMentionTodosForNote(noteId: string, noteType: TodoNoteSourceType): Promise<void>;
+  listLeads(): Promise<Lead[]>;
+  upsertLead(lead: Lead): Promise<Lead>;
+  deleteLead(id: string): Promise<void>;
+  listEstimates(): Promise<Estimate[]>;
+  upsertEstimate(estimate: Estimate): Promise<Estimate>;
+  deleteEstimate(id: string): Promise<void>;
   upsertEmployee(employee: Employee): Promise<Employee>;
   deleteEmployee(id: string): Promise<void>;
   upsertCategory(category: AllocationCategory): Promise<AllocationCategory>;

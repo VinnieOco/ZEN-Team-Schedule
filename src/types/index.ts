@@ -3,10 +3,13 @@ export type UtilizationStatus = "under" | "healthy" | "near" | "over";
 export type ProjectPhase =
   | "Concept"
   | "Schematic Design"
+  | "Budgeting"
   | "Design Development"
+  | "Construction Drawings"
   | "Construction Documents"
   | "Estimating"
   | "Revisions"
+  | "Construction"
   | "Construction Support"
   | "Closeout";
 
@@ -164,6 +167,102 @@ export interface Todo {
   source_note_type?: TodoNoteSourceType | null;
   created_at: string;
   updated_at: string;
+}
+
+export type LeadSource = "architect" | "past_client" | "referral" | "web" | "other";
+export type LeadStatus = "new" | "qualifying" | "proposal_sent" | "won" | "lost";
+
+export interface Lead {
+  id: string;
+  /** Opportunity / job name (optional; falls back to client_name in UI). */
+  title?: string;
+  client_name: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  source: LeadSource;
+  status: LeadStatus;
+  expected_value?: number;
+  probability?: number;
+  next_follow_up_date?: string;
+  owner_employee_id?: string;
+  notes?: string;
+  converted_project_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadFormValues {
+  title?: string;
+  client_name: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  source: LeadSource;
+  status: LeadStatus;
+  expected_value?: number;
+  probability?: number;
+  next_follow_up_date?: string;
+  owner_employee_id?: string;
+  notes?: string;
+}
+
+export type EstimateType = "budget" | "cost_proposal" | "contract";
+export type EstimateStage =
+  | "backlog"
+  | "waiting_docs"
+  | "pricing"
+  | "submitted"
+  | "follow_up"
+  | "won"
+  | "lost";
+export type EstimateResult = "pending" | "won" | "lost";
+
+export interface EstimateChecklistItem {
+  id: string;
+  label: string;
+  done: boolean;
+}
+
+/** Estimate package for a client; revisions form a chain via revises_estimate_id. */
+export interface Estimate {
+  id: string;
+  client_name: string;
+  /** Optional link to the design/construction job this prices. */
+  project_id?: string;
+  /** Display name (optional; falls back to client_name in UI). */
+  title?: string;
+  estimate_type: EstimateType;
+  /** 0 for the original package, incremented on each Revise. */
+  revision_number: number;
+  revises_estimate_id?: string;
+  estimator_id?: string;
+  received_date?: string;
+  due_date?: string;
+  /** Drives submitted-this-week $ metrics. */
+  submitted_date?: string;
+  amount?: number;
+  stage: EstimateStage;
+  result: EstimateResult;
+  checklist: EstimateChecklistItem[];
+  notes?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EstimateFormValues {
+  client_name: string;
+  project_id?: string;
+  title?: string;
+  estimate_type: EstimateType;
+  estimator_id?: string;
+  received_date?: string;
+  due_date?: string;
+  submitted_date?: string;
+  amount?: number;
+  stage: EstimateStage;
+  notes?: string;
 }
 
 export interface AllocationCategory {

@@ -6,6 +6,14 @@ import type {
   Client,
   CompanySettings,
   Employee,
+  Estimate,
+  EstimateChecklistItem,
+  EstimateResult,
+  EstimateStage,
+  EstimateType,
+  Lead,
+  LeadSource,
+  LeadStatus,
   Project,
   ClientNote,
   ProjectNote,
@@ -297,6 +305,185 @@ export function todoToRow(todo: Todo) {
     source_note_type: todo.source_note_type ?? null,
     created_at: todo.created_at,
     updated_at: todo.updated_at,
+  };
+}
+
+type LeadRow = {
+  id: string;
+  title: string | null;
+  client_name: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  source: string;
+  status: string;
+  expected_value: number | null;
+  probability: number | null;
+  next_follow_up_date: string | null;
+  owner_employee_id: string | null;
+  notes: string | null;
+  converted_project_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const LEAD_SOURCES = new Set(["architect", "past_client", "referral", "web", "other"]);
+const LEAD_STATUSES = new Set(["new", "qualifying", "proposal_sent", "won", "lost"]);
+
+export function mapLead(row: LeadRow): Lead {
+  const source = LEAD_SOURCES.has(row.source) ? (row.source as LeadSource) : "other";
+  const status = LEAD_STATUSES.has(row.status) ? (row.status as LeadStatus) : "new";
+  return {
+    id: row.id,
+    title: row.title?.trim() || undefined,
+    client_name: row.client_name,
+    contact_name: row.contact_name?.trim() || undefined,
+    contact_phone: row.contact_phone?.trim() || undefined,
+    contact_email: row.contact_email?.trim() || undefined,
+    source,
+    status,
+    expected_value:
+      row.expected_value != null && Number.isFinite(Number(row.expected_value))
+        ? Number(row.expected_value)
+        : undefined,
+    probability:
+      row.probability != null && Number.isFinite(Number(row.probability))
+        ? Number(row.probability)
+        : undefined,
+    next_follow_up_date: row.next_follow_up_date ?? undefined,
+    owner_employee_id: row.owner_employee_id ?? undefined,
+    notes: row.notes?.trim() || undefined,
+    converted_project_id: row.converted_project_id ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function leadToRow(lead: Lead) {
+  return {
+    id: lead.id,
+    title: lead.title?.trim() || null,
+    client_name: lead.client_name.trim(),
+    contact_name: lead.contact_name?.trim() || null,
+    contact_phone: lead.contact_phone?.trim() || null,
+    contact_email: lead.contact_email?.trim() || null,
+    source: lead.source,
+    status: lead.status,
+    expected_value: lead.expected_value ?? null,
+    probability: lead.probability ?? null,
+    next_follow_up_date: lead.next_follow_up_date || null,
+    owner_employee_id: lead.owner_employee_id || null,
+    notes: lead.notes?.trim() || null,
+    converted_project_id: lead.converted_project_id || null,
+    created_at: lead.created_at,
+    updated_at: lead.updated_at,
+  };
+}
+
+type EstimateRow = {
+  id: string;
+  client_name: string;
+  project_id: string | null;
+  title: string | null;
+  estimate_type: string;
+  revision_number: number;
+  revises_estimate_id: string | null;
+  estimator_id: string | null;
+  received_date: string | null;
+  due_date: string | null;
+  submitted_date: string | null;
+  amount: number | null;
+  stage: string;
+  result: string;
+  checklist: unknown;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+const ESTIMATE_TYPE_VALUES = new Set(["budget", "cost_proposal", "contract"]);
+const ESTIMATE_STAGE_VALUES = new Set([
+  "backlog",
+  "waiting_docs",
+  "pricing",
+  "submitted",
+  "follow_up",
+  "won",
+  "lost",
+]);
+const ESTIMATE_RESULT_VALUES = new Set(["pending", "won", "lost"]);
+
+function mapEstimateChecklist(value: unknown): EstimateChecklistItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as { id?: unknown; label?: unknown; done?: unknown };
+    if (typeof item.id !== "string" || typeof item.label !== "string") return [];
+    return [{ id: item.id, label: item.label, done: item.done === true }];
+  });
+}
+
+export function mapEstimate(row: EstimateRow): Estimate {
+  const estimateType = ESTIMATE_TYPE_VALUES.has(row.estimate_type)
+    ? (row.estimate_type as EstimateType)
+    : "budget";
+  const stage = ESTIMATE_STAGE_VALUES.has(row.stage)
+    ? (row.stage as EstimateStage)
+    : "backlog";
+  const result = ESTIMATE_RESULT_VALUES.has(row.result)
+    ? (row.result as EstimateResult)
+    : "pending";
+
+  return {
+    id: row.id,
+    client_name: row.client_name,
+    project_id: row.project_id ?? undefined,
+    title: row.title?.trim() || undefined,
+    estimate_type: estimateType,
+    revision_number: Number.isFinite(Number(row.revision_number))
+      ? Number(row.revision_number)
+      : 0,
+    revises_estimate_id: row.revises_estimate_id ?? undefined,
+    estimator_id: row.estimator_id ?? undefined,
+    received_date: row.received_date ?? undefined,
+    due_date: row.due_date ?? undefined,
+    submitted_date: row.submitted_date ?? undefined,
+    amount:
+      row.amount != null && Number.isFinite(Number(row.amount))
+        ? Number(row.amount)
+        : undefined,
+    stage,
+    result,
+    checklist: mapEstimateChecklist(row.checklist),
+    notes: row.notes?.trim() || undefined,
+    sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function estimateToRow(estimate: Estimate) {
+  return {
+    id: estimate.id,
+    client_name: estimate.client_name.trim(),
+    project_id: estimate.project_id || null,
+    title: estimate.title?.trim() || null,
+    estimate_type: estimate.estimate_type,
+    revision_number: estimate.revision_number,
+    revises_estimate_id: estimate.revises_estimate_id || null,
+    estimator_id: estimate.estimator_id || null,
+    received_date: estimate.received_date || null,
+    due_date: estimate.due_date || null,
+    submitted_date: estimate.submitted_date || null,
+    amount: estimate.amount ?? null,
+    stage: estimate.stage,
+    result: estimate.result,
+    checklist: estimate.checklist,
+    notes: estimate.notes?.trim() || null,
+    sort_order: estimate.sort_order,
+    created_at: estimate.created_at,
+    updated_at: estimate.updated_at,
   };
 }
 

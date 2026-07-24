@@ -16,11 +16,15 @@ import {
   mapSettings,
   mapTimeEntry,
   mapTodo,
+  mapLead,
+  mapEstimate,
+  estimateToRow,
   projectNoteToRow,
   projectToRow,
   settingsToRow,
   timeEntryToRow,
   todoToRow,
+  leadToRow,
 } from "@/lib/data/mappers";
 import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
 import {
@@ -47,6 +51,8 @@ import type {
   ScheduledProjectPhase,
   TimeEntry,
   Todo,
+  Lead,
+  Estimate,
   TodoNoteSourceType,
 } from "@/types";
 
@@ -351,6 +357,55 @@ export function createSupabaseRepository(
         .eq("source_note_id", noteId)
         .eq("source_note_type", noteType)
         .eq("source_type", "mention");
+      if (error) throw error;
+    },
+
+    async listLeads() {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapLead);
+    },
+
+    async upsertLead(lead: Lead) {
+      const { data, error } = await supabase
+        .from("leads")
+        .upsert(leadToRow(lead))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapLead(data);
+    },
+
+    async deleteLead(id: string) {
+      const { error } = await supabase.from("leads").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async listEstimates() {
+      const { data, error } = await supabase
+        .from("estimates")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapEstimate);
+    },
+
+    async upsertEstimate(estimate: Estimate) {
+      const { data, error } = await supabase
+        .from("estimates")
+        .upsert(estimateToRow(estimate))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapEstimate(data);
+    },
+
+    async deleteEstimate(id: string) {
+      const { error } = await supabase.from("estimates").delete().eq("id", id);
       if (error) throw error;
     },
 

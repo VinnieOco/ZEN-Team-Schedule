@@ -19,9 +19,16 @@ const TableBody = ({ className, ...props }: React.HTMLAttributes<HTMLTableSectio
   <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />
 );
 
-const TableRow = ({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) => (
-  <tr className={cn("border-b transition-colors hover:bg-slate-50/50", className)} {...props} />
+const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
+  ({ className, ...props }, ref) => (
+    <tr
+      ref={ref}
+      className={cn("border-b transition-colors hover:bg-slate-50/50", className)}
+      {...props}
+    />
+  ),
 );
+TableRow.displayName = "TableRow";
 
 const TableHead = ({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th className={cn("h-10 px-4 text-left align-middle font-medium text-muted-foreground", className)} {...props} />

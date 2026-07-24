@@ -39,10 +39,13 @@ export function normalizeEstimatingStage(stage: string): EstimatingQueueStage {
 const PHASE_TO_ESTIMATING: Record<string, EstimatingQueueStage> = {
   Concept: "lead",
   "Schematic Design": "lead",
+  Budgeting: "waiting_docs",
   "Design Development": "waiting_docs",
+  "Construction Drawings": "pricing",
   "Construction Documents": "pricing",
   Estimating: "pricing",
   Revisions: "submitted",
+  Construction: "submitted",
   "Construction Support": "submitted",
   Closeout: "won",
 };
@@ -51,9 +54,12 @@ const PHASE_TO_ESTIMATING: Record<string, EstimatingQueueStage> = {
 const PHASE_TO_DESIGN: Record<string, DesignQueueStage> = {
   Concept: "backlog",
   "Schematic Design": "ready",
+  Budgeting: "active",
   "Design Development": "active_dd_cd",
+  "Construction Drawings": "active_dd_cd",
   "Construction Documents": "active_dd_cd",
   Revisions: "client_review",
+  Construction: "complete",
   "Construction Support": "complete",
   Closeout: "complete",
 };

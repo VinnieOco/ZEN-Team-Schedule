@@ -1,12 +1,12 @@
 import type { ProjectPhase } from "@/types";
 
+/** Primary project phases aligned with the Pipeline overview funnel. */
 export const PROJECT_PHASES: ProjectPhase[] = [
-  "Concept",
   "Schematic Design",
+  "Budgeting",
   "Design Development",
-  "Construction Documents",
+  "Construction Drawings",
   "Estimating",
-  "Revisions",
-  "Construction Support",
+  "Construction",
   "Closeout",
 ];
