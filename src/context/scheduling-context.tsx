@@ -90,6 +90,7 @@ import type {
   Todo,
   TodoNoteSourceType,
   Lead,
+  LeadFollowUp,
   LeadNote,
   LeadFormValues,
   Estimate,
@@ -99,6 +100,19 @@ import type {
 } from "@/types";
 
 const STORAGE_KEY = "zen-scheduling-state";
+
+/** Latest (furthest-out) due date among a lead's open follow-ups. */
+function latestOpenFollowUpDate(
+  followUps: LeadFollowUp[],
+  leadId: string,
+): string | undefined {
+  let latest: string | undefined;
+  for (const followUp of followUps) {
+    if (followUp.lead_id !== leadId || followUp.completed || !followUp.due_date) continue;
+    if (!latest || followUp.due_date > latest) latest = followUp.due_date;
+  }
+  return latest;
+}
 
 type DataSource = "local" | "supabase";
 
@@ -116,6 +130,7 @@ interface PersistedState {
   todos?: Todo[];
   leads?: Lead[];
   leadNotes?: LeadNote[];
+  leadFollowUps?: LeadFollowUp[];
   estimates?: Estimate[];
   settings: CompanySettings;
 }
@@ -139,6 +154,7 @@ interface SchedulingContextValue {
   todos: Todo[];
   leads: Lead[];
   leadNotes: LeadNote[];
+  leadFollowUps: LeadFollowUp[];
   estimates: Estimate[];
   settings: CompanySettings;
   selectedWeekStart: Date;
@@ -185,6 +201,9 @@ interface SchedulingContextValue {
   deleteLead: (id: string) => void;
   addLeadNote: (leadId: string, body: string) => void;
   deleteLeadNote: (id: string) => void;
+  addLeadFollowUp: (leadId: string, dueDate: string, typeId?: string) => void;
+  setLeadFollowUpCompleted: (id: string, completed: boolean) => void;
+  deleteLeadFollowUp: (id: string) => void;
   convertLeadToProject: (id: string) => Project | null;
   addEstimate: (values: EstimateFormValues) => Estimate;
   updateEstimate: (id: string, values: EstimateFormValues) => void;
@@ -356,6 +375,24 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       ];
     });
   });
+  const [leadFollowUps, setLeadFollowUps] = useState<LeadFollowUp[]>(() => {
+    if (useSupabase) return [];
+    if (persisted?.leadFollowUps) return persisted.leadFollowUps;
+    // Seed one open follow-up per lead from the date saved on the lead itself.
+    return (persisted?.leads ?? []).flatMap((lead) => {
+      if (!lead.next_follow_up_date) return [];
+      return [
+        {
+          id: generateId(),
+          lead_id: lead.id,
+          due_date: lead.next_follow_up_date,
+          completed: false,
+          created_at: lead.updated_at,
+          updated_at: lead.updated_at,
+        },
+      ];
+    });
+  });
   const [estimates, setEstimates] = useState<Estimate[]>(
     useSupabase ? [] : (persisted?.estimates ?? []),
   );
@@ -465,6 +502,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const leadFollowUpsData = await repo.listLeadFollowUps();
+        setLeadFollowUps(leadFollowUpsData);
+      } catch {
+        // Table may be missing until the lead follow-ups migration is applied.
+        setLeadFollowUps([]);
+      }
+
+      try {
         const estimatesData = await repo.listEstimates();
         setEstimates(estimatesData);
       } catch {
@@ -525,6 +570,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       todos,
       leads,
       leadNotes,
+      leadFollowUps,
       estimates,
       settings,
     };
@@ -544,6 +590,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     todos,
     leads,
     leadNotes,
+    leadFollowUps,
     estimates,
     settings,
   ]);
@@ -1558,6 +1605,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         contact_name: values.contact_name?.trim() || undefined,
         contact_phone: values.contact_phone?.trim() || undefined,
         contact_email: values.contact_email?.trim() || undefined,
+        address: values.address?.trim() || undefined,
         source: values.source,
         status: values.status,
         expected_value: values.expected_value,
@@ -1571,6 +1619,36 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       };
     },
     [],
+  );
+
+  /** Record a follow-up entry when a date is set through the lead form. */
+  const insertFollowUpRecord = useCallback(
+    (leadId: string, dueDate: string, typeId?: string) => {
+      const now = new Date().toISOString();
+      const followUp: LeadFollowUp = {
+        id: generateId(),
+        lead_id: leadId,
+        due_date: dueDate,
+        follow_up_type_id:
+          typeId?.trim() ||
+          settings.lead_follow_up_types?.[0]?.id ||
+          undefined,
+        completed: false,
+        created_at: now,
+        updated_at: now,
+      };
+      setLeadFollowUps((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertLeadFollowUp(followUp),
+            () => setLeadFollowUps(snapshot),
+          );
+        }
+        return [followUp, ...prev];
+      });
+    },
+    [persistAsync, settings.lead_follow_up_types],
   );
 
   const addLead = useCallback(
@@ -1587,13 +1665,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      if (lead.next_follow_up_date) {
+        insertFollowUpRecord(lead.id, lead.next_follow_up_date);
+      }
       return lead;
     },
-    [leadFromFormValues, persistAsync],
+    [leadFromFormValues, insertFollowUpRecord, persistAsync],
   );
 
   const updateLead = useCallback(
     (id: string, values: LeadFormValues) => {
+      const previousDate = leads.find((l) => l.id === id)?.next_follow_up_date;
       setLeads((prev) => {
         const existing = prev.find((l) => l.id === id);
         if (!existing) return prev;
@@ -1608,8 +1690,18 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      const newDate = values.next_follow_up_date?.trim() || undefined;
+      if (
+        newDate &&
+        newDate !== previousDate &&
+        !leadFollowUps.some(
+          (f) => f.lead_id === id && !f.completed && f.due_date === newDate,
+        )
+      ) {
+        insertFollowUpRecord(id, newDate);
+      }
     },
-    [leadFromFormValues, persistAsync],
+    [leads, leadFollowUps, leadFromFormValues, insertFollowUpRecord, persistAsync],
   );
 
   const deleteLead = useCallback(
@@ -1626,6 +1718,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         return next;
       });
       setLeadNotes((prev) => prev.filter((note) => note.lead_id !== id));
+      setLeadFollowUps((prev) => prev.filter((followUp) => followUp.lead_id !== id));
     },
     [persistAsync],
   );
@@ -1679,6 +1772,105 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [persistAsync],
   );
 
+  /** Mirror the latest open follow-up date onto the lead so pipeline views stay in sync. */
+  const syncLeadNextFollowUp = useCallback(
+    (leadId: string, followUps: LeadFollowUp[]) => {
+      const nextDate = latestOpenFollowUpDate(followUps, leadId);
+      setLeads((prev) => {
+        const existing = prev.find((l) => l.id === leadId);
+        if (!existing || (existing.next_follow_up_date ?? undefined) === nextDate) {
+          return prev;
+        }
+        const snapshot = prev;
+        const updated: Lead = {
+          ...existing,
+          next_follow_up_date: nextDate,
+          updated_at: new Date().toISOString(),
+        };
+        const next = prev.map((l) => (l.id === leadId ? updated : l));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.upsertLead(updated),
+            () => setLeads(snapshot),
+          );
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const addLeadFollowUp = useCallback(
+    (leadId: string, dueDate: string, typeId?: string) => {
+      const date = dueDate.trim();
+      if (!date) return;
+      const now = new Date().toISOString();
+      const followUp: LeadFollowUp = {
+        id: generateId(),
+        lead_id: leadId,
+        due_date: date,
+        follow_up_type_id: typeId?.trim() || undefined,
+        completed: false,
+        created_at: now,
+        updated_at: now,
+      };
+      const snapshot = leadFollowUps;
+      const next = [followUp, ...snapshot];
+      setLeadFollowUps(next);
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.upsertLeadFollowUp(followUp),
+          () => setLeadFollowUps(snapshot),
+        );
+      }
+      syncLeadNextFollowUp(leadId, next);
+    },
+    [leadFollowUps, persistAsync, syncLeadNextFollowUp],
+  );
+
+  const setLeadFollowUpCompleted = useCallback(
+    (id: string, completed: boolean) => {
+      const existing = leadFollowUps.find((f) => f.id === id);
+      if (!existing || existing.completed === completed) return;
+      const now = new Date().toISOString();
+      const updated: LeadFollowUp = {
+        ...existing,
+        completed,
+        completed_at: completed ? now : null,
+        updated_at: now,
+      };
+      const snapshot = leadFollowUps;
+      const next = snapshot.map((f) => (f.id === id ? updated : f));
+      setLeadFollowUps(next);
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.upsertLeadFollowUp(updated),
+          () => setLeadFollowUps(snapshot),
+        );
+      }
+      syncLeadNextFollowUp(existing.lead_id, next);
+    },
+    [leadFollowUps, persistAsync, syncLeadNextFollowUp],
+  );
+
+  const deleteLeadFollowUp = useCallback(
+    (id: string) => {
+      const existing = leadFollowUps.find((f) => f.id === id);
+      if (!existing) return;
+      const snapshot = leadFollowUps;
+      const next = snapshot.filter((f) => f.id !== id);
+      setLeadFollowUps(next);
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.deleteLeadFollowUp(id),
+          () => setLeadFollowUps(snapshot),
+        );
+      }
+      syncLeadNextFollowUp(existing.lead_id, next);
+    },
+    [leadFollowUps, persistAsync, syncLeadNextFollowUp],
+  );
+
   const convertLeadToProject = useCallback(
     (id: string): Project | null => {
       const lead = leads.find((l) => l.id === id);
@@ -1693,6 +1885,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         lead_employee_id: lead.owner_employee_id,
         budgeted_design_hours: 0,
         design_amount: lead.expected_value,
+        address: lead.address,
         phone: lead.contact_phone,
         email: lead.contact_email,
         active: true,
@@ -2276,6 +2469,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       todos,
       leads,
       leadNotes,
+      leadFollowUps,
       estimates,
       settings,
       selectedWeekStart,
@@ -2317,6 +2511,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteLead,
       addLeadNote,
       deleteLeadNote,
+      addLeadFollowUp,
+      setLeadFollowUpCompleted,
+      deleteLeadFollowUp,
       convertLeadToProject,
       addEstimate,
       updateEstimate,
@@ -2363,6 +2560,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       todos,
       leads,
       leadNotes,
+      leadFollowUps,
       estimates,
       settings,
       selectedWeekStart,
@@ -2404,6 +2602,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteLead,
       addLeadNote,
       deleteLeadNote,
+      addLeadFollowUp,
+      setLeadFollowUpCompleted,
+      deleteLeadFollowUp,
       convertLeadToProject,
       addEstimate,
       updateEstimate,

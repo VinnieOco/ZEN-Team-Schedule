@@ -201,6 +201,7 @@ export interface Lead {
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
+  address?: string;
   source: LeadSource;
   status: LeadStatus;
   expected_value?: number;
@@ -222,12 +223,37 @@ export interface LeadNote {
   updated_at: string;
 }
 
+export interface LeadFollowUpTypeOption {
+  id: string;
+  label: string;
+}
+
+export const DEFAULT_LEAD_FOLLOW_UP_TYPES: LeadFollowUpTypeOption[] = [
+  { id: "phone_call", label: "Phone call" },
+  { id: "email", label: "Email" },
+  { id: "site_visit", label: "Site visit" },
+];
+
+export interface LeadFollowUp {
+  id: string;
+  lead_id: string;
+  /** ISO date (yyyy-mm-dd) the follow-up is scheduled for. */
+  due_date: string;
+  /** Matches a LeadFollowUpTypeOption.id from company settings. */
+  follow_up_type_id?: string;
+  completed: boolean;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface LeadFormValues {
   title?: string;
   client_name: string;
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
+  address?: string;
   source: LeadSource;
   status: LeadStatus;
   expected_value?: number;
@@ -350,6 +376,8 @@ export interface CompanySettings {
   class_codes: string[];
   /** Configurable lead pipeline stages (order = kanban / filter order). */
   lead_stages: LeadStageOption[];
+  /** Configurable follow-up types for lead contact follow-ups. */
+  lead_follow_up_types: LeadFollowUpTypeOption[];
 }
 
 export interface EmployeeWeekStats {

@@ -69,6 +69,10 @@ import {
   leadStatusLabel,
   newLeadsThisWeek,
 } from "@/lib/pipeline/leads";
+import {
+  latestOpenLeadFollowUp,
+  leadFollowUpTypeLabel,
+} from "@/lib/pipeline/lead-follow-up-types";
 import { leadStageOptions } from "@/lib/pipeline/lead-stages";
 import { formatPipelineValue } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
@@ -108,6 +112,7 @@ function leadToFormValues(lead: Lead, status?: LeadStatus): LeadFormValues {
     contact_name: lead.contact_name,
     contact_phone: lead.contact_phone,
     contact_email: lead.contact_email,
+    address: lead.address,
     source: lead.source,
     status: status ?? lead.status,
     expected_value: lead.expected_value,
@@ -196,6 +201,7 @@ export function PipelineLeadsTab() {
 
   const {
     leads,
+    leadFollowUps,
     settings,
     getEmployeeById,
     deleteLead,
@@ -552,6 +558,21 @@ export function PipelineLeadsTab() {
                             )}
                           >
                             {formatShortDate(lead.next_follow_up_date)}
+                            {(() => {
+                              const nextFollowUp = latestOpenLeadFollowUp(
+                                leadFollowUps,
+                                lead.id,
+                              );
+                              if (!nextFollowUp?.follow_up_type_id) return null;
+                              return (
+                                <p className="text-[11px] font-normal text-muted-foreground">
+                                  {leadFollowUpTypeLabel(
+                                    settings,
+                                    nextFollowUp.follow_up_type_id,
+                                  )}
+                                </p>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell
                             className={cn("text-right tabular-nums", daysLeftClass(days))}
@@ -829,6 +850,7 @@ export function PipelineLeadsTab() {
           ) : (
             <LeadKanban
               leads={filtered}
+              leadFollowUps={leadFollowUps}
               settings={settings}
               canEditStatus={canEdit}
               ownerName={ownerName}

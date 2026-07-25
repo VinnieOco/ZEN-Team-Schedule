@@ -19,6 +19,10 @@ import { format, parseISO } from "date-fns";
 import { GripVertical } from "lucide-react";
 
 import {
+  latestOpenLeadFollowUp,
+  leadFollowUpTypeLabel,
+} from "@/lib/pipeline/lead-follow-up-types";
+import {
   compareLeadsForQueue,
   isLeadFollowUpDue,
   leadDisplayName,
@@ -28,12 +32,13 @@ import {
 import { leadStageOptions } from "@/lib/pipeline/lead-stages";
 import { formatProjectAmount } from "@/lib/project-format";
 import { cn } from "@/lib/utils";
-import type { CompanySettings, Lead, LeadStatus } from "@/types";
+import type { CompanySettings, Lead, LeadFollowUp, LeadStatus } from "@/types";
 
 const DROP_PREFIX = "lead-status:";
 
 interface LeadKanbanProps {
   leads: Lead[];
+  leadFollowUps: LeadFollowUp[];
   settings: CompanySettings;
   canEditStatus: boolean;
   ownerName: (lead: Lead) => string | undefined;
@@ -54,10 +59,12 @@ function LeadCardBody({
   lead,
   ownerName,
   settings,
+  followUpType,
 }: {
   lead: Lead;
   ownerName?: string;
   settings: CompanySettings;
+  followUpType?: string;
 }) {
   const followUp = formatDue(lead.next_follow_up_date);
   return (
@@ -82,11 +89,16 @@ function LeadCardBody({
         {followUp ? (
           <span
             className={cn(
-              "tabular-nums",
+              "text-right tabular-nums",
               isLeadFollowUpDue(lead, new Date(), settings) && "font-semibold text-rose-700",
             )}
           >
             {followUp}
+            {followUpType ? (
+              <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                {followUpType}
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -98,12 +110,14 @@ function DraggableLeadCard({
   lead,
   ownerName,
   settings,
+  followUpType,
   canDrag,
   onSelect,
 }: {
   lead: Lead;
   ownerName?: string;
   settings: CompanySettings;
+  followUpType?: string;
   canDrag: boolean;
   onSelect: () => void;
 }) {
@@ -135,7 +149,12 @@ function DraggableLeadCard({
         onClick={onSelect}
         aria-label={`Open ${leadDisplayName(lead)}`}
       >
-        <LeadCardBody lead={lead} ownerName={ownerName} settings={settings} />
+        <LeadCardBody
+          lead={lead}
+          ownerName={ownerName}
+          settings={settings}
+          followUpType={followUpType}
+        />
       </button>
     </div>
   );
@@ -145,6 +164,7 @@ function StatusColumn({
   status,
   label,
   leads,
+  leadFollowUps,
   settings,
   canEditStatus,
   ownerName,
@@ -153,6 +173,7 @@ function StatusColumn({
   status: LeadStatus;
   label: string;
   leads: Lead[];
+  leadFollowUps: LeadFollowUp[];
   settings: CompanySettings;
   canEditStatus: boolean;
   ownerName: (lead: Lead) => string | undefined;
@@ -190,16 +211,23 @@ function StatusColumn({
             Drop here
           </div>
         ) : (
-          leads.map((lead) => (
-            <DraggableLeadCard
-              key={lead.id}
-              lead={lead}
-              ownerName={ownerName(lead)}
-              settings={settings}
-              canDrag={canEditStatus}
-              onSelect={() => onSelect(lead)}
-            />
-          ))
+          leads.map((lead) => {
+            const nextFollowUp = latestOpenLeadFollowUp(leadFollowUps, lead.id);
+            const followUpType = nextFollowUp?.follow_up_type_id
+              ? leadFollowUpTypeLabel(settings, nextFollowUp.follow_up_type_id)
+              : undefined;
+            return (
+              <DraggableLeadCard
+                key={lead.id}
+                lead={lead}
+                ownerName={ownerName(lead)}
+                settings={settings}
+                followUpType={followUpType}
+                canDrag={canEditStatus}
+                onSelect={() => onSelect(lead)}
+              />
+            );
+          })
         )}
       </div>
       <div className="border-t bg-slate-100/80 px-2.5 py-2 sm:px-3">
@@ -216,6 +244,7 @@ function StatusColumn({
 
 export function LeadKanban({
   leads,
+  leadFollowUps,
   settings,
   canEditStatus,
   ownerName,
@@ -292,6 +321,7 @@ export function LeadKanban({
                 status={status.value}
                 label={status.label}
                 leads={byStatus.get(status.value) ?? []}
+                leadFollowUps={leadFollowUps}
                 settings={settings}
                 canEditStatus={canEditStatus}
                 ownerName={ownerName}
@@ -308,6 +338,12 @@ export function LeadKanban({
                 lead={activeLead}
                 ownerName={ownerName(activeLead)}
                 settings={settings}
+                followUpType={(() => {
+                  const nextFollowUp = latestOpenLeadFollowUp(leadFollowUps, activeLead.id);
+                  return nextFollowUp?.follow_up_type_id
+                    ? leadFollowUpTypeLabel(settings, nextFollowUp.follow_up_type_id)
+                    : undefined;
+                })()}
               />
             </div>
           ) : null}

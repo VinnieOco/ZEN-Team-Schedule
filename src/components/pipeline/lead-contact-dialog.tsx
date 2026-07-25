@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { format, parseISO } from "date-fns";
-import { Check, Mail, Phone, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { format, isBefore, parseISO, startOfDay } from "date-fns";
+import { CalendarPlus, Check, Mail, MapPin, Phone, Trash2, UserRound } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DateInput } from "@/components/ui/date-input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { googleMapsUrl } from "@/lib/maps";
+import {
+  defaultLeadFollowUpTypeId,
+  leadFollowUpTypeLabel,
+  leadFollowUpTypeOptions,
+} from "@/lib/pipeline/lead-follow-up-types";
 import {
   leadDisplayName,
   leadSourceBadgeClass,
@@ -39,14 +53,46 @@ function formatNoteDate(value: string): string {
   }
 }
 
+function formatFollowUpDate(value: string): string {
+  try {
+    return format(parseISO(value), "EEE, MMM d, yyyy");
+  } catch {
+    return value;
+  }
+}
+
+function isOverdue(dueDate: string): boolean {
+  try {
+    return isBefore(parseISO(dueDate), startOfDay(new Date()));
+  } catch {
+    return false;
+  }
+}
+
 export function LeadContactDialog({
   lead,
   open,
   onOpenChange,
 }: LeadContactDialogProps) {
-  const { leadNotes, settings, addLeadNote } = useScheduling();
+  const {
+    leadNotes,
+    leadFollowUps,
+    settings,
+    addLeadNote,
+    addLeadFollowUp,
+    setLeadFollowUpCompleted,
+    deleteLeadFollowUp,
+  } = useScheduling();
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
+  const [followUpDraft, setFollowUpDraft] = useState("");
+  const [followUpTypeDraft, setFollowUpTypeDraft] = useState("");
+
+  const typeOptions = useMemo(() => leadFollowUpTypeOptions(settings), [settings]);
+  const defaultTypeId = useMemo(
+    () => defaultLeadFollowUpTypeId(settings) ?? "",
+    [settings],
+  );
 
   const notes = useMemo(() => {
     if (!lead) return [];
@@ -58,7 +104,42 @@ export function LeadContactDialog({
       );
   }, [lead, leadNotes]);
 
+  const followUps = useMemo(() => {
+    if (!lead) return [];
+    return leadFollowUps
+      .filter((followUp) => followUp.lead_id === lead.id)
+      .sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        return b.due_date.localeCompare(a.due_date);
+      });
+  }, [lead, leadFollowUps]);
+
+  useEffect(() => {
+    if (!followUpTypeDraft && defaultTypeId) {
+      setFollowUpTypeDraft(defaultTypeId);
+      return;
+    }
+    if (
+      followUpTypeDraft &&
+      typeOptions.length > 0 &&
+      !typeOptions.some((option) => option.value === followUpTypeDraft)
+    ) {
+      setFollowUpTypeDraft(defaultTypeId);
+    }
+  }, [defaultTypeId, followUpTypeDraft, typeOptions]);
+
+  const activeFollowUpId = useMemo(() => {
+    let active: { id: string; due_date: string } | undefined;
+    for (const followUp of followUps) {
+      if (followUp.completed) continue;
+      if (!active || followUp.due_date > active.due_date) active = followUp;
+    }
+    return active?.id;
+  }, [followUps]);
+
   if (!lead) return null;
+
+  const mapsUrl = googleMapsUrl(lead.address);
 
   const handleSave = () => {
     const body = draft.trim();
@@ -66,6 +147,13 @@ export function LeadContactDialog({
     addLeadNote(lead.id, body);
     setDraft("");
     setSaved(true);
+  };
+
+  const handleAddFollowUp = () => {
+    if (!followUpDraft) return;
+    addLeadFollowUp(lead.id, followUpDraft, followUpTypeDraft || defaultTypeId);
+    setFollowUpDraft("");
+    setFollowUpTypeDraft(defaultTypeId);
   };
 
   return (
@@ -76,6 +164,8 @@ export function LeadContactDialog({
         if (!next) {
           setDraft("");
           setSaved(false);
+          setFollowUpDraft("");
+          setFollowUpTypeDraft(defaultTypeId);
         }
       }}
     >
@@ -83,7 +173,8 @@ export function LeadContactDialog({
         <DialogHeader>
           <DialogTitle>{leadDisplayName(lead)}</DialogTitle>
           <DialogDescription>
-            Contact information and dated lead notes. Lead details are read-only here.
+            Contact information, follow-ups, and dated lead notes. Lead details are
+            read-only here.
           </DialogDescription>
         </DialogHeader>
 
@@ -146,6 +237,129 @@ export function LeadContactDialog({
                   No email address
                 </div>
               )}
+              {mapsUrl ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-auto justify-start bg-white py-2 text-left sm:col-span-2"
+                >
+                  <a href={mapsUrl} target="_blank" rel="noreferrer">
+                    <MapPin className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="whitespace-pre-wrap">{lead.address?.trim()}</span>
+                  </a>
+                </Button>
+              ) : (
+                <div className="flex h-10 items-center rounded-md border bg-white px-3 text-sm text-muted-foreground sm:col-span-2">
+                  <MapPin className="mr-2 h-4 w-4" />
+                  No address on file
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Follow-ups</h3>
+              <p className="text-xs text-muted-foreground">
+                Check off a follow-up when it&apos;s done. The latest open date shows in the
+                pipeline queue.
+              </p>
+            </div>
+
+            {followUps.length > 0 ? (
+              <div className="divide-y rounded-lg border bg-white px-3">
+                {followUps.map((followUp) => {
+                  const overdue = !followUp.completed && isOverdue(followUp.due_date);
+                  return (
+                    <div key={followUp.id} className="flex items-center gap-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={followUp.completed}
+                        onChange={(event) =>
+                          setLeadFollowUpCompleted(followUp.id, event.target.checked)
+                        }
+                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        aria-label={
+                          followUp.completed
+                            ? "Mark follow-up open"
+                            : "Mark follow-up complete"
+                        }
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={cn(
+                            "text-sm font-medium",
+                            followUp.completed
+                              ? "text-muted-foreground line-through"
+                              : overdue
+                                ? "text-red-600"
+                                : "text-slate-900",
+                          )}
+                        >
+                          {formatFollowUpDate(followUp.due_date)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {leadFollowUpTypeLabel(settings, followUp.follow_up_type_id)}
+                          {followUp.completed && followUp.completed_at
+                            ? ` · Completed ${formatNoteDate(followUp.completed_at)}`
+                            : overdue
+                              ? " · Overdue"
+                              : null}
+                        </p>
+                      </div>
+                      {followUp.id === activeFollowUpId ? (
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 bg-emerald-50 font-medium text-emerald-700"
+                        >
+                          Next up
+                        </Badge>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-red-600"
+                        onClick={() => deleteLeadFollowUp(followUp.id)}
+                        aria-label="Delete follow-up"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-dashed bg-slate-50 px-3 py-4 text-center text-sm text-muted-foreground">
+                No follow-ups scheduled for this lead yet.
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={followUpTypeDraft || defaultTypeId}
+                onValueChange={setFollowUpTypeDraft}
+              >
+                <SelectTrigger className="w-[10.5rem]" aria-label="Follow-up type">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {typeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DateInput
+                value={followUpDraft}
+                onChange={(event) => setFollowUpDraft(event.target.value)}
+                aria-label="New follow-up date"
+              />
+              <Button type="button" onClick={handleAddFollowUp} disabled={!followUpDraft}>
+                <CalendarPlus className="mr-1.5 h-4 w-4" />
+                Add follow-up
+              </Button>
             </div>
           </section>
 

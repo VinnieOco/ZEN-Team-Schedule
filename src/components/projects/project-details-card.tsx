@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Employee, Project } from "@/types";
 import type { ProjectBudgetRollup } from "@/lib/change-orders";
+import { googleMapsUrl } from "@/lib/maps";
 import { formatProjectAmount, formatProjectDepartment, getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 
@@ -81,7 +82,14 @@ export function ProjectDetailsCard({
             <div className="space-y-3 border-t border-border/60 pt-4">
               <ContactRow icon={MapPin}>
                 {project.address?.trim() ? (
-                  <span className="whitespace-pre-wrap">{project.address.trim()}</span>
+                  <a
+                    href={googleMapsUrl(project.address)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="whitespace-pre-wrap hover:underline"
+                  >
+                    {project.address.trim()}
+                  </a>
                 ) : (
                   <span className="text-muted-foreground">No address on file</span>
                 )}

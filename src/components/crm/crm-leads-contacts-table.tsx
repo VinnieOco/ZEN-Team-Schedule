@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Mail, Phone, Search, UserRound, X } from "lucide-react";
+import { Mail, MapPin, Phone, Search, UserRound, X } from "lucide-react";
 
 import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { LeadContactDialog } from "@/components/pipeline/lead-contact-dialog";
@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
+import { googleMapsUrl } from "@/lib/maps";
 import {
   leadDisplayName,
   leadSourceBadgeClass,
@@ -41,7 +42,8 @@ function hasContactInfo(lead: Lead): boolean {
   return Boolean(
     lead.contact_name?.trim() ||
       lead.contact_phone?.trim() ||
-      lead.contact_email?.trim(),
+      lead.contact_email?.trim() ||
+      lead.address?.trim(),
   );
 }
 
@@ -69,6 +71,7 @@ export function CrmLeadsContactsTable() {
         lead.client_name,
         lead.contact_phone,
         lead.contact_email,
+        lead.address,
         leadDisplayName(lead),
         leadSourceLabel(lead.source),
         leadStatusLabel(lead.status, settings),
@@ -92,7 +95,7 @@ export function CrmLeadsContactsTable() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
-              placeholder="Search contact, client, phone, or email…"
+              placeholder="Search contact, client, phone, email, or address…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -134,6 +137,7 @@ export function CrmLeadsContactsTable() {
                 <TableHead>Client / Lead</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -142,6 +146,7 @@ export function CrmLeadsContactsTable() {
               {visible.map((lead) => {
                 const phone = lead.contact_phone?.trim();
                 const email = lead.contact_email?.trim();
+                const mapsUrl = googleMapsUrl(lead.address);
                 return (
                   <TableRow
                     key={lead.id}
@@ -187,6 +192,23 @@ export function CrmLeadsContactsTable() {
                         >
                           <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           <span className="truncate">{email}</span>
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {mapsUrl ? (
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex max-w-[240px] items-center gap-1.5 text-sm text-slate-800 hover:text-emerald-700 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                          title={lead.address?.trim()}
+                        >
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{lead.address?.trim()}</span>
                         </a>
                       ) : (
                         <span className="text-muted-foreground">—</span>

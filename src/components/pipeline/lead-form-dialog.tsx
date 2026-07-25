@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MapPin } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScheduling } from "@/context/scheduling-context";
+import { googleMapsUrl } from "@/lib/maps";
 import { LEAD_SOURCES } from "@/lib/pipeline/leads";
 import { leadStageOptions, openLeadStageIds } from "@/lib/pipeline/lead-stages";
 import { getEmployeeFullName } from "@/lib/week";
@@ -40,6 +42,7 @@ function emptyValues(defaultStatus: LeadStatus = "new"): LeadFormValues {
     contact_name: "",
     contact_phone: "",
     contact_email: "",
+    address: "",
     source: "other",
     status: defaultStatus,
     expected_value: undefined,
@@ -57,6 +60,7 @@ function fromLead(lead: Lead): LeadFormValues {
     contact_name: lead.contact_name ?? "",
     contact_phone: lead.contact_phone ?? "",
     contact_email: lead.contact_email ?? "",
+    address: lead.address ?? "",
     source: lead.source,
     status: lead.status,
     expected_value: lead.expected_value,
@@ -75,6 +79,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const isEdit = Boolean(lead);
   const stageOptions = useMemo(() => leadStageOptions(settings), [settings]);
   const defaultStatus = openLeadStageIds(settings)[0] ?? "new";
+  const mapsUrl = googleMapsUrl(values.address);
 
   useEffect(() => {
     if (!open) return;
@@ -228,6 +233,28 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
                 onChange={(e) => patch("contact_email", e.target.value)}
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="lead-address">Address</Label>
+              {mapsUrl ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:underline"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Open in Google Maps
+                </a>
+              ) : null}
+            </div>
+            <Input
+              id="lead-address"
+              value={values.address ?? ""}
+              onChange={(e) => patch("address", e.target.value)}
+              placeholder="Street, city, state"
+            />
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">

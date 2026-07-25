@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import type { ClientContactFields } from "@/lib/clients";
+import { googleMapsUrl } from "@/lib/maps";
 
 interface ClientContactSectionProps {
   clientKey: string;
@@ -175,7 +176,14 @@ export function ClientContactSection({
         <div className="space-y-3 border-t border-border/60 pt-4">
           <ContactRow icon={MapPin}>
             {address ? (
-              <span className="whitespace-pre-wrap">{address}</span>
+              <a
+                href={googleMapsUrl(address)}
+                target="_blank"
+                rel="noreferrer"
+                className="whitespace-pre-wrap hover:underline"
+              >
+                {address}
+              </a>
             ) : (
               <span className="text-muted-foreground">No address on file</span>
             )}

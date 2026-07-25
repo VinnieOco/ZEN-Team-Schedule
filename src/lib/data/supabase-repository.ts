@@ -17,6 +17,7 @@ import {
   mapTimeEntry,
   mapTodo,
   mapLead,
+  mapLeadFollowUp,
   mapLeadNote,
   mapEstimate,
   estimateToRow,
@@ -26,6 +27,7 @@ import {
   timeEntryToRow,
   todoToRow,
   leadToRow,
+  leadFollowUpToRow,
   leadNoteToRow,
 } from "@/lib/data/mappers";
 import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
@@ -54,6 +56,7 @@ import type {
   TimeEntry,
   Todo,
   Lead,
+  LeadFollowUp,
   LeadNote,
   Estimate,
   TodoNoteSourceType,
@@ -404,6 +407,30 @@ export function createSupabaseRepository(
         .single();
       if (error) throw error;
       return mapLeadNote(data);
+    },
+
+    async listLeadFollowUps() {
+      const { data, error } = await supabase
+        .from("lead_follow_ups")
+        .select("*")
+        .order("due_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapLeadFollowUp);
+    },
+
+    async upsertLeadFollowUp(followUp: LeadFollowUp) {
+      const { data, error } = await supabase
+        .from("lead_follow_ups")
+        .upsert(leadFollowUpToRow(followUp))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapLeadFollowUp(data);
+    },
+
+    async deleteLeadFollowUp(id: string) {
+      const { error } = await supabase.from("lead_follow_ups").delete().eq("id", id);
+      if (error) throw error;
     },
 
     async deleteLeadNote(id: string) {

@@ -7,6 +7,7 @@ import type {
   Employee,
   Estimate,
   Lead,
+  LeadFollowUp,
   LeadNote,
   Project,
   ClientNote,
@@ -61,6 +62,9 @@ export interface SchedulingRepository {
   listLeadNotes(): Promise<LeadNote[]>;
   insertLeadNote(note: LeadNote): Promise<LeadNote>;
   deleteLeadNote(id: string): Promise<void>;
+  listLeadFollowUps(): Promise<LeadFollowUp[]>;
+  upsertLeadFollowUp(followUp: LeadFollowUp): Promise<LeadFollowUp>;
+  deleteLeadFollowUp(id: string): Promise<void>;
   listEstimates(): Promise<Estimate[]>;
   upsertEstimate(estimate: Estimate): Promise<Estimate>;
   deleteEstimate(id: string): Promise<void>;

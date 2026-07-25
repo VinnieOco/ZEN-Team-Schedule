@@ -341,7 +341,10 @@ export function findClientByRouteKey(
 
   const withContact =
     matchingLeads.find(
-      (lead) => lead.contact_phone?.trim() || lead.contact_email?.trim(),
+      (lead) =>
+        lead.contact_phone?.trim() ||
+        lead.contact_email?.trim() ||
+        lead.address?.trim(),
     ) ?? matchingLeads[0];
 
   return {
@@ -351,6 +354,7 @@ export function findClientByRouteKey(
     activeProjectCount: 0,
     totalBudgetedHours: 0,
     totalProjectAmount: 0,
+    address: withContact.address?.trim() || undefined,
     phone: withContact.contact_phone?.trim() || undefined,
     email: withContact.contact_email?.trim() || undefined,
     contactVaries: false,

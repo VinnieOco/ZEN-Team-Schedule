@@ -12,6 +12,7 @@ import type {
   EstimateStage,
   EstimateType,
   Lead,
+  LeadFollowUp,
   LeadNote,
   LeadSource,
   Project,
@@ -139,6 +140,7 @@ type SettingsRow = {
   departments?: string[] | null;
   class_codes?: string[] | null;
   lead_stages?: unknown;
+  lead_follow_up_types?: unknown;
 };
 
 export function mapEmployee(row: EmployeeRow): Employee {
@@ -316,6 +318,7 @@ type LeadRow = {
   contact_name: string | null;
   contact_phone: string | null;
   contact_email: string | null;
+  address: string | null;
   source: string;
   status: string;
   expected_value: number | null;
@@ -350,6 +353,7 @@ export function mapLead(row: LeadRow): Lead {
     contact_name: row.contact_name?.trim() || undefined,
     contact_phone: row.contact_phone?.trim() || undefined,
     contact_email: row.contact_email?.trim() || undefined,
+    address: row.address?.trim() || undefined,
     source,
     status,
     expected_value:
@@ -377,6 +381,7 @@ export function leadToRow(lead: Lead) {
     contact_name: lead.contact_name?.trim() || null,
     contact_phone: lead.contact_phone?.trim() || null,
     contact_email: lead.contact_email?.trim() || null,
+    address: lead.address?.trim() || null,
     source: lead.source,
     status: lead.status,
     expected_value: lead.expected_value ?? null,
@@ -409,6 +414,43 @@ export function leadNoteToRow(note: LeadNote) {
     created_by: note.created_by ?? null,
     created_at: note.created_at,
     updated_at: note.updated_at,
+  };
+}
+
+type LeadFollowUpRow = {
+  id: string;
+  lead_id: string;
+  due_date: string;
+  follow_up_type_id: string | null;
+  completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function mapLeadFollowUp(row: LeadFollowUpRow): LeadFollowUp {
+  return {
+    id: row.id,
+    lead_id: row.lead_id,
+    due_date: row.due_date,
+    follow_up_type_id: row.follow_up_type_id?.trim() || undefined,
+    completed: Boolean(row.completed),
+    completed_at: row.completed_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function leadFollowUpToRow(followUp: LeadFollowUp) {
+  return {
+    id: followUp.id,
+    lead_id: followUp.lead_id,
+    due_date: followUp.due_date,
+    follow_up_type_id: followUp.follow_up_type_id?.trim() || null,
+    completed: followUp.completed,
+    completed_at: followUp.completed_at ?? null,
+    created_at: followUp.created_at,
+    updated_at: followUp.updated_at,
   };
 }
 
@@ -572,6 +614,7 @@ export function mapSettings(row: SettingsRow): CompanySettings {
     departments: Array.isArray(row.departments) ? row.departments.map(String) : [],
     class_codes: Array.isArray(row.class_codes) ? row.class_codes.map(String) : [],
     lead_stages: row.lead_stages as CompanySettings["lead_stages"],
+    lead_follow_up_types: row.lead_follow_up_types as CompanySettings["lead_follow_up_types"],
   });
 }
 
@@ -675,6 +718,7 @@ export function settingsToRow(settings: CompanySettings) {
     departments: normalized.departments,
     class_codes: normalized.class_codes,
     lead_stages: normalized.lead_stages,
+    lead_follow_up_types: normalized.lead_follow_up_types,
   };
 }
 
