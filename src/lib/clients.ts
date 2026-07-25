@@ -1,5 +1,5 @@
 import { isParentProject } from "@/lib/change-orders";
-import type { Client, ClientNote, Project } from "@/types";
+import type { Client, ClientNote, Lead, Project } from "@/types";
 import { getProjectDesignAmount } from "@/lib/project-format";
 
 export interface ClientSummary {
@@ -288,6 +288,7 @@ export function findClientByRouteKey(
   projects: Project[],
   routeKey: string,
   registry: Client[] = [],
+  leads: Lead[] = [],
 ): ClientSummary | undefined {
   const name = clientNameFromRouteKey(routeKey);
   const key = normalizeClientName(name);
@@ -297,22 +298,61 @@ export function findClientByRouteKey(
     (p) => normalizeClientName(p.client_name ?? "") === key,
   );
   if (clientProjects.length > 0) {
-    return groupProjectsByClient(clientProjects, { showInactive: true })[0];
+    const summary = groupProjectsByClient(clientProjects, { showInactive: true })[0];
+    const registryClient = registry.find((c) => normalizeClientName(c.name) === key);
+    if (
+      summary &&
+      registryClient &&
+      !summary.address &&
+      !summary.phone &&
+      !summary.email
+    ) {
+      return {
+        ...summary,
+        address: registryClient.address,
+        phone: registryClient.phone,
+        email: registryClient.email,
+      };
+    }
+    return summary;
   }
 
   const client = registry.find((c) => normalizeClientName(c.name) === key);
-  if (!client) return undefined;
+  if (client) {
+    return {
+      key,
+      displayName: client.name.trim(),
+      projects: [],
+      activeProjectCount: 0,
+      totalBudgetedHours: 0,
+      totalProjectAmount: 0,
+      address: client.address,
+      phone: client.phone,
+      email: client.email,
+      contactVaries: false,
+    };
+  }
+
+  // Lead-only clients (not yet in registry / projects) still open a CRM detail page.
+  const matchingLeads = leads.filter(
+    (lead) => normalizeClientName(lead.client_name) === key,
+  );
+  if (matchingLeads.length === 0) return undefined;
+
+  const withContact =
+    matchingLeads.find(
+      (lead) => lead.contact_phone?.trim() || lead.contact_email?.trim(),
+    ) ?? matchingLeads[0];
 
   return {
     key,
-    displayName: client.name.trim(),
+    displayName: withContact.client_name.trim(),
     projects: [],
     activeProjectCount: 0,
     totalBudgetedHours: 0,
     totalProjectAmount: 0,
-    address: client.address,
-    phone: client.phone,
-    email: client.email,
+    phone: withContact.contact_phone?.trim() || undefined,
+    email: withContact.contact_email?.trim() || undefined,
     contactVaries: false,
   };
 }

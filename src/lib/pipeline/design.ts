@@ -89,14 +89,18 @@ export function buildDesignKpis(
   employees: Employee[],
   settings: CompanySettings,
   now = new Date(),
+  milestoneDates?: Map<string, string>,
 ): DesignKpiSummary {
   const active = items.filter(isActiveDesign);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
   const today = startOfDay(now);
 
+  // When milestone dates are supplied, "due this week" totals the tagged
+  // milestone dates from the priority queue instead of project due dates.
   const dueThisWeek = active.filter((item) => {
-    const due = parseDue(item.dueDate);
+    const source = milestoneDates ? milestoneDates.get(item.project.id) : item.dueDate;
+    const due = parseDue(source);
     if (!due) return false;
     return isWithinInterval(due, { start: weekStart, end: weekEnd });
   }).length;
@@ -237,16 +241,22 @@ export function buildDesignUpcomingDue(
 }
 
 /** Open design jobs due this calendar week — for the “this week” activity widget. */
-export function designDueThisWeek(items: DesignQueueItem[], now = new Date()): DesignQueueItem[] {
+export function designDueThisWeek(
+  items: DesignQueueItem[],
+  now = new Date(),
+  milestoneDates?: Map<string, string>,
+): DesignQueueItem[] {
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const effectiveDate = (item: DesignQueueItem) =>
+    milestoneDates ? milestoneDates.get(item.project.id) : item.dueDate;
   return items
     .filter((item) => {
       if (!isActiveDesign(item)) return false;
-      const due = parseDue(item.dueDate);
+      const due = parseDue(effectiveDate(item));
       return due ? isWithinInterval(due, { start: weekStart, end: weekEnd }) : false;
     })
-    .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+    .sort((a, b) => (effectiveDate(a) ?? "").localeCompare(effectiveDate(b) ?? ""));
 }
 
 export function buildDesignDueBuckets(

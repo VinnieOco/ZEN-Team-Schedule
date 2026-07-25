@@ -1,4 +1,8 @@
-import type { ProjectMilestone, ProjectMilestoneKind } from "@/types";
+import type {
+  ProjectMilestone,
+  ProjectMilestoneKind,
+  ProjectMilestonePipelineTag,
+} from "@/types";
 import { isChangeOrder } from "@/lib/change-orders";
 import type { ProjectFilters } from "@/lib/filter-projects";
 import { projectMatchesFilterCriteria } from "@/lib/filter-projects";
@@ -17,8 +21,39 @@ export const MILESTONE_KIND_OPTIONS: { value: ProjectMilestoneKind; label: strin
   { value: "other", label: "Other" },
 ];
 
+export const MILESTONE_PIPELINE_TAG_OPTIONS: {
+  value: ProjectMilestonePipelineTag;
+  label: string;
+}[] = [
+  { value: "design", label: "Design" },
+  { value: "estimating", label: "Estimating" },
+  { value: "construction", label: "Construction" },
+];
+
 export function milestoneKindLabel(kind: ProjectMilestoneKind): string {
   return MILESTONE_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? "Other";
+}
+
+export function milestonePipelineTagLabel(tag?: ProjectMilestonePipelineTag): string {
+  if (!tag) return "—";
+  return MILESTONE_PIPELINE_TAG_OPTIONS.find((o) => o.value === tag)?.label ?? tag;
+}
+
+/** Chronologically latest milestone date for a project + pipeline tag. */
+export function latestMilestoneDateForTag(
+  milestones: ProjectMilestone[],
+  projectId: string,
+  tag: ProjectMilestonePipelineTag,
+): string | undefined {
+  let latest: string | undefined;
+  for (const milestone of milestones) {
+    if (milestone.project_id !== projectId) continue;
+    if (milestone.pipeline_tag !== tag) continue;
+    const date = milestone.milestone_date?.trim();
+    if (!date) continue;
+    if (!latest || date.localeCompare(latest) > 0) latest = date;
+  }
+  return latest;
 }
 
 export function milestoneKindColors(kind: ProjectMilestoneKind): {

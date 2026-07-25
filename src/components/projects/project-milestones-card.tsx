@@ -25,11 +25,20 @@ import {
 } from "@/components/ui/table";
 import {
   MILESTONE_KIND_OPTIONS,
+  MILESTONE_PIPELINE_TAG_OPTIONS,
   milestoneKindLabel,
+  milestonePipelineTagLabel,
   milestonesForProject,
 } from "@/lib/gantt/milestones";
-import type { Project, ProjectMilestone, ProjectMilestoneKind } from "@/types";
+import type {
+  Project,
+  ProjectMilestone,
+  ProjectMilestoneKind,
+  ProjectMilestonePipelineTag,
+} from "@/types";
 import { cn } from "@/lib/utils";
+
+const NO_TAG = "__none__";
 
 interface ProjectMilestonesCardProps {
   project: Project;
@@ -78,15 +87,20 @@ export function ProjectMilestonesCard({
 
   const updateMilestone = (
     id: string,
-    field: keyof Pick<ProjectMilestone, "title" | "milestone_date" | "kind" | "notes">,
-    value: string,
+    patch: Partial<
+      Pick<ProjectMilestone, "title" | "milestone_date" | "kind" | "notes" | "pipeline_tag">
+    >,
   ) => {
     onCommit(
       milestones.map((m) =>
         m.id === id
           ? {
               ...m,
-              [field]: field === "kind" ? (value as ProjectMilestoneKind) : value,
+              ...patch,
+              pipeline_tag:
+                "pipeline_tag" in patch
+                  ? patch.pipeline_tag || undefined
+                  : m.pipeline_tag,
             }
           : m,
       ),
@@ -123,7 +137,7 @@ export function ProjectMilestonesCard({
           <CardTitle className="text-base">Milestones</CardTitle>
           <p className="text-sm text-muted-foreground">
             Submittals, meetings, reviews, permits, and other key dates appear as diamonds on the
-            timeline.
+            timeline. Tag Design or Estimating to show the latest date on those Pipeline tables.
           </p>
         </div>
         {canEdit && (
@@ -145,6 +159,7 @@ export function ProjectMilestonesCard({
                 <TableHead>Title</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Tag</TableHead>
                 <TableHead>Notes</TableHead>
                 {canEdit && <TableHead className="w-24 text-right">Actions</TableHead>}
               </TableRow>
@@ -165,7 +180,9 @@ export function ProjectMilestonesCard({
                         <Input
                           value={milestone.title}
                           className="h-8 min-w-[140px] bg-white"
-                          onChange={(e) => updateMilestone(milestone.id, "title", e.target.value)}
+                          onChange={(e) =>
+                            updateMilestone(milestone.id, { title: e.target.value })
+                          }
                         />
                       ) : (
                         milestone.title
@@ -177,7 +194,9 @@ export function ProjectMilestonesCard({
                           value={milestone.milestone_date}
                           className="bg-white"
                           onChange={(e) =>
-                            updateMilestone(milestone.id, "milestone_date", e.target.value)
+                            updateMilestone(milestone.id, {
+                              milestone_date: e.target.value,
+                            })
                           }
                         />
                       ) : (
@@ -190,7 +209,11 @@ export function ProjectMilestonesCard({
                       {editing ? (
                         <Select
                           value={milestone.kind}
-                          onValueChange={(value) => updateMilestone(milestone.id, "kind", value)}
+                          onValueChange={(value) =>
+                            updateMilestone(milestone.id, {
+                              kind: value as ProjectMilestoneKind,
+                            })
+                          }
                         >
                           <SelectTrigger className="h-8 w-[140px] bg-white">
                             <SelectValue />
@@ -209,11 +232,42 @@ export function ProjectMilestonesCard({
                     </TableCell>
                     <TableCell>
                       {editing ? (
+                        <Select
+                          value={milestone.pipeline_tag ?? NO_TAG}
+                          onValueChange={(value) =>
+                            updateMilestone(milestone.id, {
+                              pipeline_tag:
+                                value === NO_TAG
+                                  ? undefined
+                                  : (value as ProjectMilestonePipelineTag),
+                            })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[140px] bg-white">
+                            <SelectValue placeholder="None" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NO_TAG}>None</SelectItem>
+                            {MILESTONE_PIPELINE_TAG_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        milestonePipelineTagLabel(milestone.pipeline_tag)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editing ? (
                         <Input
                           value={milestone.notes ?? ""}
                           placeholder="Optional"
                           className="h-8 min-w-[120px] bg-white"
-                          onChange={(e) => updateMilestone(milestone.id, "notes", e.target.value)}
+                          onChange={(e) =>
+                            updateMilestone(milestone.id, { notes: e.target.value })
+                          }
                         />
                       ) : (
                         (milestone.notes ?? "—")

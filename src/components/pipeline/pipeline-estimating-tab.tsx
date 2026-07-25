@@ -2,6 +2,17 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { format, parseISO } from "date-fns";
 import {
   BarChart3,
@@ -9,6 +20,7 @@ import {
   CalendarClock,
   Clock3,
   DollarSign,
+  GripVertical,
   MoreHorizontal,
   Plus,
   Send,
@@ -48,17 +60,20 @@ import {
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
 import {
   ESTIMATE_STAGES,
   ESTIMATE_TYPES,
   buildEstimateDueBuckets,
   buildEstimateKpis,
+  buildEstimatePriorityGroups,
   buildEstimateTypeBuckets,
   buildEstimatorWorkload,
   compareEstimatesForQueue,
   daysLeftClass,
   estimateDaysLeft,
   estimateDisplayName,
+  estimatePriorityStageKey,
   estimateRevisionLabel,
   estimateRowAccentClass,
   estimateStageBadgeClass,
@@ -67,10 +82,13 @@ import {
   estimateTypeLabel,
   isEstimateDueOverdue,
   isOpenEstimate,
+  sortEstimatePriorityItems,
   submittedThisWeek,
 } from "@/lib/estimating/metrics";
+import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
 import { formatPipelineValue } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
+import { arrayMoveIds } from "@/lib/queue/column-order";
 import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Estimate } from "@/types";
@@ -105,6 +123,147 @@ function initials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function SortableEstimatePriorityRow({
+  estimate,
+  index,
+  milestoneDate,
+  canEdit,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  estimate: Estimate;
+  index: number;
+  milestoneDate?: string;
+  canEdit: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: estimate.id,
+    disabled: !canEdit,
+  });
+  const days = estimateDaysLeft(estimate);
+  const revision = estimateRevisionLabel(estimate);
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 20 : undefined,
+        position: isDragging ? "relative" : undefined,
+      }}
+      className={cn(
+        "group cursor-pointer",
+        isDragging && "bg-white opacity-80 shadow-lg",
+      )}
+      onClick={onOpen}
+    >
+      <TableCell className="relative py-3 pl-2">
+        <span
+          className={cn(
+            "absolute inset-y-2 left-0 w-1 rounded-r-full",
+            estimateRowAccentClass(estimate),
+          )}
+        />
+        <div className="flex items-center gap-1">
+          {canEdit ? (
+            <button
+              type="button"
+              className="flex h-7 w-6 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+              aria-label={`Drag ${estimateDisplayName(estimate)} to change priority`}
+              onClick={(e) => e.stopPropagation()}
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          ) : null}
+          <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-emerald-700 group-hover:underline">
+            {estimateDisplayName(estimate)}
+          </span>
+          {revision ? (
+            <Badge variant="secondary" className="px-1 py-0 text-[10px] font-normal">
+              {revision}
+            </Badge>
+          ) : null}
+        </div>
+      </TableCell>
+      <TableCell className="text-slate-700">{estimate.client_name}</TableCell>
+      <TableCell>
+        <span
+          className={cn(
+            "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+            estimateTypeBadgeClass(estimate.estimate_type),
+          )}
+        >
+          {estimateTypeLabel(estimate.estimate_type)}
+        </span>
+      </TableCell>
+      <TableCell className="tabular-nums text-slate-600">
+        {formatShortDate(estimate.received_date)}
+      </TableCell>
+      <TableCell className="tabular-nums text-slate-700">
+        {formatShortDate(milestoneDate)}
+      </TableCell>
+      <TableCell
+        className={cn(
+          "tabular-nums",
+          isEstimateDueOverdue(estimate) ? "font-semibold text-rose-600" : "text-slate-700",
+        )}
+      >
+        {formatShortDate(estimate.due_date)}
+      </TableCell>
+      <TableCell className={cn("text-right tabular-nums", daysLeftClass(days))}>
+        {days == null ? "—" : days}
+      </TableCell>
+      <TableCell>
+        <Badge
+          variant="secondary"
+          className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+        >
+          {estimateStageLabel(estimate.stage)}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right text-sm font-semibold tabular-nums text-slate-900">
+        {formatProjectAmount(estimate.amount)}
+      </TableCell>
+      {canEdit && (
+        <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label="Estimate actions"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
+              <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+              <DropdownMenuItem className="text-rose-700" onClick={onDelete}>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      )}
+    </TableRow>
+  );
 }
 
 function TypeDonut({
@@ -189,10 +348,11 @@ export function PipelineEstimatingTab() {
   const searchParams = useSearchParams();
   const view = parseView(searchParams.get("view"));
 
-  const { estimates, employees, getEmployeeById, isLoading, setEstimateStage, deleteEstimate } =
+  const { estimates, employees, projectMilestones, getEmployeeById, isLoading, setEstimateStage, deleteEstimate } =
     useScheduling();
   const { permissions } = usePermissions();
   const canEdit = permissions.editQueue || permissions.editProjects;
+  const { revision: orderRevision, updateColumnOrder } = useQueueColumnOrder();
 
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState(OPEN_ONLY);
@@ -202,7 +362,38 @@ export function PipelineEstimatingTab() {
   const [editing, setEditing] = useState<Estimate | null>(null);
   const [detail, setDetail] = useState<Estimate | null>(null);
 
-  const kpis = useMemo(() => buildEstimateKpis(estimates), [estimates]);
+  const prioritySensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
+
+  const resolveEstimatorName = useCallback(
+    (id: string) => {
+      const employee = getEmployeeById(id);
+      return employee ? getEmployeeFullName(employee) : "";
+    },
+    [getEmployeeById],
+  );
+
+  const estimatingMilestoneDates = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const estimate of estimates) {
+      if (!estimate.project_id) continue;
+      if (map.has(estimate.project_id)) continue;
+      const date = latestMilestoneDateForTag(
+        projectMilestones,
+        estimate.project_id,
+        "estimating",
+      );
+      if (date) map.set(estimate.project_id, date);
+    }
+    return map;
+  }, [estimates, projectMilestones]);
+
+  const kpis = useMemo(
+    () => buildEstimateKpis(estimates, new Date(), estimatingMilestoneDates),
+    [estimates, estimatingMilestoneDates],
+  );
   const workload = useMemo(() => buildEstimatorWorkload(estimates), [estimates]);
   const typeBuckets = useMemo(() => buildEstimateTypeBuckets(estimates), [estimates]);
   const dueBuckets = useMemo(() => buildEstimateDueBuckets(estimates), [estimates]);
@@ -254,6 +445,50 @@ export function PipelineEstimatingTab() {
       })
       .sort(compareEstimatesForQueue);
   }, [estimates, search, stageFilter, typeFilter, estimatorFilter, estimatorName]);
+
+  const priorityGroups = useMemo(() => {
+    const groups = buildEstimatePriorityGroups(filtered, resolveEstimatorName);
+    return groups.map((group) => ({
+      ...group,
+      items: sortEstimatePriorityItems(group.items, group.estimatorId),
+    }));
+  }, [filtered, resolveEstimatorName, orderRevision]);
+
+  const unassignedCount = useMemo(
+    () => filtered.filter((estimate) => !estimate.estimator_id).length,
+    [filtered],
+  );
+
+  const groupedCount = useMemo(
+    () => priorityGroups.reduce((sum, group) => sum + group.items.length, 0),
+    [priorityGroups],
+  );
+
+  const handlePriorityDragEnd = (event: DragEndEvent, estimatorId: string) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    // Use unsearched matching estimates so search doesn't scramble saved order.
+    const base = estimates.filter((estimate) => {
+      if (!estimate.estimator_id || estimate.estimator_id !== estimatorId) return false;
+      if (stageFilter === OPEN_ONLY && !isOpenEstimate(estimate)) return false;
+      if (stageFilter !== OPEN_ONLY && stageFilter !== ALL && estimate.stage !== stageFilter) {
+        return false;
+      }
+      if (typeFilter !== ALL && estimate.estimate_type !== typeFilter) return false;
+      return true;
+    });
+    const ordered = sortEstimatePriorityItems(base, estimatorId);
+    const ids = ordered.map((estimate) => estimate.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    updateColumnOrder(
+      "estimating",
+      estimatePriorityStageKey(estimatorId),
+      arrayMoveIds(ids, oldIndex, newIndex),
+    );
+  };
 
   const setView = useCallback(
     (next: string) => {
@@ -434,199 +669,138 @@ export function PipelineEstimatingTab() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b bg-slate-50/80 px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-slate-900">Priority Queue</h3>
-                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
-                  {filtered.length}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {filtered.length} of {estimates.length} packages
-              </p>
-            </div>
+          <p className="px-1 text-xs text-muted-foreground">
+            {groupedCount} estimate{groupedCount === 1 ? "" : "s"} · {priorityGroups.length}{" "}
+            estimator{priorityGroups.length === 1 ? "" : "s"}
+            {unassignedCount > 0 ? ` · ${unassignedCount} unassigned hidden` : ""}
+          </p>
 
-            {filtered.length === 0 ? (
+          {priorityGroups.length === 0 ? (
+            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b bg-slate-50/80 px-4 py-2.5">
+                <h3 className="text-sm font-semibold text-slate-900">Priority by Estimator</h3>
+              </div>
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {estimates.length === 0
                   ? "No estimates yet. Add a package to start pricing work."
-                  : "No estimates match these filters."}
+                  : unassignedCount > 0
+                    ? "Assign an estimator on each estimate to build their priority queue."
+                    : "No estimates match these filters."}
               </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-10">#</TableHead>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Estimator</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Received</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead className="text-right">Days Left</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                      {canEdit && <TableHead className="w-10" />}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((estimate, index) => {
-                      const name = estimatorName(estimate);
-                      const days = estimateDaysLeft(estimate);
-                      const revision = estimateRevisionLabel(estimate);
-                      return (
-                        <TableRow
-                          key={estimate.id}
-                          className="group cursor-pointer"
-                          onClick={() => setDetail(estimate)}
-                        >
-                          <TableCell className="relative py-3 pl-3">
-                            <span
-                              className={cn(
-                                "absolute inset-y-2 left-0 w-1 rounded-r-full",
-                                estimateRowAccentClass(estimate),
-                              )}
-                            />
-                            <span className="pl-1 text-xs tabular-nums text-muted-foreground">
-                              {index + 1}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-emerald-700 group-hover:underline">
-                                {estimateDisplayName(estimate)}
-                              </span>
-                              {revision ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="px-1 py-0 text-[10px] font-normal"
-                                >
-                                  {revision}
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-slate-700">{estimate.client_name}</TableCell>
-                          <TableCell>
-                            {name ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="bg-slate-100 text-[10px] font-semibold text-slate-600">
-                                    {initials(name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm text-slate-800">{name}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Unassigned</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={cn(
-                                "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
-                                estimateTypeBadgeClass(estimate.estimate_type),
-                              )}
-                            >
-                              {estimateTypeLabel(estimate.estimate_type)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="tabular-nums text-slate-600">
-                            {formatShortDate(estimate.received_date)}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "tabular-nums",
-                              isEstimateDueOverdue(estimate)
-                                ? "font-semibold text-rose-600"
-                                : "text-slate-700",
-                            )}
-                          >
-                            {formatShortDate(estimate.due_date)}
-                          </TableCell>
-                          <TableCell className={cn("text-right tabular-nums", daysLeftClass(days))}>
-                            {days == null ? "—" : days}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "font-semibold",
-                                estimateStageBadgeClass(estimate.stage),
-                              )}
-                            >
-                              {estimateStageLabel(estimate.stage)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-semibold tabular-nums text-slate-900">
-                            {formatProjectAmount(estimate.amount)}
-                          </TableCell>
-                          {canEdit && (
-                            <TableCell
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-right"
-                            >
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    aria-label="Estimate actions"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => setDetail(estimate)}>
-                                    Open
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => openEdit(estimate)}>
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-rose-700"
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          `Delete “${estimateDisplayName(estimate)}”?`,
-                                        )
-                                      ) {
-                                        deleteEstimate(estimate.id);
-                                      }
-                                    }}
-                                  >
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {canEdit && (
-              <div className="border-t px-3 py-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 w-full justify-start text-muted-foreground hover:text-emerald-800"
-                  onClick={openNew}
+              {canEdit && (
+                <div className="border-t px-3 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 w-full justify-start text-muted-foreground hover:text-emerald-800"
+                    onClick={openNew}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add Estimate
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {priorityGroups.map((group) => (
+                <div
+                  key={group.estimatorId}
+                  className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm"
                 >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Add Estimate
-                </Button>
-              </div>
-            )}
-          </div>
+                  <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
+                          {initials(group.estimatorName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-slate-900">
+                          {group.estimatorName}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Priority queue · highest first
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
+                      {group.items.length}
+                    </span>
+                  </div>
+
+                  <DndContext
+                    sensors={prioritySensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => handlePriorityDragEnd(event, group.estimatorId)}
+                  >
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-14">Priority</TableHead>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Client</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Received</TableHead>
+                            <TableHead>Milestone</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead className="text-right">Days Left</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Value</TableHead>
+                            {canEdit && <TableHead className="w-10" />}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <SortableContext
+                            items={group.items.map((estimate) => estimate.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {group.items.map((estimate, index) => (
+                              <SortableEstimatePriorityRow
+                                key={estimate.id}
+                                estimate={estimate}
+                                index={index}
+                                milestoneDate={
+                                  estimate.project_id
+                                    ? estimatingMilestoneDates.get(estimate.project_id)
+                                    : undefined
+                                }
+                                canEdit={canEdit}
+                                onOpen={() => setDetail(estimate)}
+                                onEdit={() => openEdit(estimate)}
+                                onDelete={() => {
+                                  if (
+                                    window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
+                                  ) {
+                                    deleteEstimate(estimate.id);
+                                  }
+                                }}
+                              />
+                            ))}
+                          </SortableContext>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </DndContext>
+                </div>
+              ))}
+
+              {canEdit && (
+                <div className="overflow-hidden rounded-xl border border-dashed border-slate-200 bg-white">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 w-full justify-start rounded-none text-muted-foreground hover:text-emerald-800"
+                    onClick={openNew}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add Estimate
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">

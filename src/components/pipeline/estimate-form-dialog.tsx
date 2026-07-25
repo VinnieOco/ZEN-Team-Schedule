@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
+import { clientComboboxOptions } from "@/lib/clients";
 import { ESTIMATE_STAGES, ESTIMATE_TYPES } from "@/lib/estimating/metrics";
 import { getEmployeeFullName } from "@/lib/week";
 import type {
@@ -77,7 +79,7 @@ export function EstimateFormDialog({
   onOpenChange,
   estimate,
 }: EstimateFormDialogProps) {
-  const { employees, projects, addEstimate, updateEstimate } = useScheduling();
+  const { employees, projects, clients, addEstimate, updateEstimate } = useScheduling();
   const [values, setValues] = useState<EstimateFormValues>(emptyValues);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,6 +97,11 @@ export function EstimateFormDialog({
         .filter((e) => e.active)
         .sort((a, b) => getEmployeeFullName(a).localeCompare(getEmployeeFullName(b))),
     [employees],
+  );
+
+  const clientOptions = useMemo(
+    () => clientComboboxOptions(projects, clients),
+    [projects, clients],
   );
 
   const projectOptions = useMemo(
@@ -167,13 +174,20 @@ export function EstimateFormDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="estimate-client">Client</Label>
-            <Input
+            <SearchableCombobox
               id="estimate-client"
+              options={clientOptions}
               value={values.client_name}
-              onChange={(e) => patch("client_name", e.target.value)}
-              placeholder="Client name"
+              onValueChange={(value) => patch("client_name", value)}
+              placeholder="Search or type client name…"
+              searchPlaceholder="Search clients…"
+              emptyMessage="No matching clients"
+              customOptionLabel={(query) => `Add new client "${query}"`}
               required
             />
+            <p className="text-xs text-muted-foreground">
+              Search existing CRM clients or choose Add new client in the list.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="estimate-title">Package name</Label>

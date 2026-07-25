@@ -99,6 +99,9 @@ export type ProjectMilestoneKind =
   | "delivery"
   | "other";
 
+/** Pipeline board this milestone date should surface on. */
+export type ProjectMilestonePipelineTag = "design" | "estimating" | "construction";
+
 /** Single-date marker on a project Gantt (submittal, review, permit, etc.). */
 export interface ProjectMilestone {
   id: string;
@@ -108,6 +111,8 @@ export interface ProjectMilestone {
   kind: ProjectMilestoneKind;
   sort_order: number;
   notes?: string;
+  /** Surfaces latest date on Design / Estimating / Construction pipeline tables. */
+  pipeline_tag?: ProjectMilestonePipelineTag;
   /** Set when marked complete on the firm milestones list. */
   completed_at?: string;
   /** Milestone-only assignee; does not change project lead. */

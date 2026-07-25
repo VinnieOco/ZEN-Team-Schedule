@@ -164,7 +164,11 @@ interface SchedulingContextValue {
   updateProject: (id: string, values: ProjectFormValues) => void;
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
   /** Sync address, phone, and email to registry + every project for this client key. */
-  updateClientContact: (clientKey: string, contact: ClientContactFields) => void;
+  updateClientContact: (
+    clientKey: string,
+    contact: ClientContactFields,
+    preferredDisplayName?: string,
+  ) => void;
   renameClient: (sourceKey: string, newName: string) => ClientNameActionResult;
   mergeClients: (sourceKey: string, targetKey: string) => ClientNameActionResult;
   addProjectNote: (projectId: string, body: string) => void;
@@ -1078,12 +1082,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
 
   const updateClientContact = useCallback(
-    (clientKey: string, contact: ClientContactFields) => {
+    (clientKey: string, contact: ClientContactFields, preferredDisplayName?: string) => {
       const key = normalizeClientName(clientKey);
       if (!key) return;
 
       const matchingProjects = projectsForClientKey(projects, key);
-      const displayName = matchingProjects[0]?.client_name?.trim();
+      const displayName =
+        matchingProjects[0]?.client_name?.trim() ||
+        preferredDisplayName?.trim() ||
+        findRegistryClientByName(clients, clientKey)?.name?.trim();
+
       if (displayName && !findRegistryClientByName(clients, displayName)) {
         ensureClientInRegistry(displayName, contact);
       } else {
@@ -1092,7 +1100,21 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           const registryMatch =
             findRegistryClientByName(prev, displayName ?? clientKey) ??
             prev.find((c) => normalizeClientName(c.name) === key);
-          if (!registryMatch) return prev;
+          if (!registryMatch) {
+            // Lead-only client with a display name: create registry row on first save.
+            if (!displayName) return prev;
+            const created = withClientRegistryContact(
+              { id: generateId(), name: displayName },
+              contact,
+            );
+            if (repoRef.current) {
+              void persistAsync(
+                () => repoRef.current!.upsertClient(created),
+                () => setClients(snapshot),
+              );
+            }
+            return [...prev, created].sort((a, b) => a.name.localeCompare(b.name));
+          }
 
           const updatedClient = withClientRegistryContact(registryMatch, contact);
           const next = prev.map((c) => (c.id === registryMatch.id ? updatedClient : c));
@@ -1826,6 +1848,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   const addEstimate = useCallback(
     (values: EstimateFormValues): Estimate => {
+      ensureClientInRegistry(values.client_name);
       const estimate = estimateFromFormValues(values);
       setEstimates((prev) => {
         const snapshot = prev;
@@ -1839,14 +1862,15 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       });
       return estimate;
     },
-    [estimateFromFormValues, persistAsync],
+    [estimateFromFormValues, ensureClientInRegistry, persistAsync],
   );
 
   const updateEstimate = useCallback(
     (id: string, values: EstimateFormValues) => {
+      ensureClientInRegistry(values.client_name);
       mutateEstimate(id, (existing) => estimateFromFormValues(values, existing));
     },
-    [estimateFromFormValues, mutateEstimate],
+    [ensureClientInRegistry, estimateFromFormValues, mutateEstimate],
   );
 
   const deleteEstimate = useCallback(

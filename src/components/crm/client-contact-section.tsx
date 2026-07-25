@@ -68,11 +68,15 @@ export function ClientContactSection({
   const handleSave = () => {
     setSaving(true);
     try {
-      updateClientContact(clientKey, {
-        address: form.address,
-        phone: form.phone,
-        email: form.email,
-      });
+      updateClientContact(
+        clientKey,
+        {
+          address: form.address,
+          phone: form.phone,
+          email: form.email,
+        },
+        displayName,
+      );
       setEditing(false);
     } finally {
       setSaving(false);

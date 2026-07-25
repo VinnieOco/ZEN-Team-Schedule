@@ -80,6 +80,7 @@ import {
   designRowAccentClass,
   designStageLabel,
 } from "@/lib/pipeline/design";
+import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
 import { buildDesignQueueItems } from "@/lib/queue/build-queue-items";
 import { arrayMoveIds, sortQueueColumnItems } from "@/lib/queue/column-order";
 import { writeQueueDragCommit, type QueueDragCommit } from "@/lib/queue/queue-state";
@@ -191,11 +192,13 @@ function PhaseDonut({
 function SortableDesignPriorityRow({
   item,
   index,
+  milestoneDate,
   canManageQueue,
   onRemove,
 }: {
   item: DesignQueueItem;
   index: number;
+  milestoneDate?: string;
   canManageQueue: boolean;
   onRemove: () => void;
 }) {
@@ -257,6 +260,9 @@ function SortableDesignPriorityRow({
         <Badge variant="secondary" className="font-normal">
           {item.project.phase}
         </Badge>
+      </TableCell>
+      <TableCell className="tabular-nums text-slate-700">
+        {formatShortDate(milestoneDate)}
       </TableCell>
       <TableCell
         className={cn(
@@ -324,6 +330,7 @@ export function PipelineDesignTab() {
     timeEntries,
     employees,
     settings,
+    projectMilestones,
     getEmployeeById,
     isLoading,
     queueRevision,
@@ -341,6 +348,15 @@ export function PipelineDesignTab() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
+
+  const designMilestoneDates = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const project of projects) {
+      const date = latestMilestoneDateForTag(projectMilestones, project.id, "design");
+      if (date) map.set(project.id, date);
+    }
+    return map;
+  }, [projects, projectMilestones]);
 
   const designItems = useMemo(
     () => buildDesignQueueItems(projects, allocations, timeEntries, getEmployeeById),
@@ -362,8 +378,8 @@ export function PipelineDesignTab() {
   );
 
   const kpis = useMemo(
-    () => buildDesignKpis(designItems, allocations, employees, settings),
-    [designItems, allocations, employees, settings],
+    () => buildDesignKpis(designItems, allocations, employees, settings, new Date(), designMilestoneDates),
+    [designItems, allocations, employees, settings, designMilestoneDates],
   );
 
   const workload = useMemo(
@@ -374,7 +390,10 @@ export function PipelineDesignTab() {
 
   const phases = useMemo(() => buildDesignPhaseDistribution(designItems), [designItems]);
   const dueBuckets = useMemo(() => buildDesignDueBuckets(designItems), [designItems]);
-  const dueThisWeekRows = useMemo(() => designDueThisWeek(designItems), [designItems]);
+  const dueThisWeekRows = useMemo(
+    () => designDueThisWeek(designItems, new Date(), designMilestoneDates),
+    [designItems, designMilestoneDates],
+  );
   const workloadMax = Math.max(1, ...workload.map((w) => w.projectCount));
 
   const priorityGroups = useMemo(() => {
@@ -471,7 +490,7 @@ export function PipelineDesignTab() {
           {
             label: "Due This Week",
             value: String(kpis.dueThisWeek),
-            sub: "Target dates",
+            sub: "Milestone dates",
             icon: CalendarClock,
             accent: "amber",
           },
@@ -622,6 +641,7 @@ export function PipelineDesignTab() {
                           <TableHead>Project</TableHead>
                           <TableHead>Client</TableHead>
                           <TableHead>Phase</TableHead>
+                          <TableHead>Milestone</TableHead>
                           <TableHead>Due</TableHead>
                           <TableHead className="text-right">Days Left</TableHead>
                           <TableHead className="text-right">Hours</TableHead>
@@ -640,6 +660,7 @@ export function PipelineDesignTab() {
                               key={item.project.id}
                               item={item}
                               index={index}
+                              milestoneDate={designMilestoneDates.get(item.project.id)}
                               canManageQueue={canManageQueue}
                               onRemove={() =>
                                 handleRemoveFromPriority(
@@ -739,7 +760,7 @@ export function PipelineDesignTab() {
                         className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-2 border-t border-slate-100 py-2 text-sm first:border-t-0"
                       >
                         <span className="tabular-nums text-muted-foreground">
-                          {formatShortDate(item.dueDate)}
+                          {formatShortDate(designMilestoneDates.get(item.project.id))}
                         </span>
                         <span className="min-w-0 truncate font-medium text-emerald-700">
                           {item.project.project_name}

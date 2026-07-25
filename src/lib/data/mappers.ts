@@ -729,6 +729,7 @@ type ProjectMilestoneRow = {
   kind: string;
   sort_order: number;
   notes: string | null;
+  pipeline_tag: string | null;
   completed_at: string | null;
   assigned_employee_id: string | null;
 };
@@ -746,9 +747,20 @@ const MILESTONE_KINDS = new Set([
   "other",
 ]);
 
+const MILESTONE_PIPELINE_TAGS = new Set(["design", "estimating", "construction"]);
+
 function normalizeMilestoneKind(kind: string): ProjectMilestoneKind {
   if (kind === "client_review") return "review";
   return MILESTONE_KINDS.has(kind) ? (kind as ProjectMilestoneKind) : "other";
+}
+
+function normalizeMilestonePipelineTag(
+  tag: string | null | undefined,
+): ProjectMilestone["pipeline_tag"] {
+  if (!tag) return undefined;
+  return MILESTONE_PIPELINE_TAGS.has(tag)
+    ? (tag as ProjectMilestone["pipeline_tag"])
+    : undefined;
 }
 
 export function mapProjectMilestone(row: ProjectMilestoneRow): ProjectMilestone {
@@ -760,6 +772,7 @@ export function mapProjectMilestone(row: ProjectMilestoneRow): ProjectMilestone 
     kind: normalizeMilestoneKind(row.kind),
     sort_order: row.sort_order,
     notes: row.notes ?? undefined,
+    pipeline_tag: normalizeMilestonePipelineTag(row.pipeline_tag),
     completed_at: row.completed_at ?? undefined,
     assigned_employee_id: row.assigned_employee_id ?? undefined,
   };
@@ -774,6 +787,7 @@ export function projectMilestoneToRow(milestone: ProjectMilestone) {
     kind: milestone.kind,
     sort_order: milestone.sort_order,
     notes: milestone.notes?.trim() || null,
+    pipeline_tag: milestone.pipeline_tag ?? null,
     completed_at: milestone.completed_at ?? null,
     assigned_employee_id: milestone.assigned_employee_id ?? null,
   };

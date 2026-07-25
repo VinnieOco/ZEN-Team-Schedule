@@ -7,6 +7,7 @@ import { ArrowLeft, GitMerge, Pencil } from "lucide-react";
 
 import { AppPage } from "@/components/layout/app-page";
 import { ClientContactSection } from "@/components/crm/client-contact-section";
+import { ClientLeadNotesSection } from "@/components/crm/client-lead-notes-section";
 import { ClientMergeDialog } from "@/components/crm/client-merge-dialog";
 import { ClientNotesSection } from "@/components/crm/client-notes-section";
 import { ClientProjectsTable } from "@/components/crm/client-projects-table";
@@ -24,15 +25,15 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const routeKey = params.key as string;
-  const { projects, clients, clientNotes, isLoading } = useScheduling();
+  const { projects, clients, clientNotes, leads, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [showInactive, setShowInactive] = useState(true);
   const [renameOpen, setRenameOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
 
   const client = useMemo(
-    () => findClientByRouteKey(projects, routeKey, clients),
-    [projects, routeKey, clients],
+    () => findClientByRouteKey(projects, routeKey, clients, leads),
+    [projects, routeKey, clients, leads],
   );
 
   if (isLoading) {
@@ -120,6 +121,8 @@ export default function ClientDetailPage() {
       />
 
       <ClientNotesSection clientKey={client.key} />
+
+      <ClientLeadNotesSection clientKey={client.key} />
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

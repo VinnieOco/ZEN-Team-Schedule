@@ -16,6 +16,7 @@ import type {
   EstimateStage,
   EstimateType,
 } from "@/types";
+import { getColumnOrder } from "@/lib/queue/column-order";
 
 export const ESTIMATE_TYPES: { value: EstimateType; label: string }[] = [
   { value: "budget", label: "Budget" },
@@ -85,14 +86,22 @@ export interface EstimateKpiSummary {
 export function buildEstimateKpis(
   estimates: Estimate[],
   now = new Date(),
+  milestoneDates?: Map<string, string>,
 ): EstimateKpiSummary {
   const open = estimates.filter(isOpenEstimate);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
   const yearStart = startOfYear(now);
 
+  // When milestone dates are supplied, "due this week" totals the tagged
+  // estimating milestone dates instead of estimate due dates.
   const dueThisWeek = open.filter((estimate) => {
-    const due = parseDate(estimate.due_date);
+    const source = milestoneDates
+      ? estimate.project_id
+        ? milestoneDates.get(estimate.project_id)
+        : undefined
+      : estimate.due_date;
+    const due = parseDate(source);
     return due ? isWithinInterval(due, { start: weekStart, end: weekEnd }) : false;
   });
 
@@ -371,4 +380,64 @@ export function compareEstimatesForQueue(a: Estimate, b: Estimate): number {
   if (aDue && !bDue) return -1;
   if (!aDue && bDue) return 1;
   return b.created_at.localeCompare(a.created_at);
+}
+
+/** Column-order key for an estimator's priority list on the Estimating main table. */
+export function estimatePriorityStageKey(estimatorId: string): string {
+  return `priority:${estimatorId}`;
+}
+
+/** Apply saved drag order for an estimator's priority queue. */
+export function sortEstimatePriorityItems(
+  estimates: Estimate[],
+  estimatorId: string,
+): Estimate[] {
+  if (estimates.length <= 1) return estimates;
+
+  const savedOrder = getColumnOrder("estimating", estimatePriorityStageKey(estimatorId));
+  if (!savedOrder?.length) {
+    return [...estimates].sort(compareEstimatesForQueue);
+  }
+
+  const rank = new Map(savedOrder.map((id, index) => [id, index]));
+  return [...estimates].sort((a, b) => {
+    const aRank = rank.get(a.id);
+    const bRank = rank.get(b.id);
+    if (aRank != null && bRank != null) return aRank - bRank;
+    if (aRank != null) return -1;
+    if (bRank != null) return 1;
+    return compareEstimatesForQueue(a, b);
+  });
+}
+
+export interface EstimatePriorityGroup {
+  estimatorId: string;
+  estimatorName: string;
+  items: Estimate[];
+}
+
+/**
+ * Priority queue grouped by estimator.
+ * Only estimates with an assigned estimator appear; estimators with zero
+ * matching estimates are omitted.
+ */
+export function buildEstimatePriorityGroups(
+  estimates: Estimate[],
+  estimatorName: (estimatorId: string) => string,
+): EstimatePriorityGroup[] {
+  const byEstimator = new Map<string, Estimate[]>();
+  for (const estimate of estimates) {
+    if (!estimate.estimator_id) continue;
+    const list = byEstimator.get(estimate.estimator_id) ?? [];
+    list.push(estimate);
+    byEstimator.set(estimate.estimator_id, list);
+  }
+
+  return [...byEstimator.entries()]
+    .map(([estimatorId, items]) => ({
+      estimatorId,
+      estimatorName: estimatorName(estimatorId)?.trim() || "Estimator",
+      items: sortEstimatePriorityItems(items, estimatorId),
+    }))
+    .sort((a, b) => a.estimatorName.localeCompare(b.estimatorName));
 }

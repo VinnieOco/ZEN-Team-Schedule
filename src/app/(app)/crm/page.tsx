@@ -1,5 +1,7 @@
+import { Suspense } from "react";
+
+import { CrmPageClient } from "@/components/crm/crm-page-client";
 import { AppPage } from "@/components/layout/app-page";
-import { ClientsTable } from "@/components/crm/clients-table";
 
 export default function CrmPage() {
   return (
@@ -7,10 +9,12 @@ export default function CrmPage() {
       <div className="min-w-0">
         <h1 className="text-2xl font-bold text-slate-900">CRM</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Clients and contact information linked to their projects.
+          Clients and lead contact information linked to your pipeline.
         </p>
       </div>
-      <ClientsTable />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading CRM…</p>}>
+        <CrmPageClient />
+      </Suspense>
     </AppPage>
   );
 }
