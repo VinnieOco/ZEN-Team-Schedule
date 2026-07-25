@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
+import { LeadContactDialog } from "@/components/pipeline/lead-contact-dialog";
 import { LeadFormDialog } from "@/components/pipeline/lead-form-dialog";
 import { LeadKanban } from "@/components/pipeline/lead-kanban";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
@@ -209,6 +210,7 @@ export function PipelineLeadsTab() {
   const [sourceFilter, setSourceFilter] = useState(ALL);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
   const kpis = useMemo(() => buildLeadKpis(leads), [leads]);
   const workload = useMemo(() => buildLeadOwnerWorkload(leads), [leads]);
@@ -268,6 +270,10 @@ export function PipelineLeadsTab() {
   const openEdit = (lead: Lead) => {
     setEditing(lead);
     setDialogOpen(true);
+  };
+
+  const openContact = (lead: Lead) => {
+    setDetailLead(lead);
   };
 
   const openNew = () => {
@@ -472,7 +478,7 @@ export function PipelineLeadsTab() {
                         <TableRow
                           key={lead.id}
                           className="group cursor-pointer"
-                          onClick={() => openEdit(lead)}
+                          onClick={() => openContact(lead)}
                         >
                           <TableCell className="relative py-3 pl-3">
                             <span
@@ -486,9 +492,16 @@ export function PipelineLeadsTab() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <p className="font-medium text-emerald-700 group-hover:underline">
+                            <button
+                              type="button"
+                              className="text-left font-medium text-emerald-700 group-hover:underline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openContact(lead);
+                              }}
+                            >
                               {leadDisplayName(lead)}
-                            </p>
+                            </button>
                             {lead.contact_name ? (
                               <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
                             ) : null}
@@ -679,7 +692,7 @@ export function PipelineLeadsTab() {
                       <button
                         key={lead.id}
                         type="button"
-                        onClick={() => openEdit(lead)}
+                        onClick={() => openContact(lead)}
                         className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-2 border-t border-slate-100 py-2 text-left text-sm first:border-t-0"
                       >
                         <span className="tabular-nums text-muted-foreground">
@@ -807,7 +820,7 @@ export function PipelineLeadsTab() {
               leads={filtered}
               canEditStatus={canEdit}
               ownerName={ownerName}
-              onSelect={openEdit}
+              onSelect={openContact}
               onStatusChange={handleStatusChange}
             />
           )}
@@ -821,6 +834,14 @@ export function PipelineLeadsTab() {
           if (!open) setEditing(null);
         }}
         lead={editing}
+      />
+
+      <LeadContactDialog
+        lead={detailLead}
+        open={Boolean(detailLead)}
+        onOpenChange={(open) => {
+          if (!open) setDetailLead(null);
+        }}
       />
     </div>
   );

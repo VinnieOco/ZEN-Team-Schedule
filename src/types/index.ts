@@ -192,6 +192,15 @@ export interface Lead {
   updated_at: string;
 }
 
+export interface LeadNote {
+  id: string;
+  lead_id: string;
+  body: string;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface LeadFormValues {
   title?: string;
   client_name: string;

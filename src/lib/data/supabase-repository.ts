@@ -17,6 +17,7 @@ import {
   mapTimeEntry,
   mapTodo,
   mapLead,
+  mapLeadNote,
   mapEstimate,
   estimateToRow,
   projectNoteToRow,
@@ -25,6 +26,7 @@ import {
   timeEntryToRow,
   todoToRow,
   leadToRow,
+  leadNoteToRow,
 } from "@/lib/data/mappers";
 import { listQueueState as fetchQueueState } from "@/lib/data/queue-repository";
 import {
@@ -52,6 +54,7 @@ import type {
   TimeEntry,
   Todo,
   Lead,
+  LeadNote,
   Estimate,
   TodoNoteSourceType,
 } from "@/types";
@@ -381,6 +384,30 @@ export function createSupabaseRepository(
 
     async deleteLead(id: string) {
       const { error } = await supabase.from("leads").delete().eq("id", id);
+      if (error) throw error;
+    },
+
+    async listLeadNotes() {
+      const { data, error } = await supabase
+        .from("lead_notes")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(mapLeadNote);
+    },
+
+    async insertLeadNote(note: LeadNote) {
+      const { data, error } = await supabase
+        .from("lead_notes")
+        .insert(leadNoteToRow(note))
+        .select()
+        .single();
+      if (error) throw error;
+      return mapLeadNote(data);
+    },
+
+    async deleteLeadNote(id: string) {
+      const { error } = await supabase.from("lead_notes").delete().eq("id", id);
       if (error) throw error;
     },
 

@@ -12,6 +12,7 @@ import type {
   EstimateStage,
   EstimateType,
   Lead,
+  LeadNote,
   LeadSource,
   LeadStatus,
   Project,
@@ -327,6 +328,15 @@ type LeadRow = {
   updated_at: string;
 };
 
+type LeadNoteRow = {
+  id: string;
+  lead_id: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const LEAD_SOURCES = new Set(["architect", "past_client", "referral", "web", "other"]);
 const LEAD_STATUSES = new Set(["new", "qualifying", "proposal_sent", "won", "lost"]);
 
@@ -377,6 +387,28 @@ export function leadToRow(lead: Lead) {
     converted_project_id: lead.converted_project_id || null,
     created_at: lead.created_at,
     updated_at: lead.updated_at,
+  };
+}
+
+export function mapLeadNote(row: LeadNoteRow): LeadNote {
+  return {
+    id: row.id,
+    lead_id: row.lead_id,
+    body: row.body,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export function leadNoteToRow(note: LeadNote) {
+  return {
+    id: note.id,
+    lead_id: note.lead_id,
+    body: note.body.trim(),
+    created_by: note.created_by ?? null,
+    created_at: note.created_at,
+    updated_at: note.updated_at,
   };
 }
 

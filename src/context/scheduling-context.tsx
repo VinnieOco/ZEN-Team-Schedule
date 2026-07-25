@@ -90,6 +90,7 @@ import type {
   Todo,
   TodoNoteSourceType,
   Lead,
+  LeadNote,
   LeadFormValues,
   Estimate,
   EstimateFormValues,
@@ -114,6 +115,7 @@ interface PersistedState {
   projectMilestones?: ProjectMilestone[];
   todos?: Todo[];
   leads?: Lead[];
+  leadNotes?: LeadNote[];
   estimates?: Estimate[];
   settings: CompanySettings;
 }
@@ -136,6 +138,7 @@ interface SchedulingContextValue {
   projectMilestones: ProjectMilestone[];
   todos: Todo[];
   leads: Lead[];
+  leadNotes: LeadNote[];
   estimates: Estimate[];
   settings: CompanySettings;
   selectedWeekStart: Date;
@@ -176,6 +179,8 @@ interface SchedulingContextValue {
   addLead: (values: LeadFormValues) => Lead;
   updateLead: (id: string, values: LeadFormValues) => void;
   deleteLead: (id: string) => void;
+  addLeadNote: (leadId: string, body: string) => void;
+  deleteLeadNote: (id: string) => void;
   convertLeadToProject: (id: string) => Project | null;
   addEstimate: (values: EstimateFormValues) => Estimate;
   updateEstimate: (id: string, values: EstimateFormValues) => void;
@@ -330,6 +335,23 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
   const [todos, setTodos] = useState<Todo[]>(useSupabase ? [] : (persisted?.todos ?? []));
   const [leads, setLeads] = useState<Lead[]>(useSupabase ? [] : (persisted?.leads ?? []));
+  const [leadNotes, setLeadNotes] = useState<LeadNote[]>(() => {
+    if (useSupabase) return [];
+    if (persisted?.leadNotes) return persisted.leadNotes;
+    return (persisted?.leads ?? []).flatMap((lead) => {
+      const body = lead.notes?.trim();
+      if (!body) return [];
+      return [
+        {
+          id: generateId(),
+          lead_id: lead.id,
+          body,
+          created_at: lead.updated_at,
+          updated_at: lead.updated_at,
+        },
+      ];
+    });
+  });
   const [estimates, setEstimates] = useState<Estimate[]>(
     useSupabase ? [] : (persisted?.estimates ?? []),
   );
@@ -431,6 +453,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        const leadNotesData = await repo.listLeadNotes();
+        setLeadNotes(leadNotesData);
+      } catch {
+        // Table may be missing until the lead notes migration is applied.
+        setLeadNotes([]);
+      }
+
+      try {
         const estimatesData = await repo.listEstimates();
         setEstimates(estimatesData);
       } catch {
@@ -490,6 +520,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectMilestones,
       todos,
       leads,
+      leadNotes,
       estimates,
       settings,
     };
@@ -508,6 +539,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     projectMilestones,
     todos,
     leads,
+    leadNotes,
     estimates,
     settings,
   ]);
@@ -1571,6 +1603,56 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         }
         return next;
       });
+      setLeadNotes((prev) => prev.filter((note) => note.lead_id !== id));
+    },
+    [persistAsync],
+  );
+
+  const addLeadNote = useCallback(
+    (leadId: string, body: string) => {
+      const trimmed = body.trim();
+      if (!trimmed) return;
+      const now = new Date().toISOString();
+      const note: LeadNote = {
+        id: generateId(),
+        lead_id: leadId,
+        body: trimmed,
+        created_by: profile?.id,
+        created_at: now,
+        updated_at: now,
+      };
+      setLeadNotes((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.insertLeadNote(note),
+            () => setLeadNotes(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setLeadNotes((current) =>
+                current.map((entry) => (entry.id === note.id ? saved : entry)),
+              );
+            }
+          });
+        }
+        return [note, ...prev];
+      });
+    },
+    [persistAsync, profile?.id],
+  );
+
+  const deleteLeadNote = useCallback(
+    (id: string) => {
+      setLeadNotes((prev) => {
+        const snapshot = prev;
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.deleteLeadNote(id),
+            () => setLeadNotes(snapshot),
+          );
+        }
+        return prev.filter((note) => note.id !== id);
+      });
     },
     [persistAsync],
   );
@@ -1591,9 +1673,70 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         design_amount: lead.expected_value,
         phone: lead.contact_phone,
         email: lead.contact_email,
-        scope_of_work: lead.notes,
         active: true,
       });
+
+      // Carry lead notes into project team notes so history stays with the job.
+      const sourceNotes = leadNotes
+        .filter((note) => note.lead_id === id)
+        .sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
+      const notesToTransfer: Array<{
+        body: string;
+        created_by?: string | null;
+        created_at: string;
+        updated_at: string;
+      }> =
+        sourceNotes.length > 0
+          ? sourceNotes
+          : lead.notes?.trim()
+            ? [
+                {
+                  body: lead.notes.trim(),
+                  created_by: profile?.id ?? null,
+                  created_at: lead.updated_at,
+                  updated_at: lead.updated_at,
+                },
+              ]
+            : [];
+      if (notesToTransfer.length > 0) {
+        const transferred: ProjectNote[] = notesToTransfer.map((note) => ({
+          id: generateId(),
+          project_id: project.id,
+          body: note.body,
+          created_by: note.created_by ?? profile?.id ?? null,
+          created_at: note.created_at,
+          updated_at: note.updated_at,
+        }));
+        setProjectNotes((prev) => {
+          const snapshot = prev;
+          if (repoRef.current) {
+            for (const note of transferred) {
+              void persistAsync(
+                () => repoRef.current!.insertProjectNote(note),
+                () => setProjectNotes(snapshot),
+              ).then((saved) => {
+                if (saved) {
+                  setProjectNotes((current) =>
+                    current.map((entry) => (entry.id === note.id ? saved : entry)),
+                  );
+                }
+              });
+            }
+          }
+          return [...transferred, ...prev].sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          );
+        });
+        for (const note of transferred) {
+          applyMentionTodoSync(note.id, "project", note.body, {
+            projectId: project.id,
+          });
+        }
+      }
 
       const now = new Date().toISOString();
       setLeads((prev) => {
@@ -1620,7 +1763,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       return project;
     },
-    [leads, addProject, persistAsync],
+    [
+      leads,
+      leadNotes,
+      addProject,
+      persistAsync,
+      profile?.id,
+      applyMentionTodoSync,
+    ],
   );
 
   const estimateFromFormValues = useCallback(
@@ -2101,6 +2251,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectMilestones,
       todos,
       leads,
+      leadNotes,
       estimates,
       settings,
       selectedWeekStart,
@@ -2140,6 +2291,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addLead,
       updateLead,
       deleteLead,
+      addLeadNote,
+      deleteLeadNote,
       convertLeadToProject,
       addEstimate,
       updateEstimate,
@@ -2185,6 +2338,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectMilestones,
       todos,
       leads,
+      leadNotes,
       estimates,
       settings,
       selectedWeekStart,
@@ -2224,6 +2378,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addLead,
       updateLead,
       deleteLead,
+      addLeadNote,
+      deleteLeadNote,
       convertLeadToProject,
       addEstimate,
       updateEstimate,
