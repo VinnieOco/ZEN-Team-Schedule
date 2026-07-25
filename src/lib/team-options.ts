@@ -1,4 +1,5 @@
 import { listDepartmentsFromEmployees } from "@/lib/departments";
+import { resolveLeadStages } from "@/lib/pipeline/lead-stages";
 import { resolveClassCodes } from "@/lib/time-class-options";
 import type { CompanySettings, Employee } from "@/types";
 import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES } from "@/types";
@@ -64,5 +65,6 @@ export function normalizeCompanySettings(settings: CompanySettings): CompanySett
     job_roles: resolveJobRoles(settings),
     departments: resolveDepartments(settings),
     class_codes: resolveClassCodes(settings),
+    lead_stages: resolveLeadStages(settings),
   };
 }

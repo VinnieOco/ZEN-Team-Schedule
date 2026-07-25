@@ -19,21 +19,22 @@ import { format, parseISO } from "date-fns";
 import { GripVertical } from "lucide-react";
 
 import {
-  LEAD_STATUSES,
   compareLeadsForQueue,
   isLeadFollowUpDue,
   leadDisplayName,
   leadSourceBadgeClass,
   leadSourceLabel,
 } from "@/lib/pipeline/leads";
+import { leadStageOptions } from "@/lib/pipeline/lead-stages";
 import { formatProjectAmount } from "@/lib/project-format";
 import { cn } from "@/lib/utils";
-import type { Lead, LeadStatus } from "@/types";
+import type { CompanySettings, Lead, LeadStatus } from "@/types";
 
 const DROP_PREFIX = "lead-status:";
 
 interface LeadKanbanProps {
   leads: Lead[];
+  settings: CompanySettings;
   canEditStatus: boolean;
   ownerName: (lead: Lead) => string | undefined;
   onSelect: (lead: Lead) => void;
@@ -52,9 +53,11 @@ function formatDue(value?: string): string | null {
 function LeadCardBody({
   lead,
   ownerName,
+  settings,
 }: {
   lead: Lead;
   ownerName?: string;
+  settings: CompanySettings;
 }) {
   const followUp = formatDue(lead.next_follow_up_date);
   return (
@@ -80,7 +83,7 @@ function LeadCardBody({
           <span
             className={cn(
               "tabular-nums",
-              isLeadFollowUpDue(lead) && "font-semibold text-rose-700",
+              isLeadFollowUpDue(lead, new Date(), settings) && "font-semibold text-rose-700",
             )}
           >
             {followUp}
@@ -94,11 +97,13 @@ function LeadCardBody({
 function DraggableLeadCard({
   lead,
   ownerName,
+  settings,
   canDrag,
   onSelect,
 }: {
   lead: Lead;
   ownerName?: string;
+  settings: CompanySettings;
   canDrag: boolean;
   onSelect: () => void;
 }) {
@@ -130,7 +135,7 @@ function DraggableLeadCard({
         onClick={onSelect}
         aria-label={`Open ${leadDisplayName(lead)}`}
       >
-        <LeadCardBody lead={lead} ownerName={ownerName} />
+        <LeadCardBody lead={lead} ownerName={ownerName} settings={settings} />
       </button>
     </div>
   );
@@ -140,6 +145,7 @@ function StatusColumn({
   status,
   label,
   leads,
+  settings,
   canEditStatus,
   ownerName,
   onSelect,
@@ -147,6 +153,7 @@ function StatusColumn({
   status: LeadStatus;
   label: string;
   leads: Lead[];
+  settings: CompanySettings;
   canEditStatus: boolean;
   ownerName: (lead: Lead) => string | undefined;
   onSelect: (lead: Lead) => void;
@@ -188,6 +195,7 @@ function StatusColumn({
               key={lead.id}
               lead={lead}
               ownerName={ownerName(lead)}
+              settings={settings}
               canDrag={canEditStatus}
               onSelect={() => onSelect(lead)}
             />
@@ -208,6 +216,7 @@ function StatusColumn({
 
 export function LeadKanban({
   leads,
+  settings,
   canEditStatus,
   ownerName,
   onSelect,
@@ -220,16 +229,25 @@ export function LeadKanban({
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
+  const stageOptions = useMemo(() => {
+    const configured = leadStageOptions(settings);
+    const known = new Set(configured.map((s) => s.value));
+    const orphans = [...new Set(leads.map((l) => l.status).filter((s) => !known.has(s)))].map(
+      (value) => ({ value, label: value, kind: "open" as const }),
+    );
+    return [...configured, ...orphans];
+  }, [settings, leads]);
+
   const byStatus = useMemo(() => {
     const map = new Map<LeadStatus, Lead[]>(
-      LEAD_STATUSES.map((status) => [status.value, [] as Lead[]]),
+      stageOptions.map((status) => [status.value, [] as Lead[]]),
     );
     for (const lead of leads) {
       map.get(lead.status)?.push(lead);
     }
     for (const list of map.values()) list.sort(compareLeadsForQueue);
     return map;
-  }, [leads]);
+  }, [leads, stageOptions]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const found = leads.find((l) => l.id === event.active.id);
@@ -268,12 +286,13 @@ export function LeadKanban({
       >
         <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
           <div className="flex min-w-max">
-            {LEAD_STATUSES.map((status) => (
+            {stageOptions.map((status) => (
               <StatusColumn
                 key={status.value}
                 status={status.value}
                 label={status.label}
                 leads={byStatus.get(status.value) ?? []}
+                settings={settings}
                 canEditStatus={canEditStatus}
                 ownerName={ownerName}
                 onSelect={onSelect}
@@ -285,7 +304,11 @@ export function LeadKanban({
         <DragOverlay dropAnimation={null}>
           {activeLead ? (
             <div className="w-[200px] rotate-1 shadow-lg sm:w-[220px]">
-              <LeadCardBody lead={activeLead} ownerName={ownerName(activeLead)} />
+              <LeadCardBody
+                lead={activeLead}
+                ownerName={ownerName(activeLead)}
+                settings={settings}
+              />
             </div>
           ) : null}
         </DragOverlay>

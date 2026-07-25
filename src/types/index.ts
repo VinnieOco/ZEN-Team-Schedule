@@ -170,7 +170,23 @@ export interface Todo {
 }
 
 export type LeadSource = "architect" | "past_client" | "referral" | "web" | "other";
-export type LeadStatus = "new" | "qualifying" | "proposal_sent" | "won" | "lost";
+/** Lead stage id — defaults are built-in; Settings can add custom open stages. */
+export type LeadStatus = string;
+export type LeadStageKind = "open" | "won" | "lost";
+
+export interface LeadStageOption {
+  id: string;
+  label: string;
+  kind: LeadStageKind;
+}
+
+export const DEFAULT_LEAD_STAGES: LeadStageOption[] = [
+  { id: "new", label: "New", kind: "open" },
+  { id: "qualifying", label: "Qualifying", kind: "open" },
+  { id: "proposal_sent", label: "Proposal sent", kind: "open" },
+  { id: "won", label: "Won", kind: "won" },
+  { id: "lost", label: "Lost", kind: "lost" },
+];
 
 export interface Lead {
   id: string;
@@ -327,6 +343,8 @@ export interface CompanySettings {
   departments: string[];
   /** Class codes for log-time timesheets. */
   class_codes: string[];
+  /** Configurable lead pipeline stages (order = kanban / filter order). */
+  lead_stages: LeadStageOption[];
 }
 
 export interface EmployeeWeekStats {

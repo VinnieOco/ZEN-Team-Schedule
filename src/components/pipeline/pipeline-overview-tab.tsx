@@ -313,7 +313,7 @@ export function PipelineOverviewTab() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { projects, timeEntries, leads, estimates, getEmployeeById, isLoading } =
+  const { projects, timeEntries, leads, estimates, settings, getEmployeeById, isLoading } =
     useScheduling();
 
   const jobs = useMemo(
@@ -321,15 +321,21 @@ export function PipelineOverviewTab() {
     [projects, timeEntries, getEmployeeById],
   );
 
-  const leadKpis = useMemo(() => buildLeadKpis(leads), [leads]);
+  const leadKpis = useMemo(() => buildLeadKpis(leads, new Date(), settings), [leads, settings]);
   const estimateKpis = useMemo(() => buildEstimateKpis(estimates), [estimates]);
-  const money = useMemo(() => buildOverviewMoney(leads, estimates, jobs), [leads, estimates, jobs]);
+  const money = useMemo(
+    () => buildOverviewMoney(leads, estimates, jobs, settings),
+    [leads, estimates, jobs, settings],
+  );
   const stageBars = useMemo(
-    () => buildOverviewStageBars(leads, estimates, jobs),
-    [leads, estimates, jobs],
+    () => buildOverviewStageBars(leads, estimates, jobs, settings),
+    [leads, estimates, jobs, settings],
   );
   const weeklyActivity = useMemo(() => buildWeeklyActivity(leads, estimates), [leads, estimates]);
-  const sourceBuckets = useMemo(() => buildLeadSourceBuckets(leads), [leads]);
+  const sourceBuckets = useMemo(
+    () => buildLeadSourceBuckets(leads, settings),
+    [leads, settings],
+  );
   const attention = useMemo(
     () => buildOverviewAttention(leads, estimates, jobs, leadKpis.followUpsDue),
     [leads, estimates, jobs, leadKpis.followUpsDue],

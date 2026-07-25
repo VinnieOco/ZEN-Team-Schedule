@@ -44,7 +44,7 @@ export function LeadContactDialog({
   open,
   onOpenChange,
 }: LeadContactDialogProps) {
-  const { leadNotes, addLeadNote } = useScheduling();
+  const { leadNotes, settings, addLeadNote } = useScheduling();
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
 
@@ -104,9 +104,9 @@ export function LeadContactDialog({
               <div className="flex flex-wrap gap-2">
                 <Badge
                   variant="secondary"
-                  className={cn("font-medium", leadStatusBadgeClass(lead.status))}
+                  className={cn("font-medium", leadStatusBadgeClass(lead.status, settings))}
                 >
-                  {leadStatusLabel(lead.status)}
+                  {leadStatusLabel(lead.status, settings)}
                 </Badge>
                 <span
                   className={cn(

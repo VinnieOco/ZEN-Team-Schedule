@@ -10,7 +10,7 @@ import {
 import { isEstimateDueOverdue, isOpenEstimate } from "@/lib/estimating/metrics";
 import { isOpenLead } from "@/lib/pipeline/leads";
 import type { PipelineJob } from "@/lib/pipeline/types";
-import type { Estimate, Lead } from "@/types";
+import type { CompanySettings, Estimate, Lead } from "@/types";
 
 export type OverviewStageBarId =
   | "leads"
@@ -71,8 +71,9 @@ export function buildOverviewStageBars(
   leads: Lead[],
   estimates: Estimate[],
   jobs: PipelineJob[],
+  settings?: CompanySettings,
 ): OverviewStageBar[] {
-  const openLeads = leads.filter(isOpenLead);
+  const openLeads = leads.filter((l) => isOpenLead(l, settings));
   const openEstimates = estimates.filter(isOpenEstimate);
 
   const budgetEstimates = openEstimates.filter((e) => e.estimate_type === "budget");
@@ -162,9 +163,10 @@ export function buildOverviewMoney(
   leads: Lead[],
   estimates: Estimate[],
   jobs: PipelineJob[],
+  settings?: CompanySettings,
 ): OverviewMoney {
   const pipelineValue =
-    leads.filter(isOpenLead).reduce((sum, l) => sum + (l.expected_value ?? 0), 0) +
+    leads.filter((l) => isOpenLead(l, settings)).reduce((sum, l) => sum + (l.expected_value ?? 0), 0) +
     estimates.filter(isOpenEstimate).reduce((sum, e) => sum + (e.amount ?? 0), 0);
 
   const backlogValue = jobs

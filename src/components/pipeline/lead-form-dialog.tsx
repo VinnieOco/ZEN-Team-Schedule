@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScheduling } from "@/context/scheduling-context";
-import { LEAD_SOURCES, LEAD_STATUSES } from "@/lib/pipeline/leads";
+import { LEAD_SOURCES } from "@/lib/pipeline/leads";
+import { leadStageOptions, openLeadStageIds } from "@/lib/pipeline/lead-stages";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Lead, LeadFormValues, LeadSource, LeadStatus } from "@/types";
 
@@ -32,7 +33,7 @@ interface LeadFormDialogProps {
   lead?: Lead | null;
 }
 
-function emptyValues(): LeadFormValues {
+function emptyValues(defaultStatus: LeadStatus = "new"): LeadFormValues {
   return {
     title: "",
     client_name: "",
@@ -40,7 +41,7 @@ function emptyValues(): LeadFormValues {
     contact_phone: "",
     contact_email: "",
     source: "other",
-    status: "new",
+    status: defaultStatus,
     expected_value: undefined,
     probability: undefined,
     next_follow_up_date: "",
@@ -67,17 +68,19 @@ function fromLead(lead: Lead): LeadFormValues {
 }
 
 export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
-  const { employees, addLead, updateLead } = useScheduling();
+  const { employees, settings, addLead, updateLead } = useScheduling();
   const [values, setValues] = useState<LeadFormValues>(emptyValues);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = Boolean(lead);
+  const stageOptions = useMemo(() => leadStageOptions(settings), [settings]);
+  const defaultStatus = openLeadStageIds(settings)[0] ?? "new";
 
   useEffect(() => {
     if (!open) return;
-    setValues(lead ? fromLead(lead) : emptyValues());
+    setValues(lead ? fromLead(lead) : emptyValues(defaultStatus));
     setError(null);
-  }, [open, lead]);
+  }, [open, lead, defaultStatus]);
 
   const ownerOptions = useMemo(
     () =>
@@ -167,7 +170,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEAD_STATUSES.map((s) => (
+                  {stageOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>

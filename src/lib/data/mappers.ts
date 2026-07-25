@@ -14,7 +14,6 @@ import type {
   Lead,
   LeadNote,
   LeadSource,
-  LeadStatus,
   Project,
   ClientNote,
   ProjectNote,
@@ -139,6 +138,7 @@ type SettingsRow = {
   job_roles?: string[] | null;
   departments?: string[] | null;
   class_codes?: string[] | null;
+  lead_stages?: unknown;
 };
 
 export function mapEmployee(row: EmployeeRow): Employee {
@@ -338,11 +338,11 @@ type LeadNoteRow = {
 };
 
 const LEAD_SOURCES = new Set(["architect", "past_client", "referral", "web", "other"]);
-const LEAD_STATUSES = new Set(["new", "qualifying", "proposal_sent", "won", "lost"]);
 
 export function mapLead(row: LeadRow): Lead {
   const source = LEAD_SOURCES.has(row.source) ? (row.source as LeadSource) : "other";
-  const status = LEAD_STATUSES.has(row.status) ? (row.status as LeadStatus) : "new";
+  const status =
+    typeof row.status === "string" && row.status.trim() ? row.status.trim() : "new";
   return {
     id: row.id,
     title: row.title?.trim() || undefined,
@@ -571,6 +571,7 @@ export function mapSettings(row: SettingsRow): CompanySettings {
     job_roles: Array.isArray(row.job_roles) ? row.job_roles.map(String) : [],
     departments: Array.isArray(row.departments) ? row.departments.map(String) : [],
     class_codes: Array.isArray(row.class_codes) ? row.class_codes.map(String) : [],
+    lead_stages: row.lead_stages as CompanySettings["lead_stages"],
   });
 }
 
@@ -673,6 +674,7 @@ export function settingsToRow(settings: CompanySettings) {
     job_roles: normalized.job_roles,
     departments: normalized.departments,
     class_codes: normalized.class_codes,
+    lead_stages: normalized.lead_stages,
   };
 }
 

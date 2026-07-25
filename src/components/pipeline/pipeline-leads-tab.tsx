@@ -52,7 +52,6 @@ import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   LEAD_SOURCES,
-  LEAD_STATUSES,
   buildLeadFollowUpBuckets,
   buildLeadKpis,
   buildLeadOwnerWorkload,
@@ -70,6 +69,7 @@ import {
   leadStatusLabel,
   newLeadsThisWeek,
 } from "@/lib/pipeline/leads";
+import { leadStageOptions } from "@/lib/pipeline/lead-stages";
 import { formatPipelineValue } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
 import { cn } from "@/lib/utils";
@@ -196,6 +196,7 @@ export function PipelineLeadsTab() {
 
   const {
     leads,
+    settings,
     getEmployeeById,
     deleteLead,
     convertLeadToProject,
@@ -212,10 +213,20 @@ export function PipelineLeadsTab() {
   const [editing, setEditing] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
-  const kpis = useMemo(() => buildLeadKpis(leads), [leads]);
-  const workload = useMemo(() => buildLeadOwnerWorkload(leads), [leads]);
-  const sourceBuckets = useMemo(() => buildLeadSourceBuckets(leads), [leads]);
-  const followUpBuckets = useMemo(() => buildLeadFollowUpBuckets(leads), [leads]);
+  const stageOptions = useMemo(() => leadStageOptions(settings), [settings]);
+  const kpis = useMemo(() => buildLeadKpis(leads, new Date(), settings), [leads, settings]);
+  const workload = useMemo(
+    () => buildLeadOwnerWorkload(leads, new Date(), settings),
+    [leads, settings],
+  );
+  const sourceBuckets = useMemo(
+    () => buildLeadSourceBuckets(leads, settings),
+    [leads, settings],
+  );
+  const followUpBuckets = useMemo(
+    () => buildLeadFollowUpBuckets(leads, new Date(), settings),
+    [leads, settings],
+  );
   const newThisWeek = useMemo(() => newLeadsThisWeek(leads), [leads]);
   const workloadMax = Math.max(1, ...workload.map((w) => w.openCount));
 
@@ -232,7 +243,7 @@ export function PipelineLeadsTab() {
     const q = search.trim().toLowerCase();
     return leads
       .filter((lead) => {
-        if (statusFilter === OPEN_ONLY && !isOpenLead(lead)) return false;
+        if (statusFilter === OPEN_ONLY && !isOpenLead(lead, settings)) return false;
         if (statusFilter !== OPEN_ONLY && statusFilter !== ALL && lead.status !== statusFilter) {
           return false;
         }
@@ -245,7 +256,7 @@ export function PipelineLeadsTab() {
           lead.notes,
           ownerName(lead),
           leadSourceLabel(lead.source),
-          leadStatusLabel(lead.status),
+          leadStatusLabel(lead.status, settings),
         ]
           .filter(Boolean)
           .join(" ")
@@ -253,7 +264,7 @@ export function PipelineLeadsTab() {
         return haystack.includes(q);
       })
       .sort(compareLeadsForQueue);
-  }, [leads, search, statusFilter, sourceFilter, ownerName]);
+  }, [leads, search, statusFilter, sourceFilter, ownerName, settings]);
 
   const setView = useCallback(
     (next: string) => {
@@ -407,7 +418,7 @@ export function PipelineLeadsTab() {
                 <SelectContent>
                   <SelectItem value={OPEN_ONLY}>Open only</SelectItem>
                   <SelectItem value={ALL}>All statuses</SelectItem>
-                  {LEAD_STATUSES.map((s) => (
+                  {stageOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>
@@ -484,7 +495,7 @@ export function PipelineLeadsTab() {
                             <span
                               className={cn(
                                 "absolute inset-y-2 left-0 w-1 rounded-r-full",
-                                leadRowAccentClass(lead),
+                                leadRowAccentClass(lead, new Date(), settings),
                               )}
                             />
                             <span className="pl-1 text-xs tabular-nums text-muted-foreground">
@@ -537,7 +548,7 @@ export function PipelineLeadsTab() {
                           <TableCell
                             className={cn(
                               "tabular-nums",
-                              isLeadFollowUpDue(lead) && "font-semibold text-rose-600",
+                              isLeadFollowUpDue(lead, new Date(), settings) && "font-semibold text-rose-600",
                             )}
                           >
                             {formatShortDate(lead.next_follow_up_date)}
@@ -553,10 +564,10 @@ export function PipelineLeadsTab() {
                                 variant="secondary"
                                 className={cn(
                                   "w-fit font-semibold",
-                                  leadStatusBadgeClass(lead.status),
+                                  leadStatusBadgeClass(lead.status, settings),
                                 )}
                               >
-                                {leadStatusLabel(lead.status)}
+                                {leadStatusLabel(lead.status, settings)}
                               </Badge>
                               {lead.converted_project_id ? (
                                 <Link
@@ -818,6 +829,7 @@ export function PipelineLeadsTab() {
           ) : (
             <LeadKanban
               leads={filtered}
+              settings={settings}
               canEditStatus={canEdit}
               ownerName={ownerName}
               onSelect={openContact}

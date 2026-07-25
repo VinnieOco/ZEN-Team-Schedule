@@ -9,7 +9,7 @@ import type {
   Project,
   TimeEntry,
 } from "@/types";
-import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES } from "@/types";
+import { DEFAULT_DEPARTMENTS, DEFAULT_JOB_ROLES, DEFAULT_LEAD_STAGES } from "@/types";
 
 export const companySettings: CompanySettings = {
   id: "settings-1",
@@ -20,6 +20,7 @@ export const companySettings: CompanySettings = {
   job_roles: [...DEFAULT_JOB_ROLES],
   departments: [...DEFAULT_DEPARTMENTS],
   class_codes: [],
+  lead_stages: [...DEFAULT_LEAD_STAGES],
 };
 
 export const employees: Employee[] = [

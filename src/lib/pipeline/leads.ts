@@ -11,7 +11,13 @@ import {
 } from "date-fns";
 
 import { daysLeftClass } from "@/lib/estimating/metrics";
-import type { Lead, LeadSource, LeadStatus } from "@/types";
+import {
+  leadStageKind as resolveLeadStageKind,
+  leadStageLabel as resolveLeadStageLabel,
+  openLeadStageIds,
+} from "@/lib/pipeline/lead-stages";
+import type { CompanySettings, Lead, LeadSource, LeadStatus } from "@/types";
+import { DEFAULT_LEAD_STAGES } from "@/types";
 
 export const LEAD_SOURCES: { value: LeadSource; label: string }[] = [
   { value: "architect", label: "Architect" },
@@ -21,15 +27,14 @@ export const LEAD_SOURCES: { value: LeadSource; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-export const LEAD_STATUSES: { value: LeadStatus; label: string }[] = [
-  { value: "new", label: "New" },
-  { value: "qualifying", label: "Qualifying" },
-  { value: "proposal_sent", label: "Proposal sent" },
-  { value: "won", label: "Won" },
-  { value: "lost", label: "Lost" },
-];
+/** Default stages — prefer resolveLeadStages(settings) in UI. */
+export const LEAD_STATUSES: { value: LeadStatus; label: string }[] = DEFAULT_LEAD_STAGES.map(
+  (stage) => ({ value: stage.id, label: stage.label }),
+);
 
-export const OPEN_LEAD_STATUSES: LeadStatus[] = ["new", "qualifying", "proposal_sent"];
+export const OPEN_LEAD_STATUSES: LeadStatus[] = DEFAULT_LEAD_STAGES.filter(
+  (stage) => stage.kind === "open",
+).map((stage) => stage.id);
 
 const SOURCE_COLORS: Record<LeadSource, string> = {
   architect: "#0284c7",
@@ -43,16 +48,32 @@ export function leadSourceLabel(source: LeadSource): string {
   return LEAD_SOURCES.find((s) => s.value === source)?.label ?? source;
 }
 
-export function leadStatusLabel(status: LeadStatus): string {
-  return LEAD_STATUSES.find((s) => s.value === status)?.label ?? status;
+export function leadStatusLabel(status: LeadStatus, settings?: CompanySettings): string {
+  if (settings) return resolveLeadStageLabel(settings, status);
+  return DEFAULT_LEAD_STAGES.find((stage) => stage.id === status)?.label ?? status;
 }
 
 export function leadDisplayName(lead: Lead): string {
   return lead.title?.trim() || lead.client_name;
 }
 
-export function isOpenLead(lead: Lead): boolean {
-  return OPEN_LEAD_STATUSES.includes(lead.status);
+export function isOpenLead(lead: Lead, settings?: CompanySettings): boolean {
+  const openIds = settings ? openLeadStageIds(settings) : OPEN_LEAD_STATUSES;
+  return openIds.includes(lead.status);
+}
+
+export function isWonLead(lead: Lead, settings?: CompanySettings): boolean {
+  const kind = settings
+    ? resolveLeadStageKind(settings, lead.status)
+    : DEFAULT_LEAD_STAGES.find((stage) => stage.id === lead.status)?.kind ?? null;
+  return kind === "won" || lead.status === "won";
+}
+
+export function isLostLead(lead: Lead, settings?: CompanySettings): boolean {
+  const kind = settings
+    ? resolveLeadStageKind(settings, lead.status)
+    : DEFAULT_LEAD_STAGES.find((stage) => stage.id === lead.status)?.kind ?? null;
+  return kind === "lost" || lead.status === "lost";
 }
 
 function parseDate(value?: string): Date | null {
@@ -74,8 +95,12 @@ export interface LeadKpiSummary {
   avgAgeDays: number | null;
 }
 
-export function buildLeadKpis(leads: Lead[], now = new Date()): LeadKpiSummary {
-  const open = leads.filter(isOpenLead);
+export function buildLeadKpis(
+  leads: Lead[],
+  now = new Date(),
+  settings?: CompanySettings,
+): LeadKpiSummary {
+  const open = leads.filter((lead) => isOpenLead(lead, settings));
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const today = startOfDay(now);
 
@@ -89,8 +114,10 @@ export function buildLeadKpis(leads: Lead[], now = new Date()): LeadKpiSummary {
     return followUp ? !isBefore(today, followUp) : false;
   }).length;
 
-  const decided = leads.filter((l) => l.status === "won" || l.status === "lost");
-  const won = decided.filter((l) => l.status === "won").length;
+  const decided = leads.filter(
+    (l) => isWonLead(l, settings) || isLostLead(l, settings),
+  );
+  const won = decided.filter((l) => isWonLead(l, settings)).length;
 
   const ages = open.flatMap((lead) => {
     const created = parseDate(lead.created_at);
@@ -121,11 +148,12 @@ export interface LeadOwnerWorkloadRow {
 export function buildLeadOwnerWorkload(
   leads: Lead[],
   now = new Date(),
+  settings?: CompanySettings,
 ): LeadOwnerWorkloadRow[] {
   const today = startOfDay(now);
   const byOwner = new Map<string | null, LeadOwnerWorkloadRow>();
 
-  for (const lead of leads.filter(isOpenLead)) {
+  for (const lead of leads.filter((l) => isOpenLead(l, settings))) {
     const key = lead.owner_employee_id ?? null;
     const row =
       byOwner.get(key) ??
@@ -153,8 +181,11 @@ export interface LeadSourceBucket {
   color: string;
 }
 
-export function buildLeadSourceBuckets(leads: Lead[]): LeadSourceBucket[] {
-  const open = leads.filter(isOpenLead);
+export function buildLeadSourceBuckets(
+  leads: Lead[],
+  settings?: CompanySettings,
+): LeadSourceBucket[] {
+  const open = leads.filter((l) => isOpenLead(l, settings));
   return LEAD_SOURCES.map(({ value, label }) => {
     const matching = open.filter((lead) => lead.source === value);
     return {
@@ -188,6 +219,7 @@ export interface LeadFollowUpBuckets {
 export function buildLeadFollowUpBuckets(
   leads: Lead[],
   now = new Date(),
+  settings?: CompanySettings,
 ): LeadFollowUpBuckets {
   const today = startOfDay(now);
   const tomorrow = addDays(today, 1);
@@ -204,7 +236,7 @@ export function buildLeadFollowUpBuckets(
     overdue: 0,
   };
 
-  for (const lead of leads.filter(isOpenLead)) {
+  for (const lead of leads.filter((l) => isOpenLead(l, settings))) {
     const followUp = parseDate(lead.next_follow_up_date);
     if (!followUp) continue;
     if (followUp < today) {
@@ -237,17 +269,32 @@ export function leadFollowUpDaysLeft(lead: Lead, now = new Date()): number | nul
   return differenceInCalendarDays(followUp, startOfDay(now));
 }
 
-export function isLeadFollowUpDue(lead: Lead, now = new Date()): boolean {
-  if (!isOpenLead(lead)) return false;
+export function isLeadFollowUpDue(
+  lead: Lead,
+  now = new Date(),
+  settings?: CompanySettings,
+): boolean {
+  if (!isOpenLead(lead, settings)) return false;
   const days = leadFollowUpDaysLeft(lead, now);
   return days != null && days <= 0;
 }
 
-export function leadRowAccentClass(lead: Lead, now = new Date()): string {
+export function leadRowAccentClass(
+  lead: Lead,
+  now = new Date(),
+  settings?: CompanySettings,
+): string {
   const days = leadFollowUpDaysLeft(lead, now);
   if (days != null && days < 0) return "bg-rose-500";
   if (days != null && days === 0) return "bg-rose-500";
   if (days != null && days <= 2) return "bg-amber-500";
+
+  const kind = settings
+    ? resolveLeadStageKind(settings, lead.status)
+    : DEFAULT_LEAD_STAGES.find((stage) => stage.id === lead.status)?.kind ?? null;
+  if (kind === "won" || lead.status === "won") return "bg-emerald-500";
+  if (kind === "lost" || lead.status === "lost") return "bg-slate-400";
+
   switch (lead.status) {
     case "new":
       return "bg-sky-500";
@@ -255,12 +302,8 @@ export function leadRowAccentClass(lead: Lead, now = new Date()): string {
       return "bg-amber-400";
     case "proposal_sent":
       return "bg-violet-500";
-    case "won":
-      return "bg-emerald-500";
-    case "lost":
-      return "bg-slate-400";
     default:
-      return "bg-slate-300";
+      return kind === "open" ? "bg-sky-500" : "bg-slate-300";
   }
 }
 
@@ -279,7 +322,17 @@ export function leadSourceBadgeClass(source: LeadSource): string {
   }
 }
 
-export function leadStatusBadgeClass(status: LeadStatus): string {
+export function leadStatusBadgeClass(
+  status: LeadStatus,
+  settings?: CompanySettings,
+): string {
+  const kind = settings
+    ? resolveLeadStageKind(settings, status)
+    : DEFAULT_LEAD_STAGES.find((stage) => stage.id === status)?.kind ?? null;
+
+  if (kind === "won" || status === "won") return "bg-emerald-100 text-emerald-800";
+  if (kind === "lost" || status === "lost") return "bg-slate-200 text-slate-700";
+
   switch (status) {
     case "new":
       return "bg-sky-100 text-sky-900";
@@ -287,12 +340,10 @@ export function leadStatusBadgeClass(status: LeadStatus): string {
       return "bg-amber-100 text-amber-900";
     case "proposal_sent":
       return "bg-violet-100 text-violet-900";
-    case "won":
-      return "bg-emerald-100 text-emerald-800";
-    case "lost":
-      return "bg-slate-200 text-slate-700";
     default:
-      return "bg-slate-100 text-slate-800";
+      return kind === "open"
+        ? "bg-sky-50 text-sky-900"
+        : "bg-slate-100 text-slate-800";
   }
 }
 
@@ -307,12 +358,14 @@ export function compareLeadsForQueue(a: Lead, b: Lead): number {
   return b.created_at.localeCompare(a.created_at);
 }
 
-export function openLeadsExpectedValue(leads: Lead[]): number {
-  return leads.filter(isOpenLead).reduce((sum, l) => sum + (l.expected_value ?? 0), 0);
+export function openLeadsExpectedValue(leads: Lead[], settings?: CompanySettings): number {
+  return leads
+    .filter((l) => isOpenLead(l, settings))
+    .reduce((sum, l) => sum + (l.expected_value ?? 0), 0);
 }
 
-export function openLeadsCount(leads: Lead[]): number {
-  return leads.filter(isOpenLead).length;
+export function openLeadsCount(leads: Lead[], settings?: CompanySettings): number {
+  return leads.filter((l) => isOpenLead(l, settings)).length;
 }
 
 export { daysLeftClass };
