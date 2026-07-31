@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -60,6 +59,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
 import {
@@ -353,10 +353,13 @@ function TypeDonut({
 }
 
 export function PipelineEstimatingTab() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const view = parseView(searchParams.get("view"));
+  const applyEstimatingView = useCallback((next: EstimatingView, params: URLSearchParams) => {
+    params.set("tab", "estimating");
+    if (next === "table") params.delete("view");
+    else params.set("view", next);
+  }, []);
+
+  const [view, setView] = useOptimisticUrlView(parseView, applyEstimatingView);
 
   const { estimates, employees, projectMilestones, getEmployeeById, isLoading, setEstimateStage, deleteEstimate } =
     useScheduling();
@@ -508,18 +511,6 @@ export function PipelineEstimatingTab() {
       arrayMoveIds(ids, oldIndex, newIndex),
     );
   };
-
-  const setView = useCallback(
-    (next: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "estimating");
-      if (next === "table") params.delete("view");
-      else params.set("view", next);
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
 
   const openNew = () => {
     setEditing(null);

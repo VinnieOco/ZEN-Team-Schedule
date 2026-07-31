@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -56,6 +55,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
 import { useQueueMembership } from "@/hooks/use-queue-membership";
@@ -319,10 +319,13 @@ function SortableDesignPriorityRow({
 }
 
 export function PipelineDesignTab() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const view = parseView(searchParams.get("view"));
+  const applyDesignView = useCallback((next: "table" | "kanban", params: URLSearchParams) => {
+    params.set("tab", "design");
+    if (next === "table") params.delete("view");
+    else params.set("view", next);
+  }, []);
+
+  const [view, setView] = useOptimisticUrlView(parseView, applyDesignView);
 
   const {
     projects,
@@ -413,18 +416,6 @@ export function PipelineDesignTab() {
   const unassignedActiveCount = designItems.filter(
     (i) => i.stage !== "complete" && !i.project.lead_employee_id,
   ).length;
-
-  const setView = useCallback(
-    (next: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "design");
-      if (next === "table") params.delete("view");
-      else params.set("view", next);
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
 
   const handleDragCommit = useCallback((commit: QueueDragCommit) => {
     writeQueueDragCommit(commit);

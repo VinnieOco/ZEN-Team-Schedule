@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
 
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { PipelineDesignTab } from "@/components/pipeline/pipeline-design-tab";
@@ -9,6 +8,7 @@ import { PipelineEstimatingTab } from "@/components/pipeline/pipeline-estimating
 import { PipelineLeadsTab } from "@/components/pipeline/pipeline-leads-tab";
 import { PipelineOverviewTab } from "@/components/pipeline/pipeline-overview-tab";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { useOptimisticUrlTab } from "@/hooks/use-optimistic-url-tab";
 import { PIPELINE_TABS, type PipelineTab } from "@/lib/pipeline/types";
 
 function parseTab(value: string | null): PipelineTab {
@@ -20,27 +20,18 @@ const UNDERLINE_TAB =
   "rounded-none border-b-2 border-transparent px-3 pb-2.5 pt-1 data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-emerald-800 data-[state=active]:shadow-none";
 
 export function PipelinePageClient() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const activeTab = useMemo(() => parseTab(searchParams.get("tab")), [searchParams]);
+  const applyTab = useCallback((tab: PipelineTab, params: URLSearchParams, previous: PipelineTab) => {
+    if (tab === "overview") {
+      params.delete("tab");
+      params.delete("view");
+    } else {
+      params.set("tab", tab);
+      // Sub-view is per tab, so drop it whenever the tab itself changes.
+      if (tab !== previous) params.delete("view");
+    }
+  }, []);
 
-  const setTab = useCallback(
-    (tab: string) => {
-      const next = new URLSearchParams(searchParams.toString());
-      if (tab === "overview") {
-        next.delete("tab");
-        next.delete("view");
-      } else {
-        next.set("tab", tab);
-        // Sub-view is per tab, so drop it whenever the tab itself changes.
-        if (tab !== activeTab) next.delete("view");
-      }
-      const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [activeTab, pathname, router, searchParams],
-  );
+  const [activeTab, setTab] = useOptimisticUrlTab(parseTab, applyTab);
 
   return (
     <Tabs value={activeTab} onValueChange={setTab} className="min-w-0">

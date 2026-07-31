@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import {
   BarChart3,
@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   buildLeadFollowUpBuckets,
@@ -205,9 +206,14 @@ function SourceDonut({
 
 export function PipelineLeadsTab() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const view = parseView(searchParams.get("view"));
+
+  const applyLeadsView = useCallback((next: LeadsView, params: URLSearchParams) => {
+    params.set("tab", "leads");
+    if (next === "table") params.delete("view");
+    else params.set("view", next);
+  }, []);
+
+  const [view, setView] = useOptimisticUrlView(parseView, applyLeadsView);
 
   const {
     leads,
@@ -282,18 +288,6 @@ export function PipelineLeadsTab() {
       })
       .sort(compareLeadsForQueue);
   }, [leads, search, statusFilter, sourceFilter, ownerName, settings]);
-
-  const setView = useCallback(
-    (next: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "leads");
-      if (next === "table") params.delete("view");
-      else params.set("view", next);
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
 
   const openEdit = (lead: Lead) => {
     setEditing(lead);
