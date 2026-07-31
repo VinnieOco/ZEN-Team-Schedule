@@ -45,6 +45,8 @@ interface EstimateDetailDialogProps {
   canEdit: boolean;
   onEdit: (estimate: Estimate) => void;
   onRevised?: (revision: Estimate) => void;
+  /** Intercept marking won so the parent can open the project link dialog. */
+  onRequestWon?: (estimate: Estimate) => void;
 }
 
 function formatDate(value?: string): string {
@@ -63,6 +65,7 @@ export function EstimateDetailDialog({
   canEdit,
   onEdit,
   onRevised,
+  onRequestWon,
 }: EstimateDetailDialogProps) {
   const {
     estimates,
@@ -85,6 +88,26 @@ export function EstimateDetailDialog({
   // Read the live row so checklist toggles and stage changes render immediately.
   const current = estimate ? (estimates.find((e) => e.id === estimate.id) ?? estimate) : null;
   if (!current) return null;
+
+  const requestOrSetWon = () => {
+    if (current.result === "won") {
+      setEstimateResult(current.id, "pending");
+      return;
+    }
+    if (onRequestWon) {
+      onRequestWon(current);
+      return;
+    }
+    setEstimateResult(current.id, "won");
+  };
+
+  const handleStageChange = (stage: EstimateStage) => {
+    if (stage === "won" && current.result !== "won" && onRequestWon) {
+      onRequestWon(current);
+      return;
+    }
+    setEstimateStage(current.id, stage);
+  };
 
   const estimator = current.estimator_id ? getEmployeeById(current.estimator_id) : undefined;
   const project = current.project_id
@@ -118,6 +141,7 @@ export function EstimateDetailDialog({
     { label: "Received", value: formatDate(current.received_date) },
     { label: "Due", value: formatDate(current.due_date) },
     { label: "Submitted", value: formatDate(current.submitted_date) },
+    { label: "Won", value: formatDate(current.won_date) },
     { label: "Result", value: estimateResultLabel(current.result) },
   ];
 
@@ -279,7 +303,7 @@ export function EstimateDetailDialog({
                   <Label>Stage</Label>
                   <Select
                     value={current.stage}
-                    onValueChange={(v) => setEstimateStage(current.id, v as EstimateStage)}
+                    onValueChange={(v) => handleStageChange(v as EstimateStage)}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -300,9 +324,7 @@ export function EstimateDetailDialog({
                       type="button"
                       variant={current.result === "won" ? "default" : "outline"}
                       className="flex-1"
-                      onClick={() =>
-                        setEstimateResult(current.id, current.result === "won" ? "pending" : "won")
-                      }
+                      onClick={requestOrSetWon}
                     >
                       Won
                     </Button>

@@ -116,7 +116,10 @@ export function buildEstimateKpis(
 
   const decidedYtd = estimates.filter((estimate) => {
     if (estimate.result === "pending") return false;
-    const decidedOn = parseDate(estimate.submitted_date) ?? parseDate(estimate.updated_at);
+    const decidedOn =
+      (estimate.result === "won" ? parseDate(estimate.won_date) : undefined) ??
+      parseDate(estimate.submitted_date) ??
+      parseDate(estimate.updated_at);
     return decidedOn ? decidedOn >= yearStart : false;
   });
   const wonYtd = decidedYtd.filter((estimate) => estimate.result === "won").length;

@@ -316,6 +316,8 @@ export interface Estimate {
   due_date?: string;
   /** Drives submitted-this-week $ metrics. */
   submitted_date?: string;
+  /** Set when the package is marked won (from the won dialog). */
+  won_date?: string;
   amount?: number;
   stage: EstimateStage;
   result: EstimateResult;

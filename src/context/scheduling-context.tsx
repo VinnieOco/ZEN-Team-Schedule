@@ -55,7 +55,7 @@ import {
   type ClientContactFields,
   type ClientNameActionResult,
 } from "@/lib/clients";
-import { projectFromFormValues } from "@/lib/project-form";
+import { projectFromFormValues, projectToFormValues } from "@/lib/project-form";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import { projectsNeedingPhaseSeed, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { normalizeHandle, suggestEmployeeHandle } from "@/lib/todos/handles";
@@ -205,6 +205,15 @@ interface SchedulingContextValue {
   setLeadFollowUpCompleted: (id: string, completed: boolean) => void;
   deleteLeadFollowUp: (id: string) => void;
   convertLeadToProject: (id: string) => Project | null;
+  /**
+   * Marks an estimate as won, links it to a project (existing or newly created),
+   * and copies the estimate amount onto the project's estimate_value.
+   */
+  applyWonEstimateToProject: (
+    estimateId: string,
+    choice: { mode: "existing"; projectId: string } | { mode: "new" },
+    wonDate: string,
+  ) => Project | null;
   addEstimate: (values: EstimateFormValues) => Estimate;
   updateEstimate: (id: string, values: EstimateFormValues) => void;
   deleteEstimate: (id: string) => void;
@@ -2127,6 +2136,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         ...existing,
         stage,
         result: estimateResultForStage(stage),
+        won_date: stage === "won" ? existing.won_date : undefined,
         submitted_date:
           stage === "submitted" && !existing.submitted_date
             ? format(new Date(), "yyyy-MM-dd")
@@ -2157,12 +2167,81 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
             existing.stage === "won" || existing.stage === "lost"
               ? "follow_up"
               : existing.stage;
-          return { ...existing, result, stage: reopened };
+          return {
+            ...existing,
+            result,
+            stage: reopened,
+            won_date: undefined,
+          };
         }
         return { ...existing, result, stage: result };
       });
     },
     [mutateEstimate],
+  );
+
+  const applyWonEstimateToProject = useCallback(
+    (
+      estimateId: string,
+      choice: { mode: "existing"; projectId: string } | { mode: "new" },
+      wonDate: string,
+    ): Project | null => {
+      const estimate = estimates.find((e) => e.id === estimateId);
+      if (!estimate) return null;
+
+      const resolvedWonDate = wonDate.trim() || format(new Date(), "yyyy-MM-dd");
+      let project: Project | null = null;
+
+      if (choice.mode === "existing") {
+        const existing = projects.find((p) => p.id === choice.projectId);
+        if (!existing) return null;
+
+        const formValues = projectToFormValues(existing);
+        if (estimate.amount != null && Number.isFinite(estimate.amount)) {
+          formValues.estimate_value = estimate.amount;
+        }
+        if (!formValues.lead_estimator_id && estimate.estimator_id) {
+          formValues.lead_estimator_id = estimate.estimator_id;
+        }
+        if (!formValues.contract_date) {
+          formValues.contract_date = resolvedWonDate;
+        }
+        updateProject(existing.id, formValues);
+        project = {
+          ...existing,
+          estimate_value: formValues.estimate_value ?? existing.estimate_value,
+          lead_estimator_id: formValues.lead_estimator_id ?? existing.lead_estimator_id,
+          contract_date: formValues.contract_date ?? existing.contract_date,
+        };
+      } else {
+        project = addProject({
+          project_name: estimate.title?.trim() || estimate.client_name.trim(),
+          client_name: estimate.client_name,
+          department: "Estimating",
+          phase: "Estimating",
+          lead_estimator_id: estimate.estimator_id,
+          budgeted_design_hours: 0,
+          estimate_value: estimate.amount,
+          contract_date: resolvedWonDate,
+          active: true,
+        });
+      }
+
+      if (!project) return null;
+
+      mutateEstimate(estimateId, (existing) => ({
+        ...existing,
+        stage: "won",
+        result: "won",
+        project_id: project!.id,
+        won_date: resolvedWonDate,
+        submitted_date:
+          existing.submitted_date || format(new Date(), "yyyy-MM-dd"),
+      }));
+
+      return project;
+    },
+    [addProject, estimates, mutateEstimate, projects, updateProject],
   );
 
   const reviseEstimate = useCallback(
@@ -2179,6 +2258,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         stage: "pricing",
         result: "pending",
         submitted_date: undefined,
+        won_date: undefined,
         checklist: source.checklist.map((item) => ({ ...item, done: false })),
         created_at: now,
         updated_at: now,
@@ -2554,6 +2634,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setLeadFollowUpCompleted,
       deleteLeadFollowUp,
       convertLeadToProject,
+      applyWonEstimateToProject,
       addEstimate,
       updateEstimate,
       deleteEstimate,
@@ -2645,6 +2726,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setLeadFollowUpCompleted,
       deleteLeadFollowUp,
       convertLeadToProject,
+      applyWonEstimateToProject,
       addEstimate,
       updateEstimate,
       deleteEstimate,

@@ -40,6 +40,11 @@ interface EstimateFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   estimate?: Estimate | null;
+  /**
+   * When saving with stage Won (and it wasn't won before), save other fields first
+   * then call this so the parent can open the project link dialog.
+   */
+  onRequestWon?: (estimateId: string) => void;
 }
 
 function emptyValues(): EstimateFormValues {
@@ -78,6 +83,7 @@ export function EstimateFormDialog({
   open,
   onOpenChange,
   estimate,
+  onRequestWon,
 }: EstimateFormDialogProps) {
   const { employees, projects, clients, addEstimate, updateEstimate } = useScheduling();
   const [values, setValues] = useState<EstimateFormValues>(emptyValues);
@@ -157,6 +163,31 @@ export function EstimateFormDialog({
       submitted_date: values.submitted_date || undefined,
       notes: values.notes?.trim() || undefined,
     };
+
+    const transitioningToWon =
+      Boolean(onRequestWon) &&
+      payload.stage === "won" &&
+      (!estimate || estimate.result !== "won");
+
+    if (transitioningToWon && onRequestWon) {
+      // Persist package details first; leave stage open until the won dialog confirms.
+      const openStage =
+        estimate && estimate.stage !== "won" && estimate.stage !== "lost"
+          ? estimate.stage
+          : "follow_up";
+      const pending: EstimateFormValues = { ...payload, stage: openStage };
+      let estimateId: string;
+      if (estimate) {
+        updateEstimate(estimate.id, pending);
+        estimateId = estimate.id;
+      } else {
+        estimateId = addEstimate(pending).id;
+      }
+      onOpenChange(false);
+      onRequestWon(estimateId);
+      return;
+    }
+
     if (estimate) updateEstimate(estimate.id, payload);
     else addEstimate(payload);
     onOpenChange(false);

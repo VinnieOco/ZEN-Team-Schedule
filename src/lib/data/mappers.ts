@@ -482,6 +482,7 @@ type EstimateRow = {
   received_date: string | null;
   due_date: string | null;
   submitted_date: string | null;
+  won_date: string | null;
   amount: number | null;
   stage: string;
   result: string;
@@ -544,6 +545,7 @@ export function mapEstimate(row: EstimateRow): Estimate {
     received_date: row.received_date ?? undefined,
     due_date: row.due_date ?? undefined,
     submitted_date: row.submitted_date ?? undefined,
+    won_date: row.won_date ?? undefined,
     amount:
       row.amount != null && Number.isFinite(Number(row.amount))
         ? Number(row.amount)
@@ -571,6 +573,7 @@ export function estimateToRow(estimate: Estimate) {
     received_date: estimate.received_date || null,
     due_date: estimate.due_date || null,
     submitted_date: estimate.submitted_date || null,
+    won_date: estimate.won_date || null,
     amount: estimate.amount ?? null,
     stage: estimate.stage,
     result: estimate.result,

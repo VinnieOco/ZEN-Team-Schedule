@@ -1,3 +1,4 @@
+import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import type { Project, ProjectFormValues } from "@/types";
 
 function optionalText(value: string | undefined): string | undefined {
@@ -8,6 +9,31 @@ function optionalText(value: string | undefined): string | undefined {
 function optionalAmount(value: number | undefined): number | undefined {
   if (value == null || !Number.isFinite(value) || value < 0) return undefined;
   return value;
+}
+
+/** Build form values from an existing project for updateProject. */
+export function projectToFormValues(project: Project): ProjectFormValues {
+  return {
+    project_name: project.project_name,
+    client_name: project.client_name,
+    department: project.department,
+    phase: project.phase,
+    lead_employee_id: project.lead_employee_id,
+    lead_estimator_id: project.lead_estimator_id,
+    budgeted_design_hours: project.budgeted_design_hours,
+    contract_date: project.contract_date,
+    target_completion_date: project.target_completion_date,
+    estimating_completion_date: project.estimating_completion_date,
+    design_amount: getProjectDesignAmount(project),
+    estimate_value: getProjectEstimateValue(project),
+    scope_of_work: project.scope_of_work,
+    address: project.address,
+    phone: project.phone,
+    email: project.email,
+    active: project.active,
+    parent_project_id: project.parent_project_id,
+    is_change_order: project.is_change_order,
+  };
 }
 
 /** Normalize project form values before save (empty strings, invalid UUIDs, NaN hours). */

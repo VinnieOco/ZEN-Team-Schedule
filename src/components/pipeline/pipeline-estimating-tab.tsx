@@ -29,6 +29,7 @@ import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { EstimateDetailDialog } from "@/components/pipeline/estimate-detail-dialog";
 import { EstimateFormDialog } from "@/components/pipeline/estimate-form-dialog";
 import { EstimateKanban } from "@/components/pipeline/estimate-kanban";
+import { EstimateWonDialog } from "@/components/pipeline/estimate-won-dialog";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import { PipelinePeriodNavigator } from "@/components/pipeline/pipeline-period-navigator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -100,7 +101,7 @@ import { formatProjectAmount } from "@/lib/project-format";
 import { arrayMoveIds } from "@/lib/queue/column-order";
 import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
-import type { Estimate } from "@/types";
+import type { Estimate, EstimateStage } from "@/types";
 
 const ALL = "__all__";
 const OPEN_ONLY = "__open__";
@@ -374,7 +375,31 @@ export function PipelineEstimatingTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Estimate | null>(null);
   const [detail, setDetail] = useState<Estimate | null>(null);
+  const [wonEstimateId, setWonEstimateId] = useState<string | null>(null);
   const [period, setPeriod] = useState<PipelinePeriod>(() => createDefaultPipelinePeriod());
+
+  const wonEstimate = useMemo(
+    () => (wonEstimateId ? estimates.find((e) => e.id === wonEstimateId) ?? null : null),
+    [estimates, wonEstimateId],
+  );
+
+  const requestWon = useCallback((estimate: Estimate) => {
+    setWonEstimateId(estimate.id);
+  }, []);
+
+  const handleStageChange = useCallback(
+    (id: string, stage: EstimateStage) => {
+      if (stage === "won") {
+        const estimate = estimates.find((e) => e.id === id);
+        if (estimate && estimate.result !== "won") {
+          setWonEstimateId(id);
+          return;
+        }
+      }
+      setEstimateStage(id, stage);
+    },
+    [estimates, setEstimateStage],
+  );
 
   const periodRange = useMemo(() => resolvePipelinePeriodRange(period), [period]);
   const duePeriodLabel = pipelinePeriodDueLabel(period.mode);
@@ -989,7 +1014,7 @@ export function PipelineEstimatingTab() {
               canEditStage={canEdit}
               estimatorName={estimatorName}
               onSelect={setDetail}
-              onStageChange={setEstimateStage}
+              onStageChange={handleStageChange}
             />
           )}
         </TabsContent>
@@ -1073,6 +1098,7 @@ export function PipelineEstimatingTab() {
           if (!open) setEditing(null);
         }}
         estimate={editing}
+        onRequestWon={(estimateId) => setWonEstimateId(estimateId)}
       />
 
       <EstimateDetailDialog
@@ -1084,6 +1110,15 @@ export function PipelineEstimatingTab() {
         canEdit={canEdit}
         onEdit={openEdit}
         onRevised={(revision) => setDetail(revision)}
+        onRequestWon={requestWon}
+      />
+
+      <EstimateWonDialog
+        estimate={wonEstimate}
+        open={Boolean(wonEstimateId)}
+        onOpenChange={(open) => {
+          if (!open) setWonEstimateId(null);
+        }}
       />
     </div>
   );
