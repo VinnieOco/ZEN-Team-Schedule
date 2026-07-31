@@ -270,6 +270,11 @@ export function createSupabaseRepository(
       return mapProject(data);
     },
 
+    async deleteProject(id: string) {
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (error) throw error;
+    },
+
     async insertProjectNote(note: ProjectNote) {
       const { data, error } = await supabase
         .from("project_notes")

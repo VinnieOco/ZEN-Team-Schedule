@@ -30,6 +30,7 @@ import {
   loadLocalQueueSnapshot,
   migrateLocalQueueToRemote,
 } from "@/lib/queue/queue-state";
+import { removeProjectFromQueue } from "@/lib/queue/queue-membership";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { SchedulingRepository } from "@/lib/repository";
@@ -183,6 +184,8 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => Promise<boolean>;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
+  /** Deletes a change-order project only. Returns an error message when blocked. */
+  deleteChangeOrder: (id: string) => { ok: true } | { ok: false; message: string };
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
   /** Sync address, phone, and email to registry + every project for this client key. */
   updateClientContact: (
@@ -1163,6 +1166,75 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       });
     },
     [persistAsync],
+  );
+
+  const deleteChangeOrder = useCallback(
+    (id: string): { ok: true } | { ok: false; message: string } => {
+      const project = projects.find((p) => p.id === id);
+      if (!project) {
+        return { ok: false, message: "Change order not found." };
+      }
+      if (!isChangeOrder(project)) {
+        return { ok: false, message: "Only change orders can be deleted here." };
+      }
+
+      const projectsSnapshot = projects;
+      const notesSnapshot = projectNotes;
+      const phasesSnapshot = projectPhases;
+      const milestonesSnapshot = projectMilestones;
+      const todosSnapshot = todos;
+      const estimatesSnapshot = estimates;
+      const allocationsSnapshot = allocations;
+      const timeEntriesSnapshot = timeEntries;
+
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+      setProjectNotes((prev) => prev.filter((n) => n.project_id !== id));
+      setProjectPhases((prev) => prev.filter((p) => p.project_id !== id));
+      setProjectMilestones((prev) => prev.filter((m) => m.project_id !== id));
+      setTodos((prev) => prev.filter((t) => t.source_project_id !== id));
+      setEstimates((prev) =>
+        prev.map((e) => (e.project_id === id ? { ...e, project_id: undefined } : e)),
+      );
+      setAllocations((prev) =>
+        prev.map((a) => (a.project_id === id ? { ...a, project_id: null } : a)),
+      );
+      setTimeEntries((prev) =>
+        prev.map((e) => (e.project_id === id ? { ...e, project_id: null } : e)),
+      );
+
+      removeProjectFromQueue("design", id);
+      removeProjectFromQueue("estimating", id);
+      setQueueRevision((n) => n + 1);
+
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.deleteProject(id),
+          () => {
+            setProjects(projectsSnapshot);
+            setProjectNotes(notesSnapshot);
+            setProjectPhases(phasesSnapshot);
+            setProjectMilestones(milestonesSnapshot);
+            setTodos(todosSnapshot);
+            setEstimates(estimatesSnapshot);
+            setAllocations(allocationsSnapshot);
+            setTimeEntries(timeEntriesSnapshot);
+          },
+        );
+      }
+
+      return { ok: true };
+    },
+    [
+      projects,
+      projectNotes,
+      projectPhases,
+      projectMilestones,
+      todos,
+      estimates,
+      allocations,
+      timeEntries,
+      persistAsync,
+    ],
   );
 
   const updateClientContact = useCallback(
@@ -2648,6 +2720,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      deleteChangeOrder,
       addClient,
       updateClientContact,
       renameClient,
@@ -2740,6 +2813,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      deleteChangeOrder,
       addClient,
       updateClientContact,
       renameClient,

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { format, parseISO } from "date-fns";
-import { Building2, Calendar, Mail, MapPin, Pencil, Phone } from "lucide-react";
+import { Building2, Calendar, Mail, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
 
 import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface ProjectDetailsCardProps {
   budgetRollup?: ProjectBudgetRollup;
   canEdit: boolean;
   onEdit: () => void;
+  onDelete?: () => void;
 }
 
 function ContactRow({
@@ -53,6 +54,7 @@ export function ProjectDetailsCard({
   budgetRollup,
   canEdit,
   onEdit,
+  onDelete,
 }: ProjectDetailsCardProps) {
   const designAmount = budgetRollup?.totalDesignAmount ?? getProjectDesignAmount(project);
   const estimateAmount = budgetRollup?.totalEstimateAmount ?? getProjectEstimateValue(project);
@@ -63,10 +65,24 @@ export function ProjectDetailsCard({
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b pb-4">
         <CardTitle className="text-base">Project details</CardTitle>
         {canEdit && (
-          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                onClick={onDelete}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            ) : null}
+          </div>
         )}
       </CardHeader>
       <CardContent className="space-y-6 pt-6">

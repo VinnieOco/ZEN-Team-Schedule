@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Plus, Trash2 } from "lucide-react";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ interface ChangeOrdersSectionProps {
 }
 
 export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionProps) {
-  const { projects, timeEntries } = useScheduling();
+  const { projects, timeEntries, deleteChangeOrder } = useScheduling();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const changeOrders = useMemo(
@@ -57,6 +57,20 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
   );
 
   const rollupLabel = formatChangeOrderRollup(summary);
+
+  const handleDelete = (co: Project) => {
+    if (
+      !window.confirm(
+        `Delete change order “${co.project_name}”? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const result = deleteChangeOrder(co.id);
+    if (!result.ok) {
+      window.alert(result.message);
+    }
+  };
 
   return (
     <>
@@ -91,6 +105,7 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                   <TableHead className="text-right">Actual Hrs</TableHead>
                   <TableHead className="text-right">Design Amount</TableHead>
                   <TableHead className="text-right">Estimate Amount</TableHead>
+                  {canEdit ? <TableHead className="w-[1%] text-right"> </TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -131,6 +146,20 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                       <TableCell className="text-right tabular-nums">
                         {formatProjectAmount(getProjectEstimateValue(co))}
                       </TableCell>
+                      {canEdit ? (
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                            onClick={() => handleDelete(co)}
+                            aria-label={`Delete ${co.project_name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   );
                 })}

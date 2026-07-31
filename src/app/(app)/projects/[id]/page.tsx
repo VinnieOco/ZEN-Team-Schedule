@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
@@ -41,11 +41,19 @@ import { getEmployeeFullName } from "@/lib/week";
 
 export default function ProjectDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.id as string;
   const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "overview";
-  const { projects, allocations, timeEntries, employees, getEmployeeById, getCategoryById } =
-    useScheduling();
+  const {
+    projects,
+    allocations,
+    timeEntries,
+    employees,
+    getEmployeeById,
+    getCategoryById,
+    deleteChangeOrder,
+  } = useScheduling();
   const { permissions } = usePermissions();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -81,6 +89,22 @@ export default function ProjectDetailPage() {
   const projectAllocations = allocations
     .filter((a) => a.project_id === project.id)
     .sort((a, b) => b.allocation_date.localeCompare(a.allocation_date));
+
+  const handleDeleteChangeOrder = () => {
+    if (
+      !window.confirm(
+        `Delete change order “${project.project_name}”? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const result = deleteChangeOrder(project.id);
+    if (!result.ok) {
+      window.alert(result.message);
+      return;
+    }
+    router.push(parentProject ? `/projects/${parentProject.id}` : "/projects");
+  };
 
   return (
     <AppPage className="space-y-6">
@@ -186,6 +210,11 @@ export default function ProjectDetailPage() {
         budgetRollup={showRollup ? budgetRollup : undefined}
         canEdit={permissions.editProjects}
         onEdit={() => setEditDialogOpen(true)}
+        onDelete={
+          permissions.editProjects && isChangeOrder(project)
+            ? handleDeleteChangeOrder
+            : undefined
+        }
       />
 
       {isParentProject(project) && (

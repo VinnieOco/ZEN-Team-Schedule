@@ -46,6 +46,7 @@ export interface SchedulingRepository {
   deleteTimeEntry(id: string): Promise<void>;
   upsertProject(project: Project): Promise<Project>;
   updateProject(project: Project): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
   insertProjectNote(note: ProjectNote): Promise<ProjectNote>;
   updateProjectNote(note: ProjectNote): Promise<ProjectNote>;
   deleteProjectNote(id: string): Promise<void>;
