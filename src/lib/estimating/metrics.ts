@@ -22,6 +22,7 @@ export const ESTIMATE_TYPES: { value: EstimateType; label: string }[] = [
   { value: "budget", label: "Budget" },
   { value: "cost_proposal", label: "Cost proposal" },
   { value: "contract", label: "Contract" },
+  { value: "change_order", label: "Change order" },
 ];
 
 export const ESTIMATE_STAGES: { value: EstimateStage; label: string }[] = [
@@ -319,6 +320,8 @@ export function estimateTypeBadgeClass(type: EstimateType): string {
       return "bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200";
     case "contract":
       return "bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200";
+    case "change_order":
+      return "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200";
     default:
       return "bg-slate-100 text-slate-700";
   }

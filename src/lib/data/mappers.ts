@@ -492,7 +492,12 @@ type EstimateRow = {
   updated_at: string;
 };
 
-const ESTIMATE_TYPE_VALUES = new Set(["budget", "cost_proposal", "contract"]);
+const ESTIMATE_TYPE_VALUES = new Set([
+  "budget",
+  "cost_proposal",
+  "contract",
+  "change_order",
+]);
 const ESTIMATE_STAGE_VALUES = new Set([
   "backlog",
   "waiting_docs",

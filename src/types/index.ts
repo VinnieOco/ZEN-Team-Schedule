@@ -282,7 +282,7 @@ export interface LeadFormValues {
   notes?: string;
 }
 
-export type EstimateType = "budget" | "cost_proposal" | "contract";
+export type EstimateType = "budget" | "cost_proposal" | "contract" | "change_order";
 export type EstimateStage =
   | "backlog"
   | "waiting_docs"

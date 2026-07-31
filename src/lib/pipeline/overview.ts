@@ -78,7 +78,10 @@ export function buildOverviewStageBars(
 
   const budgetEstimates = openEstimates.filter((e) => e.estimate_type === "budget");
   const pricingEstimates = openEstimates.filter(
-    (e) => e.estimate_type === "cost_proposal" || e.estimate_type === "contract",
+    (e) =>
+      e.estimate_type === "cost_proposal" ||
+      e.estimate_type === "contract" ||
+      e.estimate_type === "change_order",
   );
 
   const schematicJobs = jobsInPhases(jobs, SCHEMATIC_PHASES);

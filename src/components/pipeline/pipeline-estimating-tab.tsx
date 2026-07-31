@@ -111,6 +111,7 @@ const TYPE_COLORS: Record<string, string> = {
   budget: "#059669",
   cost_proposal: "#0284c7",
   contract: "#7c3aed",
+  change_order: "#d97706",
 };
 
 function parseView(value: string | null): EstimatingView {
