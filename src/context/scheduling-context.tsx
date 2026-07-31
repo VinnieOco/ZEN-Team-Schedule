@@ -173,9 +173,9 @@ interface SchedulingContextValue {
   moveAllocation: (id: string, employeeId: string, allocationDate: string) => void;
   deleteAllocation: (id: string) => void;
   duplicateAllocation: (id: string) => Allocation;
-  addTimeEntry: (values: TimeEntryFormValues) => TimeEntry;
-  updateTimeEntry: (id: string, values: TimeEntryFormValues) => void;
-  deleteTimeEntry: (id: string) => void;
+  addTimeEntry: (values: TimeEntryFormValues) => Promise<boolean>;
+  updateTimeEntry: (id: string, values: TimeEntryFormValues) => Promise<boolean>;
+  deleteTimeEntry: (id: string) => Promise<boolean>;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
@@ -852,58 +852,77 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
 
   const addTimeEntry = useCallback(
-    (values: TimeEntryFormValues): TimeEntry => {
+    async (values: TimeEntryFormValues): Promise<boolean> => {
       const entry = buildTimeEntry(values);
-      setTimeEntries((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertTimeEntry(entry),
-            () => setTimeEntries(snapshot),
-          ).then((saved) => {
-            if (saved) {
-              setTimeEntries((current) =>
-                current.map((e) => (e.id === entry.id ? saved : e)),
-              );
-            }
-          });
-        }
-        return [...prev, entry];
+      // Optimistic insert first; roll back only this row so sibling day saves are not wiped.
+      setTimeEntries((prev) => [...prev, entry]);
+      if (!repoRef.current) return true;
+
+      const saved = await persistAsync(
+        () => repoRef.current!.upsertTimeEntry(entry),
+        () => setTimeEntries((current) => current.filter((e) => e.id !== entry.id)),
+      );
+      if (!saved) return false;
+
+      setTimeEntries((current) => {
+        const index = current.findIndex((e) => e.id === entry.id);
+        if (index === -1) return [...current, saved];
+        return current.map((e) => (e.id === entry.id ? saved : e));
       });
-      return entry;
+      return true;
     },
     [persistAsync],
   );
 
   const updateTimeEntry = useCallback(
-    (id: string, values: TimeEntryFormValues) => {
+    async (id: string, values: TimeEntryFormValues): Promise<boolean> => {
       const updated = buildTimeEntry(values, id);
+      let previous: TimeEntry | undefined;
       setTimeEntries((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertTimeEntry(updated),
-            () => setTimeEntries(snapshot),
-          );
-        }
+        previous = prev.find((e) => e.id === id);
         return prev.map((e) => (e.id === id ? updated : e));
       });
+      if (!repoRef.current) return true;
+
+      const saved = await persistAsync(
+        () => repoRef.current!.upsertTimeEntry(updated),
+        () => {
+          setTimeEntries((current) => {
+            if (!previous) return current;
+            if (current.some((e) => e.id === id)) {
+              return current.map((e) => (e.id === id ? previous! : e));
+            }
+            return [...current, previous];
+          });
+        },
+      );
+      return saved !== undefined;
     },
     [persistAsync],
   );
 
   const deleteTimeEntry = useCallback(
-    (id: string) => {
+    async (id: string): Promise<boolean> => {
+      let previous: TimeEntry | undefined;
       setTimeEntries((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.deleteTimeEntry(id),
-            () => setTimeEntries(snapshot),
-          );
-        }
+        previous = prev.find((e) => e.id === id);
         return prev.filter((e) => e.id !== id);
       });
+      if (!repoRef.current) return true;
+
+      const saved = await persistAsync(
+        async () => {
+          await repoRef.current!.deleteTimeEntry(id);
+          return true as const;
+        },
+        () => {
+          if (!previous) return;
+          setTimeEntries((current) =>
+            current.some((e) => e.id === id) ? current : [...current, previous!],
+          );
+        },
+      );
+      return saved === true;
     },
     [persistAsync],
   );

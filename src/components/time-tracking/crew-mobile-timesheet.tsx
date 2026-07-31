@@ -124,9 +124,10 @@ export function CrewMobileTimesheet() {
     setSelectedDateKey((prev) => (weekDateKeys.includes(prev) ? prev : preferred));
   }, [weekDateKeys, weekDays]);
 
+  // Keep unlock state while syncing from context — clearing it here re-locks mid-edit
+  // and drops in-progress hours when a sibling day save updates timeEntries.
   useEffect(() => {
     setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
-    setEditingRowKeys(new Set());
   }, [weekEntries, weekDateKeys]);
 
   const isRowLocked = (row: TimesheetRow) =>
@@ -239,6 +240,8 @@ export function CrewMobileTimesheet() {
     setSaveMessage(null);
 
     try {
+      const pending: Promise<boolean>[] = [];
+
       for (const row of rows) {
         if (isRowLocked(row)) continue;
 
@@ -275,14 +278,20 @@ export function CrewMobileTimesheet() {
           if (hours > 0) {
             const values = rowToFormValues(row, employeeId, dateKey, hours);
             if (entryId) {
-              updateTimeEntry(entryId, values);
+              pending.push(updateTimeEntry(entryId, values));
             } else {
-              addTimeEntry(values);
+              pending.push(addTimeEntry(values));
             }
           } else if (entryId) {
-            deleteTimeEntry(entryId);
+            pending.push(deleteTimeEntry(entryId));
           }
         }
+      }
+
+      const results = await Promise.all(pending);
+      if (results.some((ok) => !ok)) {
+        setSaveMessage("Could not save timesheet. Check your connection and try again.");
+        return;
       }
 
       setEditingRowKeys(new Set());

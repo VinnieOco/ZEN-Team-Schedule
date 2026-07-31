@@ -243,6 +243,8 @@ export function WeeklyTimesheet({
     setSaveMessage(null);
 
     try {
+      const pending: Promise<boolean>[] = [];
+
       for (const row of rows) {
         if (!editMode && isRowLocked(row)) continue;
 
@@ -279,14 +281,20 @@ export function WeeklyTimesheet({
           if (hours > 0) {
             const values = rowToFormValues(row, employeeId, dateKey, hours);
             if (entryId) {
-              updateTimeEntry(entryId, values);
+              pending.push(updateTimeEntry(entryId, values));
             } else {
-              addTimeEntry(values);
+              pending.push(addTimeEntry(values));
             }
           } else if (entryId) {
-            deleteTimeEntry(entryId);
+            pending.push(deleteTimeEntry(entryId));
           }
         }
+      }
+
+      const results = await Promise.all(pending);
+      if (results.some((ok) => !ok)) {
+        setSaveMessage("Could not save timesheet. Check your connection and try again.");
+        return;
       }
 
       // Rows reload from timeEntries via effect after optimistic inserts settle.
