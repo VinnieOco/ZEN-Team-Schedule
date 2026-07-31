@@ -56,6 +56,11 @@ import {
   type ClientNameActionResult,
 } from "@/lib/clients";
 import { projectFromFormValues, projectToFormValues } from "@/lib/project-form";
+import {
+  buildChangeOrderFormDefaults,
+  getChangeOrdersForParent,
+  isChangeOrder,
+} from "@/lib/change-orders";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import { projectsNeedingPhaseSeed, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { normalizeHandle, suggestEmployeeHandle } from "@/lib/todos/handles";
@@ -206,12 +211,16 @@ interface SchedulingContextValue {
   deleteLeadFollowUp: (id: string) => void;
   convertLeadToProject: (id: string) => Project | null;
   /**
-   * Marks an estimate as won, links it to a project (existing or newly created),
-   * and copies the estimate amount onto the project's estimate_value.
+   * Marks an estimate as won, links it to a project (existing, newly created, or
+   * a new change order under a parent), and copies the estimate amount onto
+   * the project's estimate_value.
    */
   applyWonEstimateToProject: (
     estimateId: string,
-    choice: { mode: "existing"; projectId: string } | { mode: "new" },
+    choice:
+      | { mode: "existing"; projectId: string }
+      | { mode: "new" }
+      | { mode: "change_order"; parentProjectId: string },
     wonDate: string,
   ) => Project | null;
   addEstimate: (values: EstimateFormValues) => Estimate;
@@ -2183,7 +2192,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const applyWonEstimateToProject = useCallback(
     (
       estimateId: string,
-      choice: { mode: "existing"; projectId: string } | { mode: "new" },
+      choice:
+        | { mode: "existing"; projectId: string }
+        | { mode: "new" }
+        | { mode: "change_order"; parentProjectId: string },
       wonDate: string,
     ): Project | null => {
       const estimate = estimates.find((e) => e.id === estimateId);
@@ -2213,6 +2225,30 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           lead_estimator_id: formValues.lead_estimator_id ?? existing.lead_estimator_id,
           contract_date: formValues.contract_date ?? existing.contract_date,
         };
+      } else if (choice.mode === "change_order") {
+        const parent = projects.find((p) => p.id === choice.parentProjectId);
+        if (!parent || isChangeOrder(parent)) return null;
+
+        const siblings = getChangeOrdersForParent(projects, parent.id);
+        const defaults = buildChangeOrderFormDefaults(parent, siblings);
+
+        project = addProject({
+          project_name: estimate.title?.trim() || defaults.project_name || parent.project_name,
+          client_name: parent.client_name,
+          department: parent.department ?? "Estimating",
+          phase: parent.phase || "Estimating",
+          lead_employee_id: parent.lead_employee_id,
+          lead_estimator_id: estimate.estimator_id || parent.lead_estimator_id,
+          budgeted_design_hours: 0,
+          estimate_value: estimate.amount,
+          contract_date: resolvedWonDate,
+          address: parent.address,
+          phone: parent.phone,
+          email: parent.email,
+          parent_project_id: parent.id,
+          is_change_order: true,
+          active: true,
+        });
       } else {
         project = addProject({
           project_name: estimate.title?.trim() || estimate.client_name.trim(),

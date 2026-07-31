@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useScheduling } from "@/context/scheduling-context";
+import { isParentProject } from "@/lib/change-orders";
 import { normalizeClientName } from "@/lib/clients";
 import { estimateDisplayName } from "@/lib/estimating/metrics";
 import { formatProjectAmount, getProjectEstimateValue } from "@/lib/project-format";
@@ -23,7 +24,7 @@ import { buildGroupedProjectSelectOptions } from "@/lib/project-picker-options";
 import { cn } from "@/lib/utils";
 import type { Estimate } from "@/types";
 
-type WonMode = "existing" | "new";
+type WonMode = "existing" | "new" | "change_order";
 
 interface EstimateWonDialogProps {
   estimate: Estimate | null;
@@ -31,6 +32,14 @@ interface EstimateWonDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Called after a successful apply (project is linked/created). */
   onApplied?: (projectId: string) => void;
+}
+
+function resolveParentId(estimate: Estimate, projects: { id: string; parent_project_id?: string; is_change_order?: boolean }[]): string {
+  if (!estimate.project_id) return "";
+  const linked = projects.find((p) => p.id === estimate.project_id);
+  if (!linked) return "";
+  if (isParentProject(linked)) return linked.id;
+  return linked.parent_project_id ?? "";
 }
 
 export function EstimateWonDialog({
@@ -43,19 +52,33 @@ export function EstimateWonDialog({
   const { projects, applyWonEstimateToProject } = useScheduling();
   const [mode, setMode] = useState<WonMode>("new");
   const [projectId, setProjectId] = useState("");
+  const [parentProjectId, setParentProjectId] = useState("");
   const [wonDate, setWonDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const [error, setError] = useState<string | null>(null);
+
+  const isChangeOrderEstimate = estimate?.estimate_type === "change_order";
 
   useEffect(() => {
     if (!open || !estimate) return;
     setError(null);
     setWonDate(estimate.won_date || format(new Date(), "yyyy-MM-dd"));
+
+    const linkedParentId = resolveParentId(estimate, projects);
+    if (estimate.estimate_type === "change_order") {
+      setMode("change_order");
+      setParentProjectId(linkedParentId);
+      setProjectId("");
+      return;
+    }
+
     if (estimate.project_id && projects.some((p) => p.id === estimate.project_id)) {
       setMode("existing");
       setProjectId(estimate.project_id);
+      setParentProjectId(linkedParentId);
     } else {
       setMode("new");
       setProjectId("");
+      setParentProjectId("");
     }
   }, [open, estimate, projects]);
 
@@ -80,7 +103,35 @@ export function EstimateWonDialog({
     });
   }, [projects, estimate]);
 
+  const parentProjectOptions = useMemo(() => {
+    const parents = projects
+      .filter((p) => p.active && isParentProject(p))
+      .sort((a, b) => a.project_name.localeCompare(b.project_name));
+
+    if (!estimate) {
+      return parents.map((p) => ({
+        value: p.id,
+        label: p.project_name,
+        keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
+      }));
+    }
+
+    const clientKey = normalizeClientName(estimate.client_name);
+    const matching = parents.filter((p) => normalizeClientName(p.client_name) === clientKey);
+    const others = parents.filter((p) => normalizeClientName(p.client_name) !== clientKey);
+    const ordered = matching.length > 0 ? [...matching, ...others] : parents;
+
+    return ordered.map((p) => ({
+      value: p.id,
+      label: p.project_name,
+      keywords: [p.client_name, p.project_number].filter(Boolean).join(" "),
+    }));
+  }, [projects, estimate]);
+
   const selectedProject = projectId ? projects.find((p) => p.id === projectId) : undefined;
+  const selectedParent = parentProjectId
+    ? projects.find((p) => p.id === parentProjectId)
+    : undefined;
   const selectedEstimateValue = selectedProject
     ? getProjectEstimateValue(selectedProject)
     : undefined;
@@ -90,6 +141,7 @@ export function EstimateWonDialog({
     if (!next) {
       setError(null);
       setProjectId("");
+      setParentProjectId("");
     }
     onOpenChange(next);
   };
@@ -104,12 +156,19 @@ export function EstimateWonDialog({
       setError("Select a project to add this won estimate to.");
       return;
     }
+    if (mode === "change_order" && !parentProjectId) {
+      setError("Select the parent project for this change order.");
+      return;
+    }
 
-    const project = applyWonEstimateToProject(
-      estimate.id,
-      mode === "existing" ? { mode: "existing", projectId } : { mode: "new" },
-      wonDate,
-    );
+    const choice =
+      mode === "existing"
+        ? ({ mode: "existing", projectId } as const)
+        : mode === "change_order"
+          ? ({ mode: "change_order", parentProjectId } as const)
+          : ({ mode: "new" } as const);
+
+    const project = applyWonEstimateToProject(estimate.id, choice, wonDate);
     if (!project) {
       setError("Could not update the project. Try again.");
       return;
@@ -122,15 +181,34 @@ export function EstimateWonDialog({
 
   if (!estimate) return null;
 
+  const modeButtonClass = (active: boolean) =>
+    cn(
+      "rounded-md border px-3 py-2.5 text-left text-sm transition-colors",
+      active
+        ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+    );
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col overflow-visible sm:max-w-md">
         <DialogHeader className="shrink-0">
           <DialogTitle>Estimate won</DialogTitle>
           <DialogDescription>
-            Link <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
-            to a project and update the project&apos;s estimate amount
-            {wonAmount != null ? ` (${formatProjectAmount(wonAmount)})` : ""}.
+            {isChangeOrderEstimate ? (
+              <>
+                Add{" "}
+                <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
+                as a change order
+                {wonAmount != null ? ` (${formatProjectAmount(wonAmount)})` : ""}.
+              </>
+            ) : (
+              <>
+                Link <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
+                to a project and update the project&apos;s estimate amount
+                {wonAmount != null ? ` (${formatProjectAmount(wonAmount)})` : ""}.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -149,23 +227,18 @@ export function EstimateWonDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => {
-                setMode("new");
+                setMode("change_order");
                 setError(null);
               }}
-              className={cn(
-                "rounded-md border px-3 py-2.5 text-left text-sm transition-colors",
-                mode === "new"
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-              )}
+              className={modeButtonClass(mode === "change_order")}
             >
-              <span className="font-medium">Create new project</span>
+              <span className="font-medium">Change order</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Start a job from this package
+                Create CO under a parent
               </span>
             </button>
             <button
@@ -174,19 +247,56 @@ export function EstimateWonDialog({
                 setMode("existing");
                 setError(null);
               }}
-              className={cn(
-                "rounded-md border px-3 py-2.5 text-left text-sm transition-colors",
-                mode === "existing"
-                  ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-              )}
+              className={modeButtonClass(mode === "existing")}
             >
               <span className="font-medium">Add to existing</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Update a project already in CRM
               </span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("new");
+                setError(null);
+              }}
+              className={modeButtonClass(mode === "new")}
+            >
+              <span className="font-medium">New project</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Start a standalone job
+              </span>
+            </button>
           </div>
+
+          {mode === "change_order" ? (
+            <div className="space-y-1.5">
+              <Label>Parent project</Label>
+              <SearchableSelect
+                options={parentProjectOptions}
+                value={parentProjectId}
+                onValueChange={(value) => {
+                  setParentProjectId(value);
+                  setError(null);
+                }}
+                placeholder="Search parent projects…"
+                searchPlaceholder="Search by name or client…"
+              />
+              {selectedParent ? (
+                <p className="text-xs text-muted-foreground">
+                  Creates a change order under {selectedParent.project_name}
+                  {wonAmount != null
+                    ? ` with estimate amount ${formatProjectAmount(wonAmount)}`
+                    : ""}
+                  . The amount rolls up on the parent project page.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Choose the main project this change order belongs to.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           {mode === "existing" ? (
             <div className="space-y-1.5">
@@ -216,7 +326,9 @@ export function EstimateWonDialog({
                 </p>
               ) : null}
             </div>
-          ) : (
+          ) : null}
+
+          {mode === "new" ? (
             <p className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-muted-foreground">
               Creates <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
               for {estimate.client_name}
@@ -225,7 +337,7 @@ export function EstimateWonDialog({
                 : ""}
               .
             </p>
-          )}
+          ) : null}
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
         </div>
@@ -235,7 +347,11 @@ export function EstimateWonDialog({
             Cancel
           </Button>
           <Button type="button" onClick={handleConfirm}>
-            {mode === "new" ? "Create project" : "Update project"}
+            {mode === "change_order"
+              ? "Create change order"
+              : mode === "new"
+                ? "Create project"
+                : "Update project"}
           </Button>
         </div>
       </DialogContent>
