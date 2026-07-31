@@ -273,7 +273,7 @@ export function EstimateFormDialog({
                 id="estimate-amount"
                 type="number"
                 min={0}
-                step={1000}
+                step="0.01"
                 value={values.amount ?? ""}
                 onChange={(e) =>
                   patch("amount", e.target.value === "" ? undefined : Number(e.target.value))

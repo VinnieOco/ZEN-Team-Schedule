@@ -87,13 +87,14 @@ export function buildEstimateKpis(
   estimates: Estimate[],
   now = new Date(),
   milestoneDates?: Map<string, string>,
+  periodRange?: { start: Date; end: Date },
 ): EstimateKpiSummary {
   const open = estimates.filter(isOpenEstimate);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const rangeStart = periodRange?.start ?? startOfWeek(now, { weekStartsOn: 1 });
+  const rangeEnd = periodRange?.end ?? endOfWeek(now, { weekStartsOn: 1 });
   const yearStart = startOfYear(now);
 
-  // When milestone dates are supplied, "due this week" totals the tagged
+  // When milestone dates are supplied, "due this period" totals the tagged
   // estimating milestone dates instead of estimate due dates.
   const dueThisWeek = open.filter((estimate) => {
     const source = milestoneDates
@@ -102,13 +103,13 @@ export function buildEstimateKpis(
         : undefined
       : estimate.due_date;
     const due = parseDate(source);
-    return due ? isWithinInterval(due, { start: weekStart, end: weekEnd }) : false;
+    return due ? isWithinInterval(due, { start: rangeStart, end: rangeEnd }) : false;
   });
 
   const submittedThisWeek = estimates.filter((estimate) => {
     const submitted = parseDate(estimate.submitted_date);
     return submitted
-      ? isWithinInterval(submitted, { start: weekStart, end: weekEnd })
+      ? isWithinInterval(submitted, { start: rangeStart, end: rangeEnd })
       : false;
   });
 
@@ -176,14 +177,18 @@ export function buildEstimatorWorkload(
   return [...byEstimator.values()].sort((a, b) => b.openCount - a.openCount);
 }
 
-export function submittedThisWeek(estimates: Estimate[], now = new Date()): Estimate[] {
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+export function submittedThisWeek(
+  estimates: Estimate[],
+  now = new Date(),
+  periodRange?: { start: Date; end: Date },
+): Estimate[] {
+  const rangeStart = periodRange?.start ?? startOfWeek(now, { weekStartsOn: 1 });
+  const rangeEnd = periodRange?.end ?? endOfWeek(now, { weekStartsOn: 1 });
   return estimates
     .filter((estimate) => {
       const submitted = parseDate(estimate.submitted_date);
       return submitted
-        ? isWithinInterval(submitted, { start: weekStart, end: weekEnd })
+        ? isWithinInterval(submitted, { start: rangeStart, end: rangeEnd })
         : false;
     })
     .sort((a, b) => (a.submitted_date ?? "").localeCompare(b.submitted_date ?? ""));

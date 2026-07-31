@@ -31,6 +31,7 @@ import { EstimateDetailDialog } from "@/components/pipeline/estimate-detail-dial
 import { EstimateFormDialog } from "@/components/pipeline/estimate-form-dialog";
 import { EstimateKanban } from "@/components/pipeline/estimate-kanban";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
+import { PipelinePeriodNavigator } from "@/components/pipeline/pipeline-period-navigator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,14 @@ import {
   submittedThisWeek,
 } from "@/lib/estimating/metrics";
 import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
+import {
+  createDefaultPipelinePeriod,
+  pipelinePeriodDueLabel,
+  pipelinePeriodSubmittedLabel,
+  pipelinePeriodTotalLabel,
+  resolvePipelinePeriodRange,
+  type PipelinePeriod,
+} from "@/lib/pipeline/period";
 import { formatPipelineValue } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
 import { arrayMoveIds } from "@/lib/queue/column-order";
@@ -361,6 +370,12 @@ export function PipelineEstimatingTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Estimate | null>(null);
   const [detail, setDetail] = useState<Estimate | null>(null);
+  const [period, setPeriod] = useState<PipelinePeriod>(() => createDefaultPipelinePeriod());
+
+  const periodRange = useMemo(() => resolvePipelinePeriodRange(period), [period]);
+  const duePeriodLabel = pipelinePeriodDueLabel(period.mode);
+  const submittedPeriodLabel = pipelinePeriodSubmittedLabel(period.mode);
+  const totalPeriodLabel = pipelinePeriodTotalLabel(period.mode);
 
   const prioritySensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -391,13 +406,16 @@ export function PipelineEstimatingTab() {
   }, [estimates, projectMilestones]);
 
   const kpis = useMemo(
-    () => buildEstimateKpis(estimates, new Date(), estimatingMilestoneDates),
-    [estimates, estimatingMilestoneDates],
+    () => buildEstimateKpis(estimates, new Date(), estimatingMilestoneDates, periodRange),
+    [estimates, estimatingMilestoneDates, periodRange],
   );
   const workload = useMemo(() => buildEstimatorWorkload(estimates), [estimates]);
   const typeBuckets = useMemo(() => buildEstimateTypeBuckets(estimates), [estimates]);
   const dueBuckets = useMemo(() => buildEstimateDueBuckets(estimates), [estimates]);
-  const submitted = useMemo(() => submittedThisWeek(estimates), [estimates]);
+  const submitted = useMemo(
+    () => submittedThisWeek(estimates, new Date(), periodRange),
+    [estimates, periodRange],
+  );
   const workloadMax = Math.max(1, ...workload.map((w) => w.openCount));
 
   const estimatorName = useCallback(
@@ -519,6 +537,8 @@ export function PipelineEstimatingTab() {
 
   return (
     <div className="space-y-5">
+      <PipelinePeriodNavigator period={period} onPeriodChange={setPeriod} />
+
       <PipelineMetricCards
         items={[
           {
@@ -533,9 +553,9 @@ export function PipelineEstimatingTab() {
             },
           },
           {
-            label: "Due This Week",
+            label: duePeriodLabel,
             value: String(kpis.dueThisWeek),
-            sub: "View all",
+            sub: "Milestone dates",
             icon: CalendarClock,
             accent: "amber",
             onClick: () => {
@@ -544,7 +564,7 @@ export function PipelineEstimatingTab() {
             },
           },
           {
-            label: "Submitted This Week",
+            label: submittedPeriodLabel,
             value: String(kpis.submittedThisWeekCount),
             sub: formatPipelineValue(kpis.submittedThisWeekAmount),
             icon: Send,
@@ -845,7 +865,7 @@ export function PipelineEstimatingTab() {
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">Submitted This Week</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{submittedPeriodLabel}</h3>
               <div className="mt-3 space-y-0">
                 {submitted.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nothing submitted yet.</p>
@@ -875,7 +895,7 @@ export function PipelineEstimatingTab() {
                       </button>
                     ))}
                     <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-semibold">
-                      <span className="text-slate-700">Weekly Total</span>
+                      <span className="text-slate-700">{totalPeriodLabel}</span>
                       <span className="tabular-nums text-emerald-700">
                         {formatPipelineValue(kpis.submittedThisWeekAmount)}
                       </span>
@@ -985,14 +1005,14 @@ export function PipelineEstimatingTab() {
         <TabsContent value="submitted" className="mt-4 min-w-0 space-y-4">
           <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b bg-slate-50/80 px-4 py-2.5">
-              <h3 className="text-sm font-semibold text-slate-900">Submitted This Week</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{submittedPeriodLabel}</h3>
               <span className="text-sm font-semibold tabular-nums text-emerald-700">
                 {formatPipelineValue(kpis.submittedThisWeekAmount)}
               </span>
             </div>
             {submitted.length === 0 ? (
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-                Nothing submitted this week yet. Use Mark submitted on a package to log it.
+                Nothing submitted in this period yet. Use Mark submitted on a package to log it.
               </p>
             ) : (
               <div className="overflow-x-auto">
