@@ -1,3 +1,5 @@
+import { format, isBefore, parseISO, startOfDay } from "date-fns";
+
 import type { CompanySettings, LeadFollowUp, LeadFollowUpTypeOption } from "@/types";
 import { DEFAULT_LEAD_FOLLOW_UP_TYPES } from "@/types";
 
@@ -70,6 +72,16 @@ export function defaultLeadFollowUpTypeId(settings: CompanySettings): string | u
   return resolveLeadFollowUpTypes(settings)[0]?.id;
 }
 
+/** Compare follow-ups by due date then time (ascending). */
+export function compareLeadFollowUpsByDue(
+  a: Pick<LeadFollowUp, "due_date" | "due_time">,
+  b: Pick<LeadFollowUp, "due_date" | "due_time">,
+): number {
+  const byDate = a.due_date.localeCompare(b.due_date);
+  if (byDate !== 0) return byDate;
+  return (a.due_time ?? "").localeCompare(b.due_time ?? "");
+}
+
 /** Latest (furthest-out) open follow-up for a lead, if any. */
 export function latestOpenLeadFollowUp(
   followUps: LeadFollowUp[],
@@ -78,9 +90,59 @@ export function latestOpenLeadFollowUp(
   let latest: LeadFollowUp | undefined;
   for (const followUp of followUps) {
     if (followUp.lead_id !== leadId || followUp.completed || !followUp.due_date) continue;
-    if (!latest || followUp.due_date > latest.due_date) latest = followUp;
+    if (!latest || compareLeadFollowUpsByDue(followUp, latest) > 0) latest = followUp;
   }
   return latest;
+}
+
+/** Format due date + optional time for display. */
+export function formatLeadFollowUpSchedule(
+  dueDate: string,
+  dueTime?: string | null,
+  options?: { includeWeekday?: boolean },
+): string {
+  const includeWeekday = options?.includeWeekday ?? true;
+  let dateLabel = dueDate;
+  try {
+    dateLabel = format(parseISO(dueDate), includeWeekday ? "EEE, MMM d, yyyy" : "MMM d");
+  } catch {
+    // keep raw date
+  }
+
+  const time = dueTime?.trim();
+  if (!time) return dateLabel;
+  const match = time.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return `${dateLabel} · ${time}`;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return `${dateLabel} · ${time}`;
+  const period = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${dateLabel} · ${hour12}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+/** Whether a follow-up is overdue relative to now (date-only when no time). */
+export function isLeadFollowUpScheduleOverdue(
+  dueDate: string,
+  dueTime?: string | null,
+  now = new Date(),
+): boolean {
+  try {
+    const time = dueTime?.trim();
+    if (time) {
+      const match = time.match(/^(\d{1,2}):(\d{2})/);
+      if (match) {
+        const [year, month, day] = dueDate.split("-").map(Number);
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+        const due = new Date(year, month - 1, day, hours, minutes, 0, 0);
+        return due.getTime() < now.getTime();
+      }
+    }
+    return isBefore(parseISO(dueDate), startOfDay(now));
+  } catch {
+    return false;
+  }
 }
 
 export function appendLeadFollowUpType(

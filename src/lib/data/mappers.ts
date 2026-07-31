@@ -421,6 +421,7 @@ type LeadFollowUpRow = {
   id: string;
   lead_id: string;
   due_date: string;
+  due_time: string | null;
   follow_up_type_id: string | null;
   completed: boolean;
   completed_at: string | null;
@@ -428,11 +429,25 @@ type LeadFollowUpRow = {
   updated_at: string;
 };
 
+/** Normalize Postgres time / HH:mm:ss to HH:mm for time inputs. */
+function normalizeDueTime(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return undefined;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return undefined;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return undefined;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 export function mapLeadFollowUp(row: LeadFollowUpRow): LeadFollowUp {
   return {
     id: row.id,
     lead_id: row.lead_id,
     due_date: row.due_date,
+    due_time: normalizeDueTime(row.due_time),
     follow_up_type_id: row.follow_up_type_id?.trim() || undefined,
     completed: Boolean(row.completed),
     completed_at: row.completed_at,
@@ -446,6 +461,7 @@ export function leadFollowUpToRow(followUp: LeadFollowUp) {
     id: followUp.id,
     lead_id: followUp.lead_id,
     due_date: followUp.due_date,
+    due_time: normalizeDueTime(followUp.due_time) ?? null,
     follow_up_type_id: followUp.follow_up_type_id?.trim() || null,
     completed: followUp.completed,
     completed_at: followUp.completed_at ?? null,

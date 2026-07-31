@@ -254,6 +254,8 @@ export interface LeadFollowUp {
   lead_id: string;
   /** ISO date (yyyy-mm-dd) the follow-up is scheduled for. */
   due_date: string;
+  /** Optional local time (HH:mm) on the due date. */
+  due_time?: string;
   /** Matches a LeadFollowUpTypeOption.id from company settings. */
   follow_up_type_id?: string;
   completed: boolean;

@@ -201,7 +201,7 @@ interface SchedulingContextValue {
   deleteLead: (id: string) => void;
   addLeadNote: (leadId: string, body: string) => void;
   deleteLeadNote: (id: string) => void;
-  addLeadFollowUp: (leadId: string, dueDate: string, typeId?: string) => void;
+  addLeadFollowUp: (leadId: string, dueDate: string, typeId?: string, dueTime?: string) => void;
   setLeadFollowUpCompleted: (id: string, completed: boolean) => void;
   deleteLeadFollowUp: (id: string) => void;
   convertLeadToProject: (id: string) => Project | null;
@@ -1819,14 +1819,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
 
   const addLeadFollowUp = useCallback(
-    (leadId: string, dueDate: string, typeId?: string) => {
+    (leadId: string, dueDate: string, typeId?: string, dueTime?: string) => {
       const date = dueDate.trim();
       if (!date) return;
+      const time = dueTime?.trim() || undefined;
       const now = new Date().toISOString();
       const followUp: LeadFollowUp = {
         id: generateId(),
         lead_id: leadId,
         due_date: date,
+        due_time: time,
         follow_up_type_id: typeId?.trim() || undefined,
         completed: false,
         created_at: now,

@@ -69,6 +69,7 @@ import {
   newLeadsThisWeek,
 } from "@/lib/pipeline/leads";
 import {
+  formatLeadFollowUpSchedule,
   latestOpenLeadFollowUp,
   leadFollowUpTypeLabel,
 } from "@/lib/pipeline/lead-follow-up-types";
@@ -567,20 +568,29 @@ export function PipelineLeadsTab() {
                               isLeadFollowUpDue(lead, new Date(), settings) && "font-semibold text-rose-600",
                             )}
                           >
-                            {formatShortDate(lead.next_follow_up_date)}
                             {(() => {
                               const nextFollowUp = latestOpenLeadFollowUp(
                                 leadFollowUps,
                                 lead.id,
                               );
-                              if (!nextFollowUp?.follow_up_type_id) return null;
                               return (
-                                <p className="text-[11px] font-normal text-muted-foreground">
-                                  {leadFollowUpTypeLabel(
-                                    settings,
-                                    nextFollowUp.follow_up_type_id,
-                                  )}
-                                </p>
+                                <>
+                                  {nextFollowUp
+                                    ? formatLeadFollowUpSchedule(
+                                        nextFollowUp.due_date,
+                                        nextFollowUp.due_time,
+                                        { includeWeekday: false },
+                                      )
+                                    : formatShortDate(lead.next_follow_up_date)}
+                                  {nextFollowUp?.follow_up_type_id ? (
+                                    <p className="text-[11px] font-normal text-muted-foreground">
+                                      {leadFollowUpTypeLabel(
+                                        settings,
+                                        nextFollowUp.follow_up_type_id,
+                                      )}
+                                    </p>
+                                  ) : null}
+                                </>
                               );
                             })()}
                           </TableCell>

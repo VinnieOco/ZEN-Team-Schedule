@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { format, isBefore, parseISO, startOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { CalendarPlus, Check, Mail, MapPin, Phone, Trash2, UserRound } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DateInput } from "@/components/ui/date-input";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import { googleMapsUrl } from "@/lib/maps";
 import {
+  compareLeadFollowUpsByDue,
   defaultLeadFollowUpTypeId,
+  formatLeadFollowUpSchedule,
+  isLeadFollowUpScheduleOverdue,
   leadFollowUpTypeLabel,
   leadFollowUpTypeOptions,
 } from "@/lib/pipeline/lead-follow-up-types";
@@ -53,22 +57,6 @@ function formatNoteDate(value: string): string {
   }
 }
 
-function formatFollowUpDate(value: string): string {
-  try {
-    return format(parseISO(value), "EEE, MMM d, yyyy");
-  } catch {
-    return value;
-  }
-}
-
-function isOverdue(dueDate: string): boolean {
-  try {
-    return isBefore(parseISO(dueDate), startOfDay(new Date()));
-  } catch {
-    return false;
-  }
-}
-
 export function LeadContactDialog({
   lead,
   open,
@@ -86,6 +74,7 @@ export function LeadContactDialog({
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
   const [followUpDraft, setFollowUpDraft] = useState("");
+  const [followUpTimeDraft, setFollowUpTimeDraft] = useState("");
   const [followUpTypeDraft, setFollowUpTypeDraft] = useState("");
 
   const typeOptions = useMemo(() => leadFollowUpTypeOptions(settings), [settings]);
@@ -110,7 +99,7 @@ export function LeadContactDialog({
       .filter((followUp) => followUp.lead_id === lead.id)
       .sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
-        return b.due_date.localeCompare(a.due_date);
+        return compareLeadFollowUpsByDue(b, a);
       });
   }, [lead, leadFollowUps]);
 
@@ -129,10 +118,10 @@ export function LeadContactDialog({
   }, [defaultTypeId, followUpTypeDraft, typeOptions]);
 
   const activeFollowUpId = useMemo(() => {
-    let active: { id: string; due_date: string } | undefined;
+    let active = followUps.find((followUp) => !followUp.completed);
     for (const followUp of followUps) {
       if (followUp.completed) continue;
-      if (!active || followUp.due_date > active.due_date) active = followUp;
+      if (!active || compareLeadFollowUpsByDue(followUp, active) > 0) active = followUp;
     }
     return active?.id;
   }, [followUps]);
@@ -151,8 +140,14 @@ export function LeadContactDialog({
 
   const handleAddFollowUp = () => {
     if (!followUpDraft) return;
-    addLeadFollowUp(lead.id, followUpDraft, followUpTypeDraft || defaultTypeId);
+    addLeadFollowUp(
+      lead.id,
+      followUpDraft,
+      followUpTypeDraft || defaultTypeId,
+      followUpTimeDraft || undefined,
+    );
     setFollowUpDraft("");
+    setFollowUpTimeDraft("");
     setFollowUpTypeDraft(defaultTypeId);
   };
 
@@ -165,6 +160,7 @@ export function LeadContactDialog({
           setDraft("");
           setSaved(false);
           setFollowUpDraft("");
+          setFollowUpTimeDraft("");
           setFollowUpTypeDraft(defaultTypeId);
         }
       }}
@@ -269,7 +265,9 @@ export function LeadContactDialog({
             {followUps.length > 0 ? (
               <div className="divide-y rounded-lg border bg-white px-3">
                 {followUps.map((followUp) => {
-                  const overdue = !followUp.completed && isOverdue(followUp.due_date);
+                  const overdue =
+                    !followUp.completed &&
+                    isLeadFollowUpScheduleOverdue(followUp.due_date, followUp.due_time);
                   return (
                     <div key={followUp.id} className="flex items-center gap-3 py-2.5">
                       <input
@@ -296,7 +294,10 @@ export function LeadContactDialog({
                                 : "text-slate-900",
                           )}
                         >
-                          {formatFollowUpDate(followUp.due_date)}
+                          {formatLeadFollowUpSchedule(
+                            followUp.due_date,
+                            followUp.due_time,
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {leadFollowUpTypeLabel(settings, followUp.follow_up_type_id)}
@@ -355,6 +356,13 @@ export function LeadContactDialog({
                 value={followUpDraft}
                 onChange={(event) => setFollowUpDraft(event.target.value)}
                 aria-label="New follow-up date"
+              />
+              <Input
+                type="time"
+                value={followUpTimeDraft}
+                onChange={(event) => setFollowUpTimeDraft(event.target.value)}
+                aria-label="New follow-up time"
+                className="w-[8.5rem]"
               />
               <Button type="button" onClick={handleAddFollowUp} disabled={!followUpDraft}>
                 <CalendarPlus className="mr-1.5 h-4 w-4" />

@@ -19,6 +19,7 @@ import { format, parseISO } from "date-fns";
 import { GripVertical } from "lucide-react";
 
 import {
+  formatLeadFollowUpSchedule,
   latestOpenLeadFollowUp,
   leadFollowUpTypeLabel,
 } from "@/lib/pipeline/lead-follow-up-types";
@@ -59,14 +60,16 @@ function LeadCardBody({
   lead,
   ownerName,
   settings,
+  followUpSchedule,
   followUpType,
 }: {
   lead: Lead;
   ownerName?: string;
   settings: CompanySettings;
+  followUpSchedule?: string;
   followUpType?: string;
 }) {
-  const followUp = formatDue(lead.next_follow_up_date);
+  const followUp = followUpSchedule ?? formatDue(lead.next_follow_up_date);
   return (
     <div className="rounded-md border bg-white p-2 shadow-sm">
       <p className="truncate text-xs font-medium text-slate-900">{leadDisplayName(lead)}</p>
@@ -110,6 +113,7 @@ function DraggableLeadCard({
   lead,
   ownerName,
   settings,
+  followUpSchedule,
   followUpType,
   canDrag,
   onSelect,
@@ -117,6 +121,7 @@ function DraggableLeadCard({
   lead: Lead;
   ownerName?: string;
   settings: CompanySettings;
+  followUpSchedule?: string;
   followUpType?: string;
   canDrag: boolean;
   onSelect: () => void;
@@ -153,6 +158,7 @@ function DraggableLeadCard({
           lead={lead}
           ownerName={ownerName}
           settings={settings}
+          followUpSchedule={followUpSchedule}
           followUpType={followUpType}
         />
       </button>
@@ -213,6 +219,11 @@ function StatusColumn({
         ) : (
           leads.map((lead) => {
             const nextFollowUp = latestOpenLeadFollowUp(leadFollowUps, lead.id);
+            const followUpSchedule = nextFollowUp
+              ? formatLeadFollowUpSchedule(nextFollowUp.due_date, nextFollowUp.due_time, {
+                  includeWeekday: false,
+                })
+              : undefined;
             const followUpType = nextFollowUp?.follow_up_type_id
               ? leadFollowUpTypeLabel(settings, nextFollowUp.follow_up_type_id)
               : undefined;
@@ -222,6 +233,7 @@ function StatusColumn({
                 lead={lead}
                 ownerName={ownerName(lead)}
                 settings={settings}
+                followUpSchedule={followUpSchedule}
                 followUpType={followUpType}
                 canDrag={canEditStatus}
                 onSelect={() => onSelect(lead)}
@@ -338,6 +350,16 @@ export function LeadKanban({
                 lead={activeLead}
                 ownerName={ownerName(activeLead)}
                 settings={settings}
+                followUpSchedule={(() => {
+                  const nextFollowUp = latestOpenLeadFollowUp(leadFollowUps, activeLead.id);
+                  return nextFollowUp
+                    ? formatLeadFollowUpSchedule(
+                        nextFollowUp.due_date,
+                        nextFollowUp.due_time,
+                        { includeWeekday: false },
+                      )
+                    : undefined;
+                })()}
                 followUpType={(() => {
                   const nextFollowUp = latestOpenLeadFollowUp(leadFollowUps, activeLead.id);
                   return nextFollowUp?.follow_up_type_id
