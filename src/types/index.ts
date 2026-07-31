@@ -274,6 +274,8 @@ export interface LeadFormValues {
   expected_value?: number;
   probability?: number;
   next_follow_up_date?: string;
+  /** Calendar date (yyyy-mm-dd) for when the lead was created. */
+  created_date?: string;
   owner_employee_id?: string;
   notes?: string;
 }

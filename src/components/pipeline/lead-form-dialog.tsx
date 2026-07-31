@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { format, parseISO } from "date-fns";
 import { MapPin } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,19 @@ interface LeadFormDialogProps {
   lead?: Lead | null;
 }
 
+function todayDateInput(): string {
+  return format(new Date(), "yyyy-MM-dd");
+}
+
+function dateInputFromIso(value?: string): string {
+  if (!value?.trim()) return todayDateInput();
+  try {
+    return format(parseISO(value), "yyyy-MM-dd");
+  } catch {
+    return value.slice(0, 10) || todayDateInput();
+  }
+}
+
 function emptyValues(
   defaultStatus: LeadStatus = "new",
   defaultSource: LeadSource = "other",
@@ -51,6 +65,7 @@ function emptyValues(
     expected_value: undefined,
     probability: undefined,
     next_follow_up_date: "",
+    created_date: todayDateInput(),
     owner_employee_id: "",
     notes: "",
   };
@@ -69,6 +84,7 @@ function fromLead(lead: Lead): LeadFormValues {
     expected_value: lead.expected_value,
     probability: lead.probability,
     next_follow_up_date: lead.next_follow_up_date ?? "",
+    created_date: dateInputFromIso(lead.created_at),
     owner_employee_id: lead.owner_employee_id ?? "",
     notes: lead.notes ?? "",
   };
@@ -116,6 +132,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       client_name: values.client_name.trim(),
       owner_employee_id: values.owner_employee_id || undefined,
       next_follow_up_date: values.next_follow_up_date || undefined,
+      created_date: values.created_date || todayDateInput(),
     };
     if (lead) updateLead(lead.id, payload);
     else addLead(payload);
@@ -261,7 +278,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
               placeholder="Street, city, state"
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="lead-value">Expected value</Label>
               <Input
@@ -292,6 +309,16 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
                     e.target.value === "" ? undefined : Number(e.target.value),
                   )
                 }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lead-created">Created date</Label>
+              <Input
+                id="lead-created"
+                type="date"
+                value={values.created_date ?? ""}
+                onChange={(e) => patch("created_date", e.target.value)}
+                required
               />
             </div>
             <div className="space-y-1.5">

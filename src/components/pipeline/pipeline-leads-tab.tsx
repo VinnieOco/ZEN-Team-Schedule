@@ -106,6 +106,14 @@ function initials(name: string): string {
 }
 
 function leadToFormValues(lead: Lead, status?: LeadStatus): LeadFormValues {
+  let createdDate: string | undefined;
+  if (lead.created_at?.trim()) {
+    try {
+      createdDate = format(parseISO(lead.created_at), "yyyy-MM-dd");
+    } catch {
+      createdDate = lead.created_at.slice(0, 10);
+    }
+  }
   return {
     title: lead.title,
     client_name: lead.client_name,
@@ -118,6 +126,7 @@ function leadToFormValues(lead: Lead, status?: LeadStatus): LeadFormValues {
     expected_value: lead.expected_value,
     probability: lead.probability,
     next_follow_up_date: lead.next_follow_up_date,
+    created_date: createdDate,
     owner_employee_id: lead.owner_employee_id,
     notes: lead.notes,
   };

@@ -1598,6 +1598,24 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const leadFromFormValues = useCallback(
     (values: LeadFormValues, existing?: Lead): Lead => {
       const now = new Date().toISOString();
+      const createdDate = values.created_date?.trim();
+      let createdAt = existing?.created_at ?? now;
+      if (createdDate) {
+        const [year, month, day] = createdDate.split("-").map(Number);
+        if (year && month && day) {
+          if (existing?.created_at) {
+            try {
+              const previous = new Date(existing.created_at);
+              previous.setFullYear(year, month - 1, day);
+              createdAt = previous.toISOString();
+            } catch {
+              createdAt = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+            }
+          } else {
+            createdAt = new Date(year, month - 1, day, 12, 0, 0).toISOString();
+          }
+        }
+      }
       return {
         id: existing?.id ?? generateId(),
         title: values.title?.trim() || undefined,
@@ -1614,7 +1632,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         owner_employee_id: values.owner_employee_id || undefined,
         notes: values.notes?.trim() || undefined,
         converted_project_id: existing?.converted_project_id,
-        created_at: existing?.created_at ?? now,
+        created_at: createdAt,
         updated_at: now,
       };
     },
