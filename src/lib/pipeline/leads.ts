@@ -16,16 +16,17 @@ import {
   leadStageLabel as resolveLeadStageLabel,
   openLeadStageIds,
 } from "@/lib/pipeline/lead-stages";
+import {
+  leadSourceLabelFromSettings,
+  resolveLeadSources,
+} from "@/lib/pipeline/lead-sources";
 import type { CompanySettings, Lead, LeadSource, LeadStatus } from "@/types";
-import { DEFAULT_LEAD_STAGES } from "@/types";
+import { DEFAULT_LEAD_SOURCES, DEFAULT_LEAD_STAGES } from "@/types";
 
-export const LEAD_SOURCES: { value: LeadSource; label: string }[] = [
-  { value: "architect", label: "Architect" },
-  { value: "past_client", label: "Past client" },
-  { value: "referral", label: "Referral" },
-  { value: "web", label: "Web" },
-  { value: "other", label: "Other" },
-];
+/** @deprecated Prefer leadSourceOptions(settings) — kept for fallbacks. */
+export const LEAD_SOURCES: { value: LeadSource; label: string }[] = DEFAULT_LEAD_SOURCES.map(
+  (source) => ({ value: source.id, label: source.label }),
+);
 
 /** Default stages — prefer resolveLeadStages(settings) in UI. */
 export const LEAD_STATUSES: { value: LeadStatus; label: string }[] = DEFAULT_LEAD_STAGES.map(
@@ -36,7 +37,18 @@ export const OPEN_LEAD_STATUSES: LeadStatus[] = DEFAULT_LEAD_STAGES.filter(
   (stage) => stage.kind === "open",
 ).map((stage) => stage.id);
 
-const SOURCE_COLORS: Record<LeadSource, string> = {
+const SOURCE_COLORS = [
+  "#0284c7",
+  "#059669",
+  "#7c3aed",
+  "#d97706",
+  "#64748b",
+  "#db2777",
+  "#0d9488",
+  "#4f46e5",
+];
+
+const KNOWN_SOURCE_COLORS: Record<string, string> = {
   architect: "#0284c7",
   past_client: "#059669",
   referral: "#7c3aed",
@@ -44,8 +56,15 @@ const SOURCE_COLORS: Record<LeadSource, string> = {
   other: "#64748b",
 };
 
-export function leadSourceLabel(source: LeadSource): string {
-  return LEAD_SOURCES.find((s) => s.value === source)?.label ?? source;
+function sourceColor(source: string, index = 0): string {
+  return KNOWN_SOURCE_COLORS[source] ?? SOURCE_COLORS[index % SOURCE_COLORS.length];
+}
+
+export function leadSourceLabel(
+  source: LeadSource,
+  settings?: CompanySettings,
+): string {
+  return leadSourceLabelFromSettings(settings, source);
 }
 
 export function leadStatusLabel(status: LeadStatus, settings?: CompanySettings): string {
@@ -186,14 +205,29 @@ export function buildLeadSourceBuckets(
   settings?: CompanySettings,
 ): LeadSourceBucket[] {
   const open = leads.filter((l) => isOpenLead(l, settings));
-  return LEAD_SOURCES.map(({ value, label }) => {
+  const configured = settings
+    ? resolveLeadSources(settings).map((source) => ({
+        value: source.id,
+        label: source.label,
+      }))
+    : LEAD_SOURCES;
+  const known = new Set(configured.map((s) => s.value));
+  const orphans = [
+    ...new Set(open.map((lead) => lead.source).filter((source) => !known.has(source))),
+  ].map((value) => ({
+    value,
+    label: leadSourceLabel(value, settings),
+  }));
+  const sources = [...configured, ...orphans];
+
+  return sources.map(({ value, label }, index) => {
     const matching = open.filter((lead) => lead.source === value);
     return {
       source: value,
       label,
       count: matching.length,
       expectedValue: matching.reduce((sum, lead) => sum + (lead.expected_value ?? 0), 0),
-      color: SOURCE_COLORS[value],
+      color: sourceColor(value, index),
     };
   });
 }
@@ -317,8 +351,10 @@ export function leadSourceBadgeClass(source: LeadSource): string {
       return "bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200";
     case "web":
       return "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200";
-    default:
+    case "other":
       return "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+    default:
+      return "bg-indigo-50 text-indigo-800 ring-1 ring-inset ring-indigo-200";
   }
 }
 

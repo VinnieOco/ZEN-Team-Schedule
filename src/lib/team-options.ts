@@ -1,5 +1,6 @@
 import { listDepartmentsFromEmployees } from "@/lib/departments";
 import { resolveLeadFollowUpTypes } from "@/lib/pipeline/lead-follow-up-types";
+import { resolveLeadSources } from "@/lib/pipeline/lead-sources";
 import { resolveLeadStages } from "@/lib/pipeline/lead-stages";
 import { resolveClassCodes } from "@/lib/time-class-options";
 import type { CompanySettings, Employee } from "@/types";
@@ -67,6 +68,7 @@ export function normalizeCompanySettings(settings: CompanySettings): CompanySett
     departments: resolveDepartments(settings),
     class_codes: resolveClassCodes(settings),
     lead_stages: resolveLeadStages(settings),
+    lead_sources: resolveLeadSources(settings),
     lead_follow_up_types: resolveLeadFollowUpTypes(settings),
   };
 }

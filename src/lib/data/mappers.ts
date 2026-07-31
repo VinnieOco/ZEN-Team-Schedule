@@ -140,6 +140,7 @@ type SettingsRow = {
   departments?: string[] | null;
   class_codes?: string[] | null;
   lead_stages?: unknown;
+  lead_sources?: unknown;
   lead_follow_up_types?: unknown;
 };
 
@@ -340,10 +341,9 @@ type LeadNoteRow = {
   updated_at: string;
 };
 
-const LEAD_SOURCES = new Set(["architect", "past_client", "referral", "web", "other"]);
-
 export function mapLead(row: LeadRow): Lead {
-  const source = LEAD_SOURCES.has(row.source) ? (row.source as LeadSource) : "other";
+  const rawSource = typeof row.source === "string" ? row.source.trim() : "";
+  const source: LeadSource = rawSource || "other";
   const status =
     typeof row.status === "string" && row.status.trim() ? row.status.trim() : "new";
   return {
@@ -614,6 +614,7 @@ export function mapSettings(row: SettingsRow): CompanySettings {
     departments: Array.isArray(row.departments) ? row.departments.map(String) : [],
     class_codes: Array.isArray(row.class_codes) ? row.class_codes.map(String) : [],
     lead_stages: row.lead_stages as CompanySettings["lead_stages"],
+    lead_sources: row.lead_sources as CompanySettings["lead_sources"],
     lead_follow_up_types: row.lead_follow_up_types as CompanySettings["lead_follow_up_types"],
   });
 }
@@ -718,6 +719,7 @@ export function settingsToRow(settings: CompanySettings) {
     departments: normalized.departments,
     class_codes: normalized.class_codes,
     lead_stages: normalized.lead_stages,
+    lead_sources: normalized.lead_sources,
     lead_follow_up_types: normalized.lead_follow_up_types,
   };
 }

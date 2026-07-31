@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/select";
 import { useScheduling } from "@/context/scheduling-context";
 import { googleMapsUrl } from "@/lib/maps";
-import { LEAD_SOURCES } from "@/lib/pipeline/leads";
 import { leadStageOptions, openLeadStageIds } from "@/lib/pipeline/lead-stages";
+import { defaultLeadSourceId, leadSourceOptions } from "@/lib/pipeline/lead-sources";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Lead, LeadFormValues, LeadSource, LeadStatus } from "@/types";
 
@@ -35,7 +35,10 @@ interface LeadFormDialogProps {
   lead?: Lead | null;
 }
 
-function emptyValues(defaultStatus: LeadStatus = "new"): LeadFormValues {
+function emptyValues(
+  defaultStatus: LeadStatus = "new",
+  defaultSource: LeadSource = "other",
+): LeadFormValues {
   return {
     title: "",
     client_name: "",
@@ -43,7 +46,7 @@ function emptyValues(defaultStatus: LeadStatus = "new"): LeadFormValues {
     contact_phone: "",
     contact_email: "",
     address: "",
-    source: "other",
+    source: defaultSource,
     status: defaultStatus,
     expected_value: undefined,
     probability: undefined,
@@ -78,14 +81,16 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
 
   const isEdit = Boolean(lead);
   const stageOptions = useMemo(() => leadStageOptions(settings), [settings]);
+  const sourceOptions = useMemo(() => leadSourceOptions(settings), [settings]);
   const defaultStatus = openLeadStageIds(settings)[0] ?? "new";
+  const defaultSource = defaultLeadSourceId(settings);
   const mapsUrl = googleMapsUrl(values.address);
 
   useEffect(() => {
     if (!open) return;
-    setValues(lead ? fromLead(lead) : emptyValues(defaultStatus));
+    setValues(lead ? fromLead(lead) : emptyValues(defaultStatus, defaultSource));
     setError(null);
-  }, [open, lead, defaultStatus]);
+  }, [open, lead, defaultStatus, defaultSource]);
 
   const ownerOptions = useMemo(
     () =>
@@ -157,7 +162,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {LEAD_SOURCES.map((s) => (
+                  {sourceOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>

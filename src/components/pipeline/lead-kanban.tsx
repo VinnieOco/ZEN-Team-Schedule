@@ -78,7 +78,7 @@ function LeadCardBody({
             leadSourceBadgeClass(lead.source),
           )}
         >
-          {leadSourceLabel(lead.source)}
+          {leadSourceLabel(lead.source, settings)}
         </span>
         <span className="text-xs font-semibold tabular-nums text-slate-900">
           {formatProjectAmount(lead.expected_value)}

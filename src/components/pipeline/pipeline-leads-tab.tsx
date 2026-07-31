@@ -51,7 +51,6 @@ import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
-  LEAD_SOURCES,
   buildLeadFollowUpBuckets,
   buildLeadKpis,
   buildLeadOwnerWorkload,
@@ -73,6 +72,7 @@ import {
   latestOpenLeadFollowUp,
   leadFollowUpTypeLabel,
 } from "@/lib/pipeline/lead-follow-up-types";
+import { leadSourceOptions } from "@/lib/pipeline/lead-sources";
 import { leadStageOptions } from "@/lib/pipeline/lead-stages";
 import { formatPipelineValue } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
@@ -220,6 +220,7 @@ export function PipelineLeadsTab() {
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
   const stageOptions = useMemo(() => leadStageOptions(settings), [settings]);
+  const sourceOptions = useMemo(() => leadSourceOptions(settings), [settings]);
   const kpis = useMemo(() => buildLeadKpis(leads, new Date(), settings), [leads, settings]);
   const workload = useMemo(
     () => buildLeadOwnerWorkload(leads, new Date(), settings),
@@ -261,7 +262,7 @@ export function PipelineLeadsTab() {
           lead.contact_name,
           lead.notes,
           ownerName(lead),
-          leadSourceLabel(lead.source),
+          leadSourceLabel(lead.source, settings),
           leadStatusLabel(lead.status, settings),
         ]
           .filter(Boolean)
@@ -440,7 +441,7 @@ export function PipelineLeadsTab() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>All sources</SelectItem>
-                  {LEAD_SOURCES.map((s) => (
+                  {sourceOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>
@@ -545,7 +546,7 @@ export function PipelineLeadsTab() {
                                 leadSourceBadgeClass(lead.source),
                               )}
                             >
-                              {leadSourceLabel(lead.source)}
+                              {leadSourceLabel(lead.source, settings)}
                             </span>
                           </TableCell>
                           <TableCell className="tabular-nums text-slate-600">
@@ -833,7 +834,7 @@ export function PipelineLeadsTab() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>All sources</SelectItem>
-                  {LEAD_SOURCES.map((s) => (
+                  {sourceOptions.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
                       {s.label}
                     </SelectItem>

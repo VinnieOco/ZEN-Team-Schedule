@@ -12,6 +12,7 @@ import { TeamAccessCard } from "@/components/settings/team-access-card";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
 import { CategoriesCard } from "@/components/settings/categories-card";
 import { LeadFollowUpTypesCard } from "@/components/settings/lead-follow-up-types-card";
+import { LeadSourcesCard } from "@/components/settings/lead-sources-card";
 import { LeadStagesCard } from "@/components/settings/lead-stages-card";
 import { TeamOptionsCard } from "@/components/settings/team-options-card";
 import { TimeClassCodesCard } from "@/components/settings/time-class-codes-card";
@@ -96,6 +97,7 @@ export default function SettingsPage() {
         <TimeClassCodesCard canEdit={permissions.editCompanySettings} />
       )}
       <LeadStagesCard canEdit={permissions.editCompanySettings} />
+      <LeadSourcesCard canEdit={permissions.editCompanySettings} />
       <LeadFollowUpTypesCard canEdit={permissions.editCompanySettings} />
       {permissions.manageTeamOptions && <TeamOptionsCard canEdit={permissions.manageTeamOptions} />}
       {permissions.manageTeamMembers && (

@@ -174,7 +174,22 @@ export interface Todo {
   updated_at: string;
 }
 
-export type LeadSource = "architect" | "past_client" | "referral" | "web" | "other";
+/** Lead source id — defaults are built-in; Settings can add custom sources. */
+export type LeadSource = string;
+
+export interface LeadSourceOption {
+  id: string;
+  label: string;
+}
+
+export const DEFAULT_LEAD_SOURCES: LeadSourceOption[] = [
+  { id: "architect", label: "Architect" },
+  { id: "past_client", label: "Past client" },
+  { id: "referral", label: "Referral" },
+  { id: "web", label: "Web" },
+  { id: "other", label: "Other" },
+];
+
 /** Lead stage id — defaults are built-in; Settings can add custom open stages. */
 export type LeadStatus = string;
 export type LeadStageKind = "open" | "won" | "lost";
@@ -376,6 +391,8 @@ export interface CompanySettings {
   class_codes: string[];
   /** Configurable lead pipeline stages (order = kanban / filter order). */
   lead_stages: LeadStageOption[];
+  /** Configurable lead sources (architect, referral, web, …). */
+  lead_sources: LeadSourceOption[];
   /** Configurable follow-up types for lead contact follow-ups. */
   lead_follow_up_types: LeadFollowUpTypeOption[];
 }

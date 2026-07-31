@@ -205,7 +205,7 @@ export function LeadContactDialog({
                     leadSourceBadgeClass(lead.source),
                   )}
                 >
-                  {leadSourceLabel(lead.source)}
+                  {leadSourceLabel(lead.source, settings)}
                 </span>
               </div>
             </div>

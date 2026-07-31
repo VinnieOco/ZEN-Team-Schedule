@@ -73,7 +73,7 @@ export function CrmLeadsContactsTable() {
         lead.contact_email,
         lead.address,
         leadDisplayName(lead),
-        leadSourceLabel(lead.source),
+        leadSourceLabel(lead.source, settings),
         leadStatusLabel(lead.status, settings),
       ]
         .filter(Boolean)
@@ -221,7 +221,7 @@ export function CrmLeadsContactsTable() {
                           leadSourceBadgeClass(lead.source),
                         )}
                       >
-                        {leadSourceLabel(lead.source)}
+                        {leadSourceLabel(lead.source, settings)}
                       </span>
                     </TableCell>
                     <TableCell>
