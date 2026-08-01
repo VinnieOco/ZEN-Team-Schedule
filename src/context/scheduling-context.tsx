@@ -62,6 +62,11 @@ import {
   getChangeOrdersForParent,
   isChangeOrder,
 } from "@/lib/change-orders";
+import {
+  applyProjectMergeState,
+  validateProjectMerge,
+  type ProjectMergeActionResult,
+} from "@/lib/projects/merge";
 import { milestonesForProject } from "@/lib/gantt/milestones";
 import { projectsNeedingPhaseSeed, seedPhasesForProject } from "@/lib/gantt/seed-phases";
 import { normalizeHandle, suggestEmployeeHandle } from "@/lib/todos/handles";
@@ -186,6 +191,8 @@ interface SchedulingContextValue {
   updateProject: (id: string, values: ProjectFormValues) => void;
   /** Deletes a change-order project only. Returns an error message when blocked. */
   deleteChangeOrder: (id: string) => { ok: true } | { ok: false; message: string };
+  /** Moves source project data into target, then deletes the source. */
+  mergeProjects: (sourceId: string, targetId: string) => ProjectMergeActionResult;
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
   /** Sync address, phone, and email to registry + every project for this client key. */
   updateClientContact: (
@@ -1255,6 +1262,89 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       estimates,
       allocations,
       timeEntries,
+      persistAsync,
+    ],
+  );
+
+  const mergeProjects = useCallback(
+    (sourceId: string, targetId: string): ProjectMergeActionResult => {
+      const validation = validateProjectMerge(sourceId, targetId, projects);
+      if (!validation.ok) return validation;
+
+      const projectsSnapshot = projects;
+      const notesSnapshot = projectNotes;
+      const phasesSnapshot = projectPhases;
+      const milestonesSnapshot = projectMilestones;
+      const todosSnapshot = todos;
+      const estimatesSnapshot = estimates;
+      const allocationsSnapshot = allocations;
+      const timeEntriesSnapshot = timeEntries;
+      const leadsSnapshot = leads;
+
+      const next = applyProjectMergeState(
+        {
+          projects,
+          allocations,
+          timeEntries,
+          projectNotes,
+          estimates,
+          todos,
+          leads,
+          projectPhases,
+          projectMilestones,
+        },
+        sourceId,
+        targetId,
+      );
+
+      setProjects(next.projects);
+      setAllocations(next.allocations);
+      setTimeEntries(next.timeEntries);
+      setProjectNotes(next.projectNotes);
+      setEstimates(next.estimates);
+      setTodos(next.todos);
+      setLeads(next.leads);
+      setProjectPhases(next.projectPhases);
+      setProjectMilestones(next.projectMilestones);
+
+      removeProjectFromQueue("design", sourceId);
+      removeProjectFromQueue("estimating", sourceId);
+      setQueueRevision((n) => n + 1);
+
+      if (repoRef.current) {
+        void persistAsync(
+          () =>
+            repoRef.current!.mergeProjects(sourceId, targetId, next.mergedTarget),
+          () => {
+            setProjects(projectsSnapshot);
+            setProjectNotes(notesSnapshot);
+            setProjectPhases(phasesSnapshot);
+            setProjectMilestones(milestonesSnapshot);
+            setTodos(todosSnapshot);
+            setEstimates(estimatesSnapshot);
+            setAllocations(allocationsSnapshot);
+            setTimeEntries(timeEntriesSnapshot);
+            setLeads(leadsSnapshot);
+          },
+        );
+      }
+
+      return {
+        ok: true,
+        targetId,
+        targetName: next.mergedTarget.project_name,
+      };
+    },
+    [
+      projects,
+      projectNotes,
+      projectPhases,
+      projectMilestones,
+      todos,
+      estimates,
+      allocations,
+      timeEntries,
+      leads,
       persistAsync,
     ],
   );
@@ -2743,6 +2833,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addProject,
       updateProject,
       deleteChangeOrder,
+      mergeProjects,
       addClient,
       updateClientContact,
       renameClient,
@@ -2836,6 +2927,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       addProject,
       updateProject,
       deleteChangeOrder,
+      mergeProjects,
       addClient,
       updateClientContact,
       renameClient,

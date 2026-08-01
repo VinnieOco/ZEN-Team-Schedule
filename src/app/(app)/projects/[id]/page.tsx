@@ -13,6 +13,7 @@ import { AppPage } from "@/components/layout/app-page";
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectMergeDialog } from "@/components/projects/project-merge-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +57,7 @@ export default function ProjectDetailPage() {
   } = useScheduling();
   const { permissions } = usePermissions();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const project = projects.find((p) => p.id === projectId);
@@ -210,6 +212,9 @@ export default function ProjectDetailPage() {
         budgetRollup={showRollup ? budgetRollup : undefined}
         canEdit={permissions.editProjects}
         onEdit={() => setEditDialogOpen(true)}
+        onMerge={
+          permissions.editProjects ? () => setMergeDialogOpen(true) : undefined
+        }
         onDelete={
           permissions.editProjects && isChangeOrder(project)
             ? handleDeleteChangeOrder
@@ -276,6 +281,15 @@ export default function ProjectDetailPage() {
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
           project={project}
+        />
+      )}
+
+      {permissions.editProjects && (
+        <ProjectMergeDialog
+          open={mergeDialogOpen}
+          onOpenChange={setMergeDialogOpen}
+          source={project}
+          onMerged={(targetId) => router.replace(`/projects/${targetId}`)}
         />
       )}
     </AppPage>

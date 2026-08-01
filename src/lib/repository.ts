@@ -47,6 +47,8 @@ export interface SchedulingRepository {
   upsertProject(project: Project): Promise<Project>;
   updateProject(project: Project): Promise<Project>;
   deleteProject(id: string): Promise<void>;
+  /** Re-point related rows from source → target, update target, delete source. */
+  mergeProjects(sourceId: string, targetId: string, mergedTarget: Project): Promise<void>;
   insertProjectNote(note: ProjectNote): Promise<ProjectNote>;
   updateProjectNote(note: ProjectNote): Promise<ProjectNote>;
   deleteProjectNote(id: string): Promise<void>;

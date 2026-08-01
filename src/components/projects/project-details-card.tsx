@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { format, parseISO } from "date-fns";
-import { Building2, Calendar, Mail, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
+import { Building2, Calendar, GitMerge, Mail, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
 
 import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface ProjectDetailsCardProps {
   budgetRollup?: ProjectBudgetRollup;
   canEdit: boolean;
   onEdit: () => void;
+  onMerge?: () => void;
   onDelete?: () => void;
 }
 
@@ -54,6 +55,7 @@ export function ProjectDetailsCard({
   budgetRollup,
   canEdit,
   onEdit,
+  onMerge,
   onDelete,
 }: ProjectDetailsCardProps) {
   const designAmount = budgetRollup?.totalDesignAmount ?? getProjectDesignAmount(project);
@@ -70,6 +72,12 @@ export function ProjectDetailsCard({
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
+            {onMerge ? (
+              <Button type="button" variant="outline" size="sm" onClick={onMerge}>
+                <GitMerge className="mr-2 h-4 w-4" />
+                Merge
+              </Button>
+            ) : null}
             {onDelete ? (
               <Button
                 type="button"

@@ -275,6 +275,44 @@ export function createSupabaseRepository(
       if (error) throw error;
     },
 
+    async mergeProjects(sourceId: string, targetId: string, mergedTarget: Project) {
+      if (sourceId === targetId) {
+        throw new Error("Cannot merge a project with itself.");
+      }
+
+      const reassign = async (table: string, column: string) => {
+        const { error } = await supabase
+          .from(table)
+          .update({ [column]: targetId })
+          .eq(column, sourceId);
+        if (error) throw error;
+      };
+
+      await reassign("allocations", "project_id");
+      await reassign("time_entries", "project_id");
+      await reassign("project_notes", "project_id");
+      await reassign("estimates", "project_id");
+      await reassign("todos", "source_project_id");
+      await reassign("leads", "converted_project_id");
+
+      const { error: parentError } = await supabase
+        .from("projects")
+        .update({ parent_project_id: targetId, is_change_order: true })
+        .eq("parent_project_id", sourceId);
+      if (parentError) throw parentError;
+
+      const row = projectToRow(mergedTarget);
+      const { id: _id, ...updates } = row;
+      const { error: targetError } = await supabase
+        .from("projects")
+        .update(updates)
+        .eq("id", targetId);
+      if (targetError) throw targetError;
+
+      const { error: deleteError } = await supabase.from("projects").delete().eq("id", sourceId);
+      if (deleteError) throw deleteError;
+    },
+
     async insertProjectNote(note: ProjectNote) {
       const { data, error } = await supabase
         .from("project_notes")
