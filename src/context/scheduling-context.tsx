@@ -1029,28 +1029,40 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         id: generateId(),
         active: true,
       });
-      setProjects((prev) => [...prev, project]);
+      const seeded =
+        project.is_change_order || !project.active ? [] : seedPhasesForProject(project);
 
-      if (!project.is_change_order) {
-        const seeded = seedPhasesForProject(project);
+      setProjects((prev) => [...prev, project]);
+      if (seeded.length > 0) {
         setProjectPhases((prev) => [...prev, ...seeded]);
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.insertProjectPhases(seeded),
-            () =>
-              setProjectPhases((prev) =>
-                prev.filter((p) => !seeded.some((s) => s.id === p.id)),
-              ),
-          );
-        }
       }
 
       if (repoRef.current) {
-        const snapshot = projects;
-        persistAsync(
-          () => repoRef.current!.upsertProject(project),
-          () => setProjects(snapshot),
-        );
+        const projectsSnapshot = projects;
+        void persistAsync(
+          async () => {
+            // Project must exist before phase rows (FK on project_phases.project_id).
+            const saved = await repoRef.current!.upsertProject(project);
+            if (seeded.length > 0) {
+              await repoRef.current!.insertProjectPhases(seeded);
+            }
+            return saved;
+          },
+          () => {
+            setProjects(projectsSnapshot);
+            if (seeded.length > 0) {
+              setProjectPhases((prev) =>
+                prev.filter((p) => !seeded.some((s) => s.id === p.id)),
+              );
+            }
+          },
+        ).then((saved) => {
+          if (saved) {
+            setProjects((current) =>
+              current.map((p) => (p.id === project.id ? saved : p)),
+            );
+          }
+        });
       }
       return project;
     },
@@ -1133,7 +1145,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     setProjectPhases((prev) => [...prev, ...seeded]);
     if (repoRef.current) {
       await persistAsync(
-        () => repoRef.current!.insertProjectPhases(seeded),
+        async () => {
+          // Ensure each parent row exists before inserting phases (avoids FK races
+          // when a new project is still being upserted elsewhere).
+          for (const project of missing) {
+            await repoRef.current!.upsertProject(project);
+            const phases = seeded.filter((phase) => phase.project_id === project.id);
+            if (phases.length > 0) {
+              await repoRef.current!.insertProjectPhases(phases);
+            }
+          }
+        },
         () =>
           setProjectPhases((prev) =>
             prev.filter((p) => !seeded.some((s) => s.id === p.id)),
