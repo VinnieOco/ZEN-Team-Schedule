@@ -236,20 +236,23 @@ export function ProjectScheduleSection({
 
       <Card className="print:border-0 print:shadow-none">
         <CardHeader className="print:hidden">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <CardTitle className="text-base">Schedule timeline</CardTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
                 Drag empty timeline space to move through earlier or later dates. Drag phase bars to
                 adjust dates. Staffing lanes under each phase show who is scheduled from Team
                 Scheduling. Milestone markers appear when milestones are set below.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+                Swipe the timeline sideways. Drag empty space to pan dates.
               </p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="shrink-0"
+              className="w-full shrink-0 sm:w-auto"
               onClick={() => setPrintDialogOpen(true)}
             >
               <Printer className="mr-2 h-4 w-4" />
@@ -294,17 +297,20 @@ export function ProjectScheduleSection({
       />
 
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-          <div>
+        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <CardTitle className="text-base">Phase schedule</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
               Add or remove phases and edit dates, budgets, and links in the table. Choose a
               standard phase from the list or type a custom name. Linked phases shift when a
               predecessor changes.
             </p>
+            <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+              Edit dates, hours, and links for each phase.
+            </p>
           </div>
           {canEdit && (
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <SearchableCombobox
                 options={availablePhaseOptions}
                 value={phaseToAdd}
@@ -313,12 +319,13 @@ export function ProjectScheduleSection({
                 searchPlaceholder="Search phases…"
                 emptyMessage="No matching phases"
                 customOptionLabel={(query) => `Add phase "${query}"`}
-                className="w-[220px]"
+                className="w-full sm:w-[220px]"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 disabled={!normalizePhaseKey(phaseToAdd)}
                 onClick={handleAddPhase}
               >
@@ -330,11 +337,153 @@ export function ProjectScheduleSection({
         </CardHeader>
         <CardContent className="overflow-x-auto p-0 sm:p-0">
           {phases.length === 0 ? (
-            <p className="px-6 pb-6 text-sm text-muted-foreground">
+            <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-6 sm:pb-6">
               No phases on this schedule yet.
               {canEdit ? " Choose a phase or type a custom name above and click Add." : ""}
             </p>
           ) : (
+            <>
+              <ul className="divide-y divide-slate-100 md:hidden">
+                {phases.map((phase, index) => {
+                  const logged = phaseHoursByKey.get(phase.phase_key) ?? 0;
+                  const progress = computePhaseProgress(phase, logged, project);
+                  return (
+                    <li key={phase.id} className="space-y-3 px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900">{phase.phase_key}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {phaseWeeks(phase.start_date, phase.end_date)} ·{" "}
+                            {formatProjectAmount(computePhaseFeeBudget(phase, project))}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {index === 0 ? null : (
+                            <button
+                              type="button"
+                              disabled={!canEdit}
+                              title={
+                                phase.linked_to_previous
+                                  ? "Linked to previous phase"
+                                  : "Independent phase"
+                              }
+                              className={cn(
+                                "inline-flex rounded p-1.5",
+                                canEdit && "hover:bg-slate-100",
+                                !canEdit && "opacity-50",
+                              )}
+                              onClick={() =>
+                                handleToggleLinked(phase.id, !phase.linked_to_previous)
+                              }
+                            >
+                              {phase.linked_to_previous ? (
+                                <Link2 className="h-4 w-4 text-emerald-600" />
+                              ) : (
+                                <Link2Off className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </button>
+                          )}
+                          {canEdit ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleRemovePhase(phase.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-medium text-muted-foreground">Start</p>
+                          {canEdit ? (
+                            <DateInput
+                              value={phase.start_date ?? ""}
+                              onChange={(e) =>
+                                handleFieldChange(phase.id, "start_date", e.target.value)
+                              }
+                            />
+                          ) : (
+                            <p className="text-sm tabular-nums">
+                              {formatPhaseDate(phase.start_date)}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-medium text-muted-foreground">End</p>
+                          {canEdit ? (
+                            <DateInput
+                              value={phase.end_date ?? ""}
+                              onChange={(e) =>
+                                handleFieldChange(phase.id, "end_date", e.target.value)
+                              }
+                            />
+                          ) : (
+                            <p className="text-sm tabular-nums">
+                              {formatPhaseDate(phase.end_date)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-medium text-muted-foreground">
+                            Budget hrs
+                          </p>
+                          {canEdit ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              step={0.25}
+                              value={phase.budget_hours}
+                              className="h-8 w-24 text-right"
+                              onChange={(e) =>
+                                handleFieldChange(phase.id, "budget_hours", e.target.value)
+                              }
+                            />
+                          ) : (
+                            <p className="text-sm tabular-nums">
+                              {formatProjectHours(phase.budget_hours)}
+                            </p>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 text-right">
+                          <p className="text-[11px] text-muted-foreground">
+                            Logged {formatProjectHours(logged)}h
+                          </p>
+                          <div className="mt-1">
+                            <PhaseProgressBar progress={progress} compact />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+                <li className="space-y-2 bg-slate-50/80 px-4 py-3">
+                  <p className="text-sm font-semibold">Total</p>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="tabular-nums">
+                      {formatProjectHours(totalPhaseBudgetHours)} /{" "}
+                      {formatProjectHours(projectBudgetedHours)}h project
+                    </span>
+                    <span className="text-muted-foreground tabular-nums">
+                      Logged {formatProjectHours(totalLoggedHours)}h
+                    </span>
+                  </div>
+                  <PhaseProgressBar progress={scheduleTotals.totalProgress} compact />
+                  <p className="text-xs tabular-nums text-muted-foreground">
+                    Contract {formatProjectAmount(scheduleTotals.totalContract)}
+                    {scheduleTotals.projectContractAmount != null &&
+                    scheduleTotals.projectContractAmount > 0
+                      ? ` / ${formatProjectAmount(scheduleTotals.projectContractAmount)} project`
+                      : ""}
+                  </p>
+                </li>
+              </ul>
+              <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -511,6 +660,8 @@ export function ProjectScheduleSection({
               </TableRow>
             </TableBody>
           </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

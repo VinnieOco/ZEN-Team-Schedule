@@ -64,16 +64,28 @@ export function ProjectDetailsCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b pb-4">
+      <CardHeader className="flex flex-col gap-3 space-y-0 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="text-base">Project details</CardTitle>
         {canEdit && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={onEdit}
+            >
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
             {onMerge ? (
-              <Button type="button" variant="outline" size="sm" onClick={onMerge}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={onMerge}
+              >
                 <GitMerge className="mr-2 h-4 w-4" />
                 Merge
               </Button>
@@ -83,7 +95,7 @@ export function ProjectDetailsCard({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                className="col-span-2 w-full border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 sm:col-auto sm:w-auto"
                 onClick={onDelete}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -93,15 +105,15 @@ export function ProjectDetailsCard({
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-6 pt-6">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="space-y-4 rounded-lg border border-border/80 bg-slate-50/60 p-4">
+      <CardContent className="space-y-4 pt-4 sm:space-y-6 sm:pt-6">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          <section className="space-y-4 rounded-lg border border-border/80 bg-slate-50/60 p-3 sm:p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Client
             </h3>
             <ClientCrmLink
               clientName={project.client_name}
-              className="text-lg font-semibold text-slate-900 hover:text-emerald-900"
+              className="text-base font-semibold text-slate-900 hover:text-emerald-900 sm:text-lg"
             />
             <div className="space-y-3 border-t border-border/60 pt-4">
               <ContactRow icon={MapPin}>
@@ -110,7 +122,7 @@ export function ProjectDetailsCard({
                     href={googleMapsUrl(project.address)}
                     target="_blank"
                     rel="noreferrer"
-                    className="whitespace-pre-wrap hover:underline"
+                    className="break-words whitespace-pre-wrap hover:underline"
                   >
                     {project.address.trim()}
                   </a>
@@ -129,7 +141,10 @@ export function ProjectDetailsCard({
               </ContactRow>
               <ContactRow icon={Mail}>
                 {project.email?.trim() ? (
-                  <a href={`mailto:${project.email.trim()}`} className="hover:underline">
+                  <a
+                    href={`mailto:${project.email.trim()}`}
+                    className="break-all hover:underline"
+                  >
                     {project.email.trim()}
                   </a>
                 ) : (
@@ -139,12 +154,12 @@ export function ProjectDetailsCard({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-lg border border-border/80 bg-slate-50/60 p-4">
+          <section className="space-y-4 rounded-lg border border-border/80 bg-slate-50/60 p-3 sm:p-4">
             <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <Building2 className="h-3.5 w-3.5" />
               Project information
             </h3>
-            <dl className="grid gap-4 sm:grid-cols-2">
+            <dl className="grid grid-cols-2 gap-3 sm:gap-4">
               <InfoField label="Lead designer">
                 {lead ? getEmployeeFullName(lead) : "—"}
               </InfoField>
@@ -172,33 +187,54 @@ export function ProjectDetailsCard({
               </InfoField>
               <InfoField label="Design completion">
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  {project.target_completion_date
-                    ? format(parseISO(project.target_completion_date), "MMMM d, yyyy")
-                    : "—"}
+                  <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="sm:hidden">
+                    {project.target_completion_date
+                      ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
+                      : "—"}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {project.target_completion_date
+                      ? format(parseISO(project.target_completion_date), "MMMM d, yyyy")
+                      : "—"}
+                  </span>
                 </span>
               </InfoField>
               <InfoField label="Estimating completion">
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  {project.estimating_completion_date
-                    ? format(parseISO(project.estimating_completion_date), "MMMM d, yyyy")
-                    : "—"}
+                  <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="sm:hidden">
+                    {project.estimating_completion_date
+                      ? format(parseISO(project.estimating_completion_date), "MMM d, yyyy")
+                      : "—"}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {project.estimating_completion_date
+                      ? format(parseISO(project.estimating_completion_date), "MMMM d, yyyy")
+                      : "—"}
+                  </span>
                 </span>
               </InfoField>
               <InfoField label="Contract date">
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                  {project.contract_date
-                    ? format(parseISO(project.contract_date), "MMMM d, yyyy")
-                    : "—"}
+                  <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="sm:hidden">
+                    {project.contract_date
+                      ? format(parseISO(project.contract_date), "MMM d, yyyy")
+                      : "—"}
+                  </span>
+                  <span className="hidden sm:inline">
+                    {project.contract_date
+                      ? format(parseISO(project.contract_date), "MMMM d, yyyy")
+                      : "—"}
+                  </span>
                 </span>
               </InfoField>
             </dl>
           </section>
         </div>
 
-        <section className="rounded-lg border border-border/80 p-4">
+        <section className="rounded-lg border border-border/80 p-3 sm:p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Scope of work
           </h3>

@@ -132,16 +132,25 @@ export function ProjectMilestonesCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-        <div>
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <CardTitle className="text-base">Milestones</CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
             Submittals, meetings, reviews, permits, and other key dates appear as diamonds on the
             timeline. Tag Design or Estimating to show the latest date on those Pipeline tables.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+            Key dates shown as diamonds on the timeline.
+          </p>
         </div>
         {canEdit && (
-          <Button type="button" variant="outline" size="sm" onClick={addMilestone}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full shrink-0 sm:w-auto"
+            onClick={addMilestone}
+          >
             <Plus className="mr-1 h-4 w-4" />
             Add
           </Button>

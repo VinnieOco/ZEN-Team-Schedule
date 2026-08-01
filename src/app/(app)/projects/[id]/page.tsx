@@ -109,7 +109,7 @@ export default function ProjectDetailPage() {
   };
 
   return (
-    <AppPage className="space-y-6">
+    <AppPage className="space-y-4 md:space-y-6">
       <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Button variant="outline" size="sm" asChild>
           <Link href="/projects">
@@ -119,18 +119,20 @@ export default function ProjectDetailPage() {
         </Button>
       </div>
 
-      <div className="print:hidden">
-        <h1 className="text-2xl font-bold text-slate-900">{project.project_name}</h1>
+      <div className="min-w-0 print:hidden">
+        <h1 className="text-xl font-bold break-words text-slate-900 sm:text-2xl">
+          {project.project_name}
+        </h1>
         <ClientCrmLink
           clientName={project.client_name}
-          className="mt-1 text-muted-foreground hover:text-emerald-900"
+          className="mt-1 text-sm text-muted-foreground hover:text-emerald-900 sm:text-base"
         />
         {parentProject && (
-          <p className="mt-2 text-sm">
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span className="rounded-md bg-amber-100 px-2 py-0.5 font-medium text-amber-900">
               Change order
             </span>
-            <span className="ml-2 text-muted-foreground">
+            <span className="text-muted-foreground">
               for{" "}
               <Link
                 href={`/projects/${parentProject.id}`}
@@ -153,25 +155,33 @@ export default function ProjectDetailPage() {
           </TabsTrigger>
         </ScrollableTabsList>
 
-        <TabsContent value="overview" className="mt-6 space-y-6 print:hidden">
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <TabsContent value="overview" className="mt-4 space-y-4 sm:mt-6 sm:space-y-6 print:hidden">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Department</CardTitle>
+          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+              Department
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="font-semibold">{formatProjectDepartment(project.department)}</p>
-            <p className="text-sm text-muted-foreground">{project.phase}</p>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-sm font-semibold sm:text-base">
+              {formatProjectDepartment(project.department)}
+            </p>
+            <p className="text-xs text-muted-foreground sm:text-sm">{project.phase}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Budgeted hours</CardTitle>
+          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+              Budgeted hours
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatProjectHours(budgetedHours)}h</p>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-xl font-bold sm:text-2xl">
+              {formatProjectHours(budgetedHours)}h
+            </p>
             {showRollup && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground sm:text-sm">
                 {formatProjectHours(budgetRollup.baseBudgetHours)}h base +{" "}
                 {formatProjectHours(budgetRollup.changeOrderBudgetHours)}h COs
               </p>
@@ -179,14 +189,20 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Actual</CardTitle>
+          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+              Actual
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatProjectHours(actualHours)}h</p>
-            <p className="text-sm text-muted-foreground">{percentUsed}% of budget</p>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p className="text-xl font-bold sm:text-2xl">
+              {formatProjectHours(actualHours)}h
+            </p>
+            <p className="text-[11px] text-muted-foreground sm:text-sm">
+              {percentUsed}% of budget
+            </p>
             {showRollup && hoursRollup.changeOrderActualHours > 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground sm:text-sm">
                 {formatProjectHours(hoursRollup.baseActualHours)}h base +{" "}
                 {formatProjectHours(hoursRollup.changeOrderActualHours)}h COs
               </p>
@@ -194,11 +210,15 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Remaining</CardTitle>
+          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+              Remaining
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${remaining < 0 ? "text-red-600" : ""}`}>
+          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+            <p
+              className={`text-xl font-bold sm:text-2xl ${remaining < 0 ? "text-red-600" : ""}`}
+            >
               {formatProjectHours(remaining)}h
             </p>
           </CardContent>
@@ -229,45 +249,75 @@ export default function ProjectDetailPage() {
       <ProjectNotesSection project={project} />
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Scheduled work ({projectAllocations.length})</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-base">
+            Scheduled work ({projectAllocations.length})
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
           {projectAllocations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hours scheduled for this project yet.</p>
+            <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0">
+              No hours scheduled for this project yet.
+            </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Team member</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Hours</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <ul className="divide-y divide-slate-100 md:hidden">
                 {projectAllocations.map((alloc) => {
                   const emp = employees.find((e) => e.id === alloc.employee_id);
                   const cat = getCategoryById(alloc.allocation_category_id);
                   return (
-                    <TableRow key={alloc.id}>
-                      <TableCell>
-                        {format(parseISO(alloc.allocation_date), "EEE, MMM d, yyyy")}
-                      </TableCell>
-                      <TableCell>{emp ? getEmployeeFullName(emp) : "—"}</TableCell>
-                      <TableCell>{cat?.name ?? "—"}</TableCell>
-                      <TableCell className="text-right font-medium">{alloc.hours}h</TableCell>
-                    </TableRow>
+                    <li key={alloc.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {emp ? getEmployeeFullName(emp) : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(parseISO(alloc.allocation_date), "EEE, MMM d")}
+                          {cat?.name ? ` · ${cat.name}` : ""}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {alloc.hours}h
+                      </span>
+                    </li>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Team member</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead className="text-right">Hours</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projectAllocations.map((alloc) => {
+                      const emp = employees.find((e) => e.id === alloc.employee_id);
+                      const cat = getCategoryById(alloc.allocation_category_id);
+                      return (
+                        <TableRow key={alloc.id}>
+                          <TableCell>
+                            {format(parseISO(alloc.allocation_date), "EEE, MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell>{emp ? getEmployeeFullName(emp) : "—"}</TableCell>
+                          <TableCell>{cat?.name ?? "—"}</TableCell>
+                          <TableCell className="text-right font-medium">{alloc.hours}h</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
         </TabsContent>
 
-        <TabsContent value="schedule" className="mt-6">
+        <TabsContent value="schedule" className="mt-4 sm:mt-6">
           <ProjectScheduleSection
             project={project}
             timeEntries={timeEntries}

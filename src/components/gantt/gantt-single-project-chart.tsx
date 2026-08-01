@@ -132,7 +132,7 @@ export function GanttSingleProjectChart({
 
       <div
         ref={scrollRef}
-        className={`schedule-scroll relative overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none ${
+        className={`schedule-scroll relative max-w-full overflow-x-auto overscroll-x-contain rounded-lg border bg-white shadow-sm [-webkit-overflow-scrolling:touch] print:overflow-visible print:border-slate-300 print:shadow-none ${
           isPanning ? "cursor-grabbing select-none" : ""
         }`}
       >
