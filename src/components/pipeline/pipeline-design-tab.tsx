@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
@@ -189,17 +190,51 @@ function PhaseDonut({
   );
 }
 
+function DesignActionsMenu({
+  projectId,
+  onRemove,
+}: {
+  projectId: string;
+  onRemove: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Project actions"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={`/projects/${projectId}`}>Open project</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-rose-700" onClick={onRemove}>
+          Remove from queue
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function SortableDesignPriorityRow({
   item,
   index,
   milestoneDate,
   canManageQueue,
+  layout = "table",
   onRemove,
 }: {
   item: DesignQueueItem;
   index: number;
   milestoneDate?: string;
   canManageQueue: boolean;
+  layout?: "table" | "card";
   onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -207,16 +242,108 @@ function SortableDesignPriorityRow({
     disabled: !canManageQueue,
   });
   const days = designDaysLeft(item);
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    position: isDragging ? ("relative" as const) : undefined,
+  };
+
+  const dragHandle = canManageQueue ? (
+    <button
+      type="button"
+      className="flex h-8 w-7 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+      aria-label={`Drag ${item.project.project_name} to change priority`}
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  ) : null;
+
+  if (layout === "card") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "relative px-3 py-3",
+          !item.project.active && "opacity-60",
+          isDragging && "z-20 bg-white opacity-90 shadow-lg",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute inset-y-2 left-0 w-1 rounded-r-full",
+            designRowAccentClass(item),
+          )}
+        />
+        <div className="flex items-start gap-1.5">
+          <div className="flex shrink-0 flex-col items-center gap-0.5 pt-0.5">
+            {dragHandle}
+            <span className="text-[10px] tabular-nums text-muted-foreground">{index + 1}</span>
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <Link
+                  href={`/projects/${item.project.id}`}
+                  className="block truncate font-medium text-emerald-700 hover:underline"
+                >
+                  {item.project.project_name}
+                </Link>
+                <p className="truncate text-xs text-muted-foreground">
+                  {item.project.client_name}
+                  {item.project.project_number ? ` · ${item.project.project_number}` : ""}
+                </p>
+              </div>
+              {canManageQueue ? (
+                <div className="shrink-0">
+                  <DesignActionsMenu projectId={item.project.id} onRemove={onRemove} />
+                </div>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant="secondary"
+                className={cn("font-semibold", designQueueStageBadgeClass(item.stage))}
+              >
+                {designStageLabel(item.stage)}
+              </Badge>
+              <Badge variant="secondary" className="font-normal">
+                {item.project.phase}
+              </Badge>
+              <HealthStatusBadge health={item.health} />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span
+                className={cn(
+                  "tabular-nums",
+                  days != null && days < 0 && "font-semibold text-rose-600",
+                )}
+              >
+                Due {formatShortDate(item.dueDate)}
+                {milestoneDate ? ` · MS ${formatShortDate(milestoneDate)}` : ""}
+              </span>
+              <span className="flex items-center gap-2 tabular-nums">
+                <span className={daysLeftClass(days)}>
+                  {days == null ? "—" : `${days}d left`}
+                </span>
+                <span className="font-medium text-slate-700">
+                  {formatHoursPair(item.metrics.hoursUsed, item.metrics.budgetHours)}
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TableRow
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 20 : undefined,
-        position: isDragging ? "relative" : undefined,
-      }}
+      style={style}
       className={cn(
         !item.project.active && "opacity-60",
         isDragging && "bg-white opacity-80 shadow-lg",
@@ -230,17 +357,7 @@ function SortableDesignPriorityRow({
           )}
         />
         <div className="flex items-center gap-1">
-          {canManageQueue ? (
-            <button
-              type="button"
-              className="flex h-7 w-6 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
-              aria-label={`Drag ${item.project.project_name} to change priority`}
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="h-4 w-4" />
-            </button>
-          ) : null}
+          {dragHandle}
           <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
         </div>
       </TableCell>
@@ -291,27 +408,7 @@ function SortableDesignPriorityRow({
       </TableCell>
       {canManageQueue && (
         <TableCell className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                aria-label="Project actions"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/projects/${item.project.id}`}>Open project</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-rose-700" onClick={onRemove}>
-                Remove from queue
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <DesignActionsMenu projectId={item.project.id} onRemove={onRemove} />
         </TableCell>
       )}
     </TableRow>
@@ -347,6 +444,8 @@ export function PipelineDesignTab() {
   const [tableSearch, setTableSearch] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [dragRevision, setDragRevision] = useState(0);
+  const isNarrow = useIsNarrowViewport();
+  const priorityLayout = isNarrow ? "card" : "table";
   const prioritySensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -535,7 +634,7 @@ export function PipelineDesignTab() {
           {canManageQueue && (
             <Button
               type="button"
-              className="mb-2 shrink-0 sm:mb-1.5"
+              className="mb-2 w-full shrink-0 sm:mb-1.5 sm:w-auto"
               onClick={() => setAddDialogOpen(true)}
             >
               <Plus className="mr-1.5 h-4 w-4" />
@@ -546,7 +645,7 @@ export function PipelineDesignTab() {
 
         <TabsContent value="table" className="mt-4 min-w-0 space-y-4">
           <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:items-end">
-            <div className="min-w-[180px] flex-1 space-y-1.5">
+            <div className="min-w-0 flex-1 space-y-1.5 sm:min-w-[180px]">
               <Label htmlFor="design-search" className="text-xs">
                 Search
               </Label>
@@ -557,7 +656,7 @@ export function PipelineDesignTab() {
                 placeholder="Project, client, designer…"
               />
             </div>
-            <p className="pb-2 text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground sm:pb-2">
               {priorityCount} assigned · {priorityGroups.length} designer
               {priorityGroups.length === 1 ? "" : "s"}
               {unassignedActiveCount > 0
@@ -625,23 +724,8 @@ export function PipelineDesignTab() {
                     collisionDetection={closestCenter}
                     onDragEnd={(event) => handlePriorityDragEnd(event, group.designerId)}
                   >
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-14">Priority</TableHead>
-                          <TableHead>Project</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Phase</TableHead>
-                          <TableHead>Milestone</TableHead>
-                          <TableHead>Due</TableHead>
-                          <TableHead className="text-right">Days Left</TableHead>
-                          <TableHead className="text-right">Hours</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Health</TableHead>
-                          {canManageQueue && <TableHead className="w-12" />}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+                    {isNarrow ? (
+                      <div className="divide-y divide-slate-100">
                         <SortableContext
                           items={group.items.map((item) => item.project.id)}
                           strategy={verticalListSortingStrategy}
@@ -653,6 +737,7 @@ export function PipelineDesignTab() {
                               index={index}
                               milestoneDate={designMilestoneDates.get(item.project.id)}
                               canManageQueue={canManageQueue}
+                              layout={priorityLayout}
                               onRemove={() =>
                                 handleRemoveFromPriority(
                                   item.project.id,
@@ -662,8 +747,51 @@ export function PipelineDesignTab() {
                             />
                           ))}
                         </SortableContext>
-                      </TableBody>
-                    </Table>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-14">Priority</TableHead>
+                              <TableHead>Project</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead>Phase</TableHead>
+                              <TableHead>Milestone</TableHead>
+                              <TableHead>Due</TableHead>
+                              <TableHead className="text-right">Days Left</TableHead>
+                              <TableHead className="text-right">Hours</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Health</TableHead>
+                              {canManageQueue && <TableHead className="w-12" />}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <SortableContext
+                              items={group.items.map((item) => item.project.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {group.items.map((item, index) => (
+                                <SortableDesignPriorityRow
+                                  key={item.project.id}
+                                  item={item}
+                                  index={index}
+                                  milestoneDate={designMilestoneDates.get(item.project.id)}
+                                  canManageQueue={canManageQueue}
+                                  layout={priorityLayout}
+                                  onRemove={() =>
+                                    handleRemoveFromPriority(
+                                      item.project.id,
+                                      item.project.project_name,
+                                    )
+                                  }
+                                />
+                              ))}
+                            </SortableContext>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
                   </DndContext>
                 </div>
               ))}

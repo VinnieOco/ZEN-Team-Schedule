@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
@@ -136,11 +137,45 @@ function initials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function EstimateActionsMenu({
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Estimate actions"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
+        <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+        <DropdownMenuItem className="text-rose-700" onClick={onDelete}>
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function SortableEstimatePriorityRow({
   estimate,
   index,
   milestoneDate,
   canEdit,
+  layout = "table",
   onOpen,
   onEdit,
   onDelete,
@@ -149,6 +184,7 @@ function SortableEstimatePriorityRow({
   index: number;
   milestoneDate?: string;
   canEdit: boolean;
+  layout?: "table" | "card";
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -159,16 +195,112 @@ function SortableEstimatePriorityRow({
   });
   const days = estimateDaysLeft(estimate);
   const revision = estimateRevisionLabel(estimate);
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    position: isDragging ? ("relative" as const) : undefined,
+  };
+
+  const dragHandle = canEdit ? (
+    <button
+      type="button"
+      className="flex h-8 w-7 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+      aria-label={`Drag ${estimateDisplayName(estimate)} to change priority`}
+      onClick={(e) => e.stopPropagation()}
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  ) : null;
+
+  if (layout === "card") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "relative cursor-pointer px-3 py-3 active:bg-slate-50",
+          isDragging && "z-20 bg-white opacity-90 shadow-lg",
+        )}
+        onClick={onOpen}
+      >
+        <span
+          className={cn(
+            "absolute inset-y-2 left-0 w-1 rounded-r-full",
+            estimateRowAccentClass(estimate),
+          )}
+        />
+        <div className="flex items-start gap-1.5">
+          <div className="flex shrink-0 flex-col items-center gap-0.5 pt-0.5">
+            {dragHandle}
+            <span className="text-[10px] tabular-nums text-muted-foreground">{index + 1}</span>
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <p className="truncate font-medium text-emerald-700">
+                    {estimateDisplayName(estimate)}
+                  </p>
+                  {revision ? (
+                    <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px] font-normal">
+                      {revision}
+                    </Badge>
+                  ) : null}
+                </div>
+                <p className="truncate text-xs text-muted-foreground">{estimate.client_name}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <span className="text-sm font-semibold tabular-nums text-slate-900">
+                  {formatProjectAmount(estimate.amount)}
+                </span>
+                {canEdit ? (
+                  <EstimateActionsMenu onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant="secondary"
+                className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+              >
+                {estimateStageLabel(estimate.stage)}
+              </Badge>
+              <span
+                className={cn(
+                  "inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium",
+                  estimateTypeBadgeClass(estimate.estimate_type),
+                )}
+              >
+                {estimateTypeLabel(estimate.estimate_type)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span
+                className={cn(
+                  "tabular-nums",
+                  isEstimateDueOverdue(estimate) && "font-semibold text-rose-600",
+                )}
+              >
+                Due {formatShortDate(estimate.due_date)}
+                {milestoneDate ? ` · MS ${formatShortDate(milestoneDate)}` : ""}
+              </span>
+              <span className={cn("tabular-nums", daysLeftClass(days))}>
+                {days == null ? "—" : `${days}d left`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TableRow
       ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 20 : undefined,
-        position: isDragging ? "relative" : undefined,
-      }}
+      style={style}
       className={cn(
         "group cursor-pointer",
         isDragging && "bg-white opacity-80 shadow-lg",
@@ -183,18 +315,7 @@ function SortableEstimatePriorityRow({
           )}
         />
         <div className="flex items-center gap-1">
-          {canEdit ? (
-            <button
-              type="button"
-              className="flex h-7 w-6 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
-              aria-label={`Drag ${estimateDisplayName(estimate)} to change priority`}
-              onClick={(e) => e.stopPropagation()}
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="h-4 w-4" />
-            </button>
-          ) : null}
+          {dragHandle}
           <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
         </div>
       </TableCell>
@@ -251,26 +372,7 @@ function SortableEstimatePriorityRow({
       </TableCell>
       {canEdit && (
         <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                aria-label="Estimate actions"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
-              <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-              <DropdownMenuItem className="text-rose-700" onClick={onDelete}>
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <EstimateActionsMenu onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
         </TableCell>
       )}
     </TableRow>
@@ -366,6 +468,8 @@ export function PipelineEstimatingTab() {
     useScheduling();
   const { permissions } = usePermissions();
   const canEdit = permissions.editQueue || permissions.editProjects;
+  const isNarrow = useIsNarrowViewport();
+  const priorityLayout = isNarrow ? "card" : "table";
   const { revision: orderRevision, updateColumnOrder } = useQueueColumnOrder();
 
   const [search, setSearch] = useState("");
@@ -635,7 +739,11 @@ export function PipelineEstimatingTab() {
             </TabsTrigger>
           </ScrollableTabsList>
           {canEdit && (
-            <Button type="button" className="mb-2 shrink-0 sm:mb-1.5" onClick={openNew}>
+            <Button
+              type="button"
+              className="mb-2 w-full shrink-0 sm:mb-1.5 sm:w-auto"
+              onClick={openNew}
+            >
               <Plus className="mr-1.5 h-4 w-4" />
               New Estimate
             </Button>
@@ -643,8 +751,8 @@ export function PipelineEstimatingTab() {
         </div>
 
         <TabsContent value="table" className="mt-4 min-w-0 space-y-4">
-          <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="min-w-[180px] flex-1 space-y-1.5">
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 space-y-1.5 sm:min-w-[180px]">
               <Label htmlFor="estimating-search" className="text-xs">
                 Search
               </Label>
@@ -655,54 +763,56 @@ export function PipelineEstimatingTab() {
                 placeholder="Package, client, estimator…"
               />
             </div>
-            <div className="w-full space-y-1.5 sm:w-[160px]">
-              <Label className="text-xs">Stage</Label>
-              <Select value={stageFilter} onValueChange={setStageFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={OPEN_ONLY}>Open only</SelectItem>
-                  <SelectItem value={ALL}>All stages</SelectItem>
-                  {ESTIMATE_STAGES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full space-y-1.5 sm:w-[150px]">
-              <Label className="text-xs">Type</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All types</SelectItem>
-                  {ESTIMATE_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full space-y-1.5 sm:w-[170px]">
-              <Label className="text-xs">Estimator</Label>
-              <Select value={estimatorFilter} onValueChange={setEstimatorFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All estimators</SelectItem>
-                  {estimatorOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3 sm:contents">
+              <div className="min-w-0 space-y-1.5 sm:w-[160px]">
+                <Label className="text-xs">Stage</Label>
+                <Select value={stageFilter} onValueChange={setStageFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OPEN_ONLY}>Open only</SelectItem>
+                    <SelectItem value={ALL}>All stages</SelectItem>
+                    {ESTIMATE_STAGES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-0 space-y-1.5 sm:w-[150px]">
+                <Label className="text-xs">Type</Label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>All types</SelectItem>
+                    {ESTIMATE_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2 min-w-0 space-y-1.5 sm:col-auto sm:w-[170px]">
+                <Label className="text-xs">Estimator</Label>
+                <Select value={estimatorFilter} onValueChange={setEstimatorFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>All estimators</SelectItem>
+                    {estimatorOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -771,54 +881,88 @@ export function PipelineEstimatingTab() {
                     collisionDetection={closestCenter}
                     onDragEnd={(event) => handlePriorityDragEnd(event, group.estimatorId)}
                   >
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-14">Priority</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Client</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Received</TableHead>
-                            <TableHead>Milestone</TableHead>
-                            <TableHead>Due Date</TableHead>
-                            <TableHead className="text-right">Days Left</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Value</TableHead>
-                            {canEdit && <TableHead className="w-10" />}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <SortableContext
-                            items={group.items.map((estimate) => estimate.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            {group.items.map((estimate, index) => (
-                              <SortableEstimatePriorityRow
-                                key={estimate.id}
-                                estimate={estimate}
-                                index={index}
-                                milestoneDate={
-                                  estimate.project_id
-                                    ? estimatingMilestoneDates.get(estimate.project_id)
-                                    : undefined
+                    {isNarrow ? (
+                      <div className="divide-y divide-slate-100">
+                        <SortableContext
+                          items={group.items.map((estimate) => estimate.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {group.items.map((estimate, index) => (
+                            <SortableEstimatePriorityRow
+                              key={estimate.id}
+                              estimate={estimate}
+                              index={index}
+                              milestoneDate={
+                                estimate.project_id
+                                  ? estimatingMilestoneDates.get(estimate.project_id)
+                                  : undefined
+                              }
+                              canEdit={canEdit}
+                              layout={priorityLayout}
+                              onOpen={() => setDetail(estimate)}
+                              onEdit={() => openEdit(estimate)}
+                              onDelete={() => {
+                                if (
+                                  window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
+                                ) {
+                                  deleteEstimate(estimate.id);
                                 }
-                                canEdit={canEdit}
-                                onOpen={() => setDetail(estimate)}
-                                onEdit={() => openEdit(estimate)}
-                                onDelete={() => {
-                                  if (
-                                    window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
-                                  ) {
-                                    deleteEstimate(estimate.id);
+                              }}
+                            />
+                          ))}
+                        </SortableContext>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-14">Priority</TableHead>
+                              <TableHead>Project</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Received</TableHead>
+                              <TableHead>Milestone</TableHead>
+                              <TableHead>Due Date</TableHead>
+                              <TableHead className="text-right">Days Left</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Value</TableHead>
+                              {canEdit && <TableHead className="w-10" />}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <SortableContext
+                              items={group.items.map((estimate) => estimate.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {group.items.map((estimate, index) => (
+                                <SortableEstimatePriorityRow
+                                  key={estimate.id}
+                                  estimate={estimate}
+                                  index={index}
+                                  milestoneDate={
+                                    estimate.project_id
+                                      ? estimatingMilestoneDates.get(estimate.project_id)
+                                      : undefined
                                   }
-                                }}
-                              />
-                            ))}
-                          </SortableContext>
-                        </TableBody>
-                      </Table>
-                    </div>
+                                  canEdit={canEdit}
+                                  layout={priorityLayout}
+                                  onOpen={() => setDetail(estimate)}
+                                  onEdit={() => openEdit(estimate)}
+                                  onDelete={() => {
+                                    if (
+                                      window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
+                                    ) {
+                                      deleteEstimate(estimate.id);
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </SortableContext>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
                   </DndContext>
                 </div>
               ))}
@@ -1031,6 +1175,54 @@ export function PipelineEstimatingTab() {
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
                 Nothing submitted in this period yet. Use Mark submitted on a package to log it.
               </p>
+            ) : isNarrow ? (
+              <ul className="divide-y divide-slate-100">
+                {submitted.map((estimate) => (
+                  <li key={estimate.id}>
+                    <button
+                      type="button"
+                      className="flex w-full flex-col gap-1.5 px-3 py-3 text-left active:bg-slate-50"
+                      onClick={() => setDetail(estimate)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-emerald-700">
+                            {estimateDisplayName(estimate)}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {estimate.client_name}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
+                          {formatProjectAmount(estimate.amount)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+                        >
+                          {estimateStageLabel(estimate.stage)}
+                        </Badge>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium",
+                            estimateTypeBadgeClass(estimate.estimate_type),
+                          )}
+                        >
+                          {estimateTypeLabel(estimate.estimate_type)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="truncate">{estimatorName(estimate) ?? "—"}</span>
+                        <span className="tabular-nums">
+                          Submitted {formatShortDate(estimate.submitted_date)}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <div className="overflow-x-auto">
                 <Table>

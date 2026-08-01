@@ -38,7 +38,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 flex w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-4 border border-border bg-white p-6 shadow-lg duration-200 sm:rounded-lg",
+        "fixed left-1/2 top-1/2 z-50 flex max-h-[min(92dvh,900px)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto border border-border bg-white p-5 shadow-lg duration-200 sm:w-full sm:rounded-lg sm:p-6",
         className,
       )}
       onPointerDownOutside={(event) => {

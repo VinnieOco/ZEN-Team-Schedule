@@ -3,6 +3,17 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { format, parseISO } from "date-fns";
 import {
   BarChart3,
@@ -11,6 +22,7 @@ import {
   Clock3,
   DollarSign,
   FolderInput,
+  GripVertical,
   MoreHorizontal,
   Plus,
   Upload,
@@ -51,12 +63,15 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
+import { useLeadOwnerPriorityOrder } from "@/hooks/use-lead-owner-priority-order";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   buildLeadFollowUpBuckets,
   buildLeadKpis,
   buildLeadOwnerWorkload,
+  buildLeadPriorityGroups,
   buildLeadSourceBuckets,
   compareLeadsForQueue,
   daysLeftClass,
@@ -70,6 +85,7 @@ import {
   leadStatusBadgeClass,
   leadStatusLabel,
   newLeadsThisWeek,
+  sortLeadPriorityItems,
 } from "@/lib/pipeline/leads";
 import {
   formatLeadFollowUpSchedule,
@@ -80,9 +96,10 @@ import { leadSourceOptions } from "@/lib/pipeline/lead-sources";
 import { leadStageOptions } from "@/lib/pipeline/lead-stages";
 import { formatPipelineValue } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
+import { arrayMoveIds } from "@/lib/queue/column-order";
 import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
-import type { Lead, LeadFormValues, LeadStatus } from "@/types";
+import type { Lead, LeadFollowUp, LeadFormValues, LeadStatus, CompanySettings } from "@/types";
 
 const ALL = "__all__";
 const OPEN_ONLY = "__open__";
@@ -107,6 +124,271 @@ function initials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function LeadActionsMenu({
+  lead,
+  onEdit,
+  onConvert,
+  onDelete,
+}: {
+  lead: Lead;
+  onEdit: () => void;
+  onConvert: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="Lead actions"
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+        {!lead.converted_project_id && lead.status !== "lost" ? (
+          <DropdownMenuItem onClick={onConvert}>
+            <FolderInput className="mr-2 h-4 w-4" />
+            Convert to project
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem className="text-rose-700" onClick={onDelete}>
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SortableLeadPriorityRow({
+  lead,
+  index,
+  canEdit,
+  settings,
+  leadFollowUps,
+  layout = "table",
+  onOpen,
+  onEdit,
+  onConvert,
+  onDelete,
+}: {
+  lead: Lead;
+  index: number;
+  canEdit: boolean;
+  settings: CompanySettings;
+  leadFollowUps: LeadFollowUp[];
+  layout?: "table" | "card";
+  onOpen: () => void;
+  onEdit: () => void;
+  onConvert: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: lead.id,
+    disabled: !canEdit,
+  });
+  const days = leadFollowUpDaysLeft(lead);
+  const nextFollowUp = latestOpenLeadFollowUp(leadFollowUps, lead.id);
+  const followUpLabel = nextFollowUp
+    ? formatLeadFollowUpSchedule(nextFollowUp.due_date, nextFollowUp.due_time, {
+        includeWeekday: false,
+      })
+    : formatShortDate(lead.next_follow_up_date);
+  const followUpDue = isLeadFollowUpDue(lead, new Date(), settings);
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    position: isDragging ? ("relative" as const) : undefined,
+  };
+
+  const dragHandle = canEdit ? (
+    <button
+      type="button"
+      className="flex h-8 w-7 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+      aria-label={`Drag ${leadDisplayName(lead)} to change priority`}
+      onClick={(e) => e.stopPropagation()}
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  ) : null;
+
+  if (layout === "card") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "relative cursor-pointer px-3 py-3 active:bg-slate-50",
+          isDragging && "z-20 bg-white opacity-90 shadow-lg",
+        )}
+        onClick={onOpen}
+      >
+        <span
+          className={cn(
+            "absolute inset-y-2 left-0 w-1 rounded-r-full",
+            leadRowAccentClass(lead, new Date(), settings),
+          )}
+        />
+        <div className="flex items-start gap-1.5">
+          <div className="flex shrink-0 flex-col items-center gap-0.5 pt-0.5">
+            {dragHandle}
+            <span className="text-[10px] tabular-nums text-muted-foreground">{index + 1}</span>
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-emerald-700">{leadDisplayName(lead)}</p>
+                <p className="truncate text-xs text-muted-foreground">{lead.client_name}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <span className="text-sm font-semibold tabular-nums text-slate-900">
+                  {formatProjectAmount(lead.expected_value)}
+                </span>
+                {canEdit ? (
+                  <LeadActionsMenu
+                    lead={lead}
+                    onEdit={onEdit}
+                    onConvert={onConvert}
+                    onDelete={onDelete}
+                  />
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant="secondary"
+                className={cn("font-semibold", leadStatusBadgeClass(lead.status, settings))}
+              >
+                {leadStatusLabel(lead.status, settings)}
+              </Badge>
+              <span
+                className={cn(
+                  "inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium",
+                  leadSourceBadgeClass(lead.source),
+                )}
+              >
+                {leadSourceLabel(lead.source, settings)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span className={cn("tabular-nums", followUpDue && "font-semibold text-rose-600")}>
+                Follow-up {followUpLabel}
+                {nextFollowUp?.follow_up_type_id
+                  ? ` · ${leadFollowUpTypeLabel(settings, nextFollowUp.follow_up_type_id)}`
+                  : ""}
+              </span>
+              <span className={cn("tabular-nums", daysLeftClass(days))}>
+                {days == null ? "—" : `${days}d left`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={style}
+      className={cn("group cursor-pointer", isDragging && "bg-white opacity-80 shadow-lg")}
+      onClick={onOpen}
+    >
+      <TableCell className="relative py-3 pl-2">
+        <span
+          className={cn(
+            "absolute inset-y-2 left-0 w-1 rounded-r-full",
+            leadRowAccentClass(lead, new Date(), settings),
+          )}
+        />
+        <div className="flex items-center gap-1">
+          {dragHandle}
+          <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <button
+          type="button"
+          className="text-left font-medium text-emerald-700 group-hover:underline"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen();
+          }}
+        >
+          {leadDisplayName(lead)}
+        </button>
+        {lead.contact_name ? (
+          <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
+        ) : null}
+      </TableCell>
+      <TableCell>{lead.client_name}</TableCell>
+      <TableCell>
+        <span
+          className={cn(
+            "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+            leadSourceBadgeClass(lead.source),
+          )}
+        >
+          {leadSourceLabel(lead.source, settings)}
+        </span>
+      </TableCell>
+      <TableCell className="tabular-nums text-slate-600">
+        {formatShortDate(lead.created_at)}
+      </TableCell>
+      <TableCell className={cn("tabular-nums", followUpDue && "font-semibold text-rose-600")}>
+        {followUpLabel}
+        {nextFollowUp?.follow_up_type_id ? (
+          <p className="text-[11px] font-normal text-muted-foreground">
+            {leadFollowUpTypeLabel(settings, nextFollowUp.follow_up_type_id)}
+          </p>
+        ) : null}
+      </TableCell>
+      <TableCell className={cn("text-right tabular-nums", daysLeftClass(days))}>
+        {days == null ? "—" : days}
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1">
+          <Badge
+            variant="secondary"
+            className={cn("w-fit font-semibold", leadStatusBadgeClass(lead.status, settings))}
+          >
+            {leadStatusLabel(lead.status, settings)}
+          </Badge>
+          {lead.converted_project_id ? (
+            <Link
+              href={`/projects/${lead.converted_project_id}`}
+              className="text-xs text-emerald-700 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View project
+            </Link>
+          ) : null}
+        </div>
+      </TableCell>
+      <TableCell className="text-right font-semibold tabular-nums text-slate-900">
+        {formatProjectAmount(lead.expected_value)}
+      </TableCell>
+      {canEdit ? (
+        <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+          <LeadActionsMenu
+            lead={lead}
+            onEdit={onEdit}
+            onConvert={onConvert}
+            onDelete={onDelete}
+          />
+        </TableCell>
+      ) : null}
+    </TableRow>
+  );
 }
 
 function leadToFormValues(lead: Lead, status?: LeadStatus): LeadFormValues {
@@ -229,6 +511,9 @@ export function PipelineLeadsTab() {
   } = useScheduling();
   const { permissions } = usePermissions();
   const canEdit = permissions.editQueue || permissions.editProjects;
+  const isNarrow = useIsNarrowViewport();
+  const { revision: orderRevision, updateLeadPriorityOrder } = useLeadOwnerPriorityOrder();
+  const priorityLayout = isNarrow ? "card" : "table";
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(OPEN_ONLY);
@@ -237,6 +522,11 @@ export function PipelineLeadsTab() {
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
+
+  const prioritySensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   const stageOptions = useMemo(() => leadStageOptions(settings), [settings]);
   const sourceOptions = useMemo(() => leadSourceOptions(settings), [settings]);
@@ -291,6 +581,53 @@ export function PipelineLeadsTab() {
       })
       .sort(compareLeadsForQueue);
   }, [leads, search, statusFilter, sourceFilter, ownerName, settings]);
+
+  const resolveOwnerName = useCallback(
+    (ownerId: string) => {
+      const employee = getEmployeeById(ownerId);
+      return employee ? getEmployeeFullName(employee) : "";
+    },
+    [getEmployeeById],
+  );
+
+  const priorityGroups = useMemo(() => {
+    const groups = buildLeadPriorityGroups(filtered, resolveOwnerName);
+    return groups.map((group) => ({
+      ...group,
+      items: sortLeadPriorityItems(group.items, group.ownerId),
+    }));
+  }, [filtered, resolveOwnerName, orderRevision]);
+
+  const groupedCount = useMemo(
+    () => priorityGroups.reduce((sum, group) => sum + group.items.length, 0),
+    [priorityGroups],
+  );
+
+  const unassignedCount = useMemo(
+    () => filtered.filter((lead) => !lead.owner_employee_id).length,
+    [filtered],
+  );
+
+  const handlePriorityDragEnd = (event: DragEndEvent, ownerId: string) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const base = leads.filter((lead) => {
+      if (!lead.owner_employee_id || lead.owner_employee_id !== ownerId) return false;
+      if (statusFilter === OPEN_ONLY && !isOpenLead(lead, settings)) return false;
+      if (statusFilter !== OPEN_ONLY && statusFilter !== ALL && lead.status !== statusFilter) {
+        return false;
+      }
+      if (sourceFilter !== ALL && lead.source !== sourceFilter) return false;
+      return true;
+    });
+    const ordered = sortLeadPriorityItems(base, ownerId);
+    const ids = ordered.map((lead) => lead.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    updateLeadPriorityOrder(ownerId, arrayMoveIds(ids, oldIndex, newIndex));
+  };
 
   const openEdit = (lead: Lead) => {
     setEditing(lead);
@@ -403,12 +740,17 @@ export function PipelineLeadsTab() {
             </TabsTrigger>
           </ScrollableTabsList>
           {canEdit && (
-            <div className="mb-2 flex shrink-0 flex-wrap gap-2 sm:mb-1.5">
-              <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+            <div className="mb-2 flex shrink-0 gap-2 sm:mb-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 sm:flex-none"
+                onClick={() => setImportOpen(true)}
+              >
                 <Upload className="mr-1.5 h-4 w-4" />
                 Import
               </Button>
-              <Button type="button" onClick={openNew}>
+              <Button type="button" className="flex-1 sm:flex-none" onClick={openNew}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 New Lead
               </Button>
@@ -417,8 +759,8 @@ export function PipelineLeadsTab() {
         </div>
 
         <TabsContent value="table" className="mt-4 min-w-0 space-y-4">
-          <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="min-w-[180px] flex-1 space-y-1.5">
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 space-y-1.5 sm:min-w-[180px]">
               <Label htmlFor="leads-search" className="text-xs">
                 Search
               </Label>
@@ -429,263 +771,191 @@ export function PipelineLeadsTab() {
                 placeholder="Client, contact, owner…"
               />
             </div>
-            <div className="w-full space-y-1.5 sm:w-[160px]">
-              <Label className="text-xs">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={OPEN_ONLY}>Open only</SelectItem>
-                  <SelectItem value={ALL}>All statuses</SelectItem>
-                  {stageOptions.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full space-y-1.5 sm:w-[160px]">
-              <Label className="text-xs">Source</Label>
-              <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All sources</SelectItem>
-                  {sourceOptions.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-3 sm:contents">
+              <div className="min-w-0 space-y-1.5 sm:w-[160px]">
+                <Label className="text-xs">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OPEN_ONLY}>Open only</SelectItem>
+                    <SelectItem value={ALL}>All statuses</SelectItem>
+                    {stageOptions.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="min-w-0 space-y-1.5 sm:w-[160px]">
+                <Label className="text-xs">Source</Label>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>All sources</SelectItem>
+                    {sourceOptions.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b bg-slate-50/80 px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-slate-900">Priority Queue</h3>
-                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
-                  {filtered.length}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {filtered.length} of {leads.length} leads
-              </p>
-            </div>
+          <p className="px-1 text-xs text-muted-foreground">
+            {groupedCount} lead{groupedCount === 1 ? "" : "s"} · {priorityGroups.length} owner
+            {priorityGroups.length === 1 ? "" : "s"}
+            {unassignedCount > 0 ? ` · ${unassignedCount} unassigned hidden` : ""}
+          </p>
 
-            {filtered.length === 0 ? (
+          {priorityGroups.length === 0 ? (
+            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b bg-slate-50/80 px-4 py-2.5">
+                <h3 className="text-sm font-semibold text-slate-900">Priority by Owner</h3>
+              </div>
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {leads.length === 0
                   ? "No leads yet. Add an inquiry to start the pipeline."
-                  : "No leads match these filters."}
+                  : unassignedCount > 0
+                    ? "Assign an owner on each lead to build their priority queue."
+                    : "No leads match these filters."}
               </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-10">#</TableHead>
-                      <TableHead>Lead</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Follow-up</TableHead>
-                      <TableHead className="text-right">Days Left</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                      {canEdit && <TableHead className="w-10" />}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((lead, index) => {
-                      const name = ownerName(lead);
-                      const days = leadFollowUpDaysLeft(lead);
-                      return (
-                        <TableRow
-                          key={lead.id}
-                          className="group cursor-pointer"
-                          onClick={() => openContact(lead)}
-                        >
-                          <TableCell className="relative py-3 pl-3">
-                            <span
-                              className={cn(
-                                "absolute inset-y-2 left-0 w-1 rounded-r-full",
-                                leadRowAccentClass(lead, new Date(), settings),
-                              )}
-                            />
-                            <span className="pl-1 text-xs tabular-nums text-muted-foreground">
-                              {index + 1}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <button
-                              type="button"
-                              className="text-left font-medium text-emerald-700 group-hover:underline"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openContact(lead);
-                              }}
-                            >
-                              {leadDisplayName(lead)}
-                            </button>
-                            {lead.contact_name ? (
-                              <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
-                            ) : null}
-                          </TableCell>
-                          <TableCell>{lead.client_name}</TableCell>
-                          <TableCell>
-                            {name ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="bg-slate-100 text-[10px] font-semibold text-slate-600">
-                                    {initials(name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm text-slate-800">{name}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Unassigned</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={cn(
-                                "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
-                                leadSourceBadgeClass(lead.source),
-                              )}
-                            >
-                              {leadSourceLabel(lead.source, settings)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="tabular-nums text-slate-600">
-                            {formatShortDate(lead.created_at)}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "tabular-nums",
-                              isLeadFollowUpDue(lead, new Date(), settings) && "font-semibold text-rose-600",
-                            )}
-                          >
-                            {(() => {
-                              const nextFollowUp = latestOpenLeadFollowUp(
-                                leadFollowUps,
-                                lead.id,
-                              );
-                              return (
-                                <>
-                                  {nextFollowUp
-                                    ? formatLeadFollowUpSchedule(
-                                        nextFollowUp.due_date,
-                                        nextFollowUp.due_time,
-                                        { includeWeekday: false },
-                                      )
-                                    : formatShortDate(lead.next_follow_up_date)}
-                                  {nextFollowUp?.follow_up_type_id ? (
-                                    <p className="text-[11px] font-normal text-muted-foreground">
-                                      {leadFollowUpTypeLabel(
-                                        settings,
-                                        nextFollowUp.follow_up_type_id,
-                                      )}
-                                    </p>
-                                  ) : null}
-                                </>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell
-                            className={cn("text-right tabular-nums", daysLeftClass(days))}
-                          >
-                            {days == null ? "—" : days}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Badge
-                                variant="secondary"
-                                className={cn(
-                                  "w-fit font-semibold",
-                                  leadStatusBadgeClass(lead.status, settings),
-                                )}
-                              >
-                                {leadStatusLabel(lead.status, settings)}
-                              </Badge>
-                              {lead.converted_project_id ? (
-                                <Link
-                                  href={`/projects/${lead.converted_project_id}`}
-                                  className="text-xs text-emerald-700 hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  View project
-                                </Link>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold tabular-nums text-slate-900">
-                            {formatProjectAmount(lead.expected_value)}
-                          </TableCell>
-                          {canEdit && (
-                            <TableCell
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-right"
-                            >
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    aria-label="Lead actions"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openEdit(lead)}>
-                                    Edit
-                                  </DropdownMenuItem>
-                                  {!lead.converted_project_id && lead.status !== "lost" && (
-                                    <DropdownMenuItem onClick={() => handleConvert(lead)}>
-                                      <FolderInput className="mr-2 h-4 w-4" />
-                                      Convert to project
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem
-                                    className="text-rose-700"
-                                    onClick={() => handleDelete(lead)}
-                                  >
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-
-            {canEdit && (
-              <div className="border-t px-3 py-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 w-full justify-start text-muted-foreground hover:text-emerald-800"
-                  onClick={openNew}
+              {canEdit && (
+                <div className="border-t px-3 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 w-full justify-start text-muted-foreground hover:text-emerald-800"
+                    onClick={openNew}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add Lead
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {priorityGroups.map((group) => (
+                <div
+                  key={group.ownerId}
+                  className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm"
                 >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Add Lead
-                </Button>
-              </div>
-            )}
-          </div>
+                  <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
+                          {initials(group.ownerName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-semibold text-slate-900">
+                          {group.ownerName}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Priority queue · highest first
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
+                      {group.items.length}
+                    </span>
+                  </div>
+
+                  <DndContext
+                    sensors={prioritySensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => handlePriorityDragEnd(event, group.ownerId)}
+                  >
+                    {isNarrow ? (
+                      <div className="divide-y divide-slate-100">
+                        <SortableContext
+                          items={group.items.map((lead) => lead.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {group.items.map((lead, index) => (
+                            <SortableLeadPriorityRow
+                              key={lead.id}
+                              lead={lead}
+                              index={index}
+                              canEdit={canEdit}
+                              settings={settings}
+                              leadFollowUps={leadFollowUps}
+                              layout={priorityLayout}
+                              onOpen={() => openContact(lead)}
+                              onEdit={() => openEdit(lead)}
+                              onConvert={() => handleConvert(lead)}
+                              onDelete={() => handleDelete(lead)}
+                            />
+                          ))}
+                        </SortableContext>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-14">Priority</TableHead>
+                              <TableHead>Lead</TableHead>
+                              <TableHead>Client</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Created</TableHead>
+                              <TableHead>Follow-up</TableHead>
+                              <TableHead className="text-right">Days Left</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Value</TableHead>
+                              {canEdit && <TableHead className="w-10" />}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <SortableContext
+                              items={group.items.map((lead) => lead.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {group.items.map((lead, index) => (
+                                <SortableLeadPriorityRow
+                                  key={lead.id}
+                                  lead={lead}
+                                  index={index}
+                                  canEdit={canEdit}
+                                  settings={settings}
+                                  leadFollowUps={leadFollowUps}
+                                  layout={priorityLayout}
+                                  onOpen={() => openContact(lead)}
+                                  onEdit={() => openEdit(lead)}
+                                  onConvert={() => handleConvert(lead)}
+                                  onDelete={() => handleDelete(lead)}
+                                />
+                              ))}
+                            </SortableContext>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </DndContext>
+                </div>
+              ))}
+              {canEdit && (
+                <div className="overflow-hidden rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 shadow-sm">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 w-full justify-start text-muted-foreground hover:text-emerald-800"
+                    onClick={openNew}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add Lead
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid min-w-0 gap-3 lg:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">

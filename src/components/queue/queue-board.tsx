@@ -202,8 +202,8 @@ export function QueueBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
-          <div className="flex min-w-max">
+        <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto overscroll-x-contain rounded-lg border bg-white shadow-sm [-webkit-overflow-scrolling:touch]">
+          <div className="flex min-w-max snap-x snap-mandatory">
             {stages.map((stage) => (
               <QueueDropColumn
                 key={stage.id}

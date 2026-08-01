@@ -193,7 +193,7 @@ function StatusColumn({
   const total = leads.reduce((sum, lead) => sum + (lead.expected_value ?? 0), 0);
 
   return (
-    <div className="flex min-w-[220px] max-w-[220px] shrink-0 flex-col border-r border-slate-200 last:border-r-0 sm:min-w-[248px] sm:max-w-[248px]">
+    <div className="flex w-[min(78vw,220px)] shrink-0 snap-start flex-col border-r border-slate-200 last:border-r-0 sm:w-[248px]">
       <div className="flex items-center justify-between border-b bg-slate-50 px-2.5 py-2.5 sm:px-3">
         <h3 className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{label}</h3>
         <span className="ml-1 shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
@@ -325,8 +325,8 @@ export function LeadKanban({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm">
-          <div className="flex min-w-max">
+        <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto overscroll-x-contain rounded-lg border bg-white shadow-sm [-webkit-overflow-scrolling:touch]">
+          <div className="flex min-w-max snap-x snap-mandatory">
             {stageOptions.map((status) => (
               <StatusColumn
                 key={status.value}

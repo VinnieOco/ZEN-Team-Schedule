@@ -22,6 +22,7 @@ import {
 } from "@/lib/pipeline/lead-sources";
 import type { CompanySettings, Lead, LeadSource, LeadStatus } from "@/types";
 import { DEFAULT_LEAD_SOURCES, DEFAULT_LEAD_STAGES } from "@/types";
+import { getLeadOwnerPriorityOrder } from "@/lib/pipeline/lead-priority-order";
 
 /** @deprecated Prefer leadSourceOptions(settings) — kept for fallbacks. */
 export const LEAD_SOURCES: { value: LeadSource; label: string }[] = DEFAULT_LEAD_SOURCES.map(
@@ -392,6 +393,57 @@ export function compareLeadsForQueue(a: Lead, b: Lead): number {
   if (aDue && !bDue) return -1;
   if (!aDue && bDue) return 1;
   return b.created_at.localeCompare(a.created_at);
+}
+
+/** Apply saved drag order for an owner's priority queue. */
+export function sortLeadPriorityItems(leads: Lead[], ownerId: string): Lead[] {
+  if (leads.length <= 1) return leads;
+
+  const savedOrder = getLeadOwnerPriorityOrder(ownerId);
+  if (!savedOrder?.length) {
+    return [...leads].sort(compareLeadsForQueue);
+  }
+
+  const rank = new Map(savedOrder.map((id, index) => [id, index]));
+  return [...leads].sort((a, b) => {
+    const aRank = rank.get(a.id);
+    const bRank = rank.get(b.id);
+    if (aRank != null && bRank != null) return aRank - bRank;
+    if (aRank != null) return -1;
+    if (bRank != null) return 1;
+    return compareLeadsForQueue(a, b);
+  });
+}
+
+export interface LeadPriorityGroup {
+  ownerId: string;
+  ownerName: string;
+  items: Lead[];
+}
+
+/**
+ * Priority queue grouped by lead owner.
+ * Only leads with an assigned owner appear; owners with zero matching leads are omitted.
+ */
+export function buildLeadPriorityGroups(
+  leads: Lead[],
+  ownerName: (ownerId: string) => string,
+): LeadPriorityGroup[] {
+  const byOwner = new Map<string, Lead[]>();
+  for (const lead of leads) {
+    if (!lead.owner_employee_id) continue;
+    const list = byOwner.get(lead.owner_employee_id) ?? [];
+    list.push(lead);
+    byOwner.set(lead.owner_employee_id, list);
+  }
+
+  return [...byOwner.entries()]
+    .map(([ownerId, items]) => ({
+      ownerId,
+      ownerName: ownerName(ownerId)?.trim() || "Owner",
+      items: sortLeadPriorityItems(items, ownerId),
+    }))
+    .sort((a, b) => a.ownerName.localeCompare(b.ownerName));
 }
 
 export function openLeadsExpectedValue(leads: Lead[], settings?: CompanySettings): number {
