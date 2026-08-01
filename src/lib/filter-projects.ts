@@ -1,4 +1,9 @@
 import { isChangeOrder } from "@/lib/change-orders";
+import {
+  departmentFilterLabel,
+  getProjectDepartmentKey,
+  UNASSIGNED_DEPARTMENT,
+} from "@/lib/departments";
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Employee, Project } from "@/types";
@@ -82,12 +87,57 @@ export function projectMatchesFilters(
   return projectMatchesFilterCriteria(project, filters, getEmployeeById);
 }
 
+export function compareProjectsByDepartment(a: Project, b: Project): number {
+  const deptA = getProjectDepartmentKey(a);
+  const deptB = getProjectDepartmentKey(b);
+  if (deptA !== deptB) {
+    if (deptA === UNASSIGNED_DEPARTMENT) return 1;
+    if (deptB === UNASSIGNED_DEPARTMENT) return -1;
+    const byDept = deptA.localeCompare(deptB);
+    if (byDept !== 0) return byDept;
+  }
+  return a.project_name.localeCompare(b.project_name);
+}
+
+export interface ProjectDepartmentGroup {
+  departmentKey: string;
+  departmentLabel: string;
+  projects: Project[];
+}
+
+export function buildProjectDepartmentGroups(
+  projects: Project[],
+): ProjectDepartmentGroup[] {
+  const sorted = [...projects].sort(compareProjectsByDepartment);
+  const groups: ProjectDepartmentGroup[] = [];
+  const byKey = new Map<string, ProjectDepartmentGroup>();
+
+  for (const project of sorted) {
+    const departmentKey = getProjectDepartmentKey(project);
+    let group = byKey.get(departmentKey);
+    if (!group) {
+      group = {
+        departmentKey,
+        departmentLabel: departmentFilterLabel(departmentKey),
+        projects: [],
+      };
+      byKey.set(departmentKey, group);
+      groups.push(group);
+    }
+    group.projects.push(project);
+  }
+
+  return groups;
+}
+
 export function filterProjects(
   projects: Project[],
   filters: ProjectFilters,
   getEmployeeById: (id: string) => Employee | undefined,
 ): Project[] {
-  return projects.filter((project) => projectMatchesFilters(project, filters, getEmployeeById));
+  return projects
+    .filter((project) => projectMatchesFilters(project, filters, getEmployeeById))
+    .sort(compareProjectsByDepartment);
 }
 
 /** Gantt defaults — change orders are shown on the timeline by default. */

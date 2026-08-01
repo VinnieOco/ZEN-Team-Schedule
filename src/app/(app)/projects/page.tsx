@@ -5,8 +5,8 @@ export default function ProjectsPage() {
   return (
     <AppPage>
       <div className="min-w-0">
-        <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">Projects</h1>
+        <p className="mt-1 hidden text-sm text-muted-foreground sm:block">
           Manage design projects and track budgeted vs scheduled hours.
         </p>
       </div>

@@ -77,8 +77,8 @@ export function ProjectsFilters({
 
   return (
     <div className="min-w-0 space-y-3 rounded-lg border bg-white p-3 shadow-sm">
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <div className="relative min-w-[min(100%,240px)] flex-1">
+      <div className="space-y-3">
+        <div className="relative min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
@@ -87,39 +87,41 @@ export function ProjectsFilters({
             onChange={(e) => onChange({ search: e.target.value })}
           />
         </div>
-        <SearchableSelect
-          options={departmentFilterOptions}
-          value={filters.department ?? "all"}
-          onValueChange={(v) => onChange({ department: v === "all" ? null : v })}
-          placeholder="Department"
-          searchPlaceholder="Search departments…"
-          className="w-full sm:w-[200px]"
-        />
-        <SearchableSelect
-          options={phaseFilterOptions}
-          value={filters.phase ?? "all"}
-          onValueChange={(v) => onChange({ phase: v === "all" ? null : v })}
-          placeholder="Phase"
-          searchPlaceholder="Search phases…"
-          className="w-full sm:w-[200px]"
-        />
-        <SearchableSelect
-          options={leadFilterOptions}
-          value={filters.leadEmployeeId ?? "all"}
-          onValueChange={(v) => onChange({ leadEmployeeId: v === "all" ? null : v })}
-          placeholder="Lead designer"
-          searchPlaceholder="Search leads…"
-          className="w-full sm:w-[200px]"
-        />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <SearchableSelect
+            options={departmentFilterOptions}
+            value={filters.department ?? "all"}
+            onValueChange={(v) => onChange({ department: v === "all" ? null : v })}
+            placeholder="Department"
+            searchPlaceholder="Search departments…"
+            className="w-full"
+          />
+          <SearchableSelect
+            options={phaseFilterOptions}
+            value={filters.phase ?? "all"}
+            onValueChange={(v) => onChange({ phase: v === "all" ? null : v })}
+            placeholder="Phase"
+            searchPlaceholder="Search phases…"
+            className="w-full"
+          />
+          <SearchableSelect
+            options={leadFilterOptions}
+            value={filters.leadEmployeeId ?? "all"}
+            onValueChange={(v) => onChange({ leadEmployeeId: v === "all" ? null : v })}
+            placeholder="Lead designer"
+            searchPlaceholder="Search leads…"
+            className="w-full sm:col-span-2 lg:col-span-1"
+          />
+        </div>
         {hasActiveFilters && (
-          <Button type="button" variant="outline" size="sm" onClick={onClear}>
+          <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClear}>
             <X className="mr-1.5 h-3.5 w-3.5" />
             Clear
           </Button>
         )}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
           <div className="flex items-center gap-2">
             <Switch
               id="show-inactive-projects"
@@ -127,7 +129,7 @@ export function ProjectsFilters({
               onCheckedChange={(v) => onChange({ showInactive: v })}
             />
             <Label htmlFor="show-inactive-projects" className="text-sm font-normal">
-              Show inactive projects
+              Show inactive
             </Label>
           </div>
           <div className="flex items-center gap-2">
