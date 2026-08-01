@@ -13,12 +13,14 @@ import {
   FolderInput,
   MoreHorizontal,
   Plus,
+  Upload,
   Users,
 } from "lucide-react";
 
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { LeadContactDialog } from "@/components/pipeline/lead-contact-dialog";
 import { LeadFormDialog } from "@/components/pipeline/lead-form-dialog";
+import { LeadImportDialog } from "@/components/pipeline/lead-import-dialog";
 import { LeadKanban } from "@/components/pipeline/lead-kanban";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -232,6 +234,7 @@ export function PipelineLeadsTab() {
   const [statusFilter, setStatusFilter] = useState(OPEN_ONLY);
   const [sourceFilter, setSourceFilter] = useState(ALL);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
@@ -400,10 +403,16 @@ export function PipelineLeadsTab() {
             </TabsTrigger>
           </ScrollableTabsList>
           {canEdit && (
-            <Button type="button" className="mb-2 shrink-0 sm:mb-1.5" onClick={openNew}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              New Lead
-            </Button>
+            <div className="mb-2 flex shrink-0 flex-wrap gap-2 sm:mb-1.5">
+              <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+                <Upload className="mr-1.5 h-4 w-4" />
+                Import
+              </Button>
+              <Button type="button" onClick={openNew}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                New Lead
+              </Button>
+            </div>
           )}
         </div>
 
@@ -883,6 +892,8 @@ export function PipelineLeadsTab() {
         }}
         lead={editing}
       />
+
+      <LeadImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <LeadContactDialog
         lead={detailLead}
