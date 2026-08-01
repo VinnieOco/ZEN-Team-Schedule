@@ -421,29 +421,47 @@ export interface LeadPriorityGroup {
   items: Lead[];
 }
 
+/** Sentinel owner id for leads with no `owner_employee_id`. */
+export const UNASSIGNED_LEAD_OWNER_ID = "__unassigned__";
+
 /**
  * Priority queue grouped by lead owner.
- * Only leads with an assigned owner appear; owners with zero matching leads are omitted.
+ * Leads without an owner appear under an Unassigned group (listed last).
  */
 export function buildLeadPriorityGroups(
   leads: Lead[],
   ownerName: (ownerId: string) => string,
 ): LeadPriorityGroup[] {
   const byOwner = new Map<string, Lead[]>();
+  const unassigned: Lead[] = [];
+
   for (const lead of leads) {
-    if (!lead.owner_employee_id) continue;
+    if (!lead.owner_employee_id) {
+      unassigned.push(lead);
+      continue;
+    }
     const list = byOwner.get(lead.owner_employee_id) ?? [];
     list.push(lead);
     byOwner.set(lead.owner_employee_id, list);
   }
 
-  return [...byOwner.entries()]
+  const groups = [...byOwner.entries()]
     .map(([ownerId, items]) => ({
       ownerId,
       ownerName: ownerName(ownerId)?.trim() || "Owner",
       items: sortLeadPriorityItems(items, ownerId),
     }))
     .sort((a, b) => a.ownerName.localeCompare(b.ownerName));
+
+  if (unassigned.length > 0) {
+    groups.push({
+      ownerId: UNASSIGNED_LEAD_OWNER_ID,
+      ownerName: "Unassigned",
+      items: sortLeadPriorityItems(unassigned, UNASSIGNED_LEAD_OWNER_ID),
+    });
+  }
+
+  return groups;
 }
 
 export function openLeadsExpectedValue(leads: Lead[], settings?: CompanySettings): number {

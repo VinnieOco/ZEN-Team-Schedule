@@ -86,6 +86,7 @@ import {
   leadStatusLabel,
   newLeadsThisWeek,
   sortLeadPriorityItems,
+  UNASSIGNED_LEAD_OWNER_ID,
 } from "@/lib/pipeline/leads";
 import {
   formatLeadFollowUpSchedule,
@@ -603,9 +604,9 @@ export function PipelineLeadsTab() {
     [priorityGroups],
   );
 
-  const unassignedCount = useMemo(
-    () => filtered.filter((lead) => !lead.owner_employee_id).length,
-    [filtered],
+  const assignedOwnerCount = useMemo(
+    () => priorityGroups.filter((group) => group.ownerId !== UNASSIGNED_LEAD_OWNER_ID).length,
+    [priorityGroups],
   );
 
   const handlePriorityDragEnd = (event: DragEndEvent, ownerId: string) => {
@@ -613,7 +614,11 @@ export function PipelineLeadsTab() {
     if (!over || active.id === over.id) return;
 
     const base = leads.filter((lead) => {
-      if (!lead.owner_employee_id || lead.owner_employee_id !== ownerId) return false;
+      if (ownerId === UNASSIGNED_LEAD_OWNER_ID) {
+        if (lead.owner_employee_id) return false;
+      } else if (!lead.owner_employee_id || lead.owner_employee_id !== ownerId) {
+        return false;
+      }
       if (statusFilter === OPEN_ONLY && !isOpenLead(lead, settings)) return false;
       if (statusFilter !== OPEN_ONLY && statusFilter !== ALL && lead.status !== statusFilter) {
         return false;
@@ -809,9 +814,10 @@ export function PipelineLeadsTab() {
           </div>
 
           <p className="px-1 text-xs text-muted-foreground">
-            {groupedCount} lead{groupedCount === 1 ? "" : "s"} · {priorityGroups.length} owner
-            {priorityGroups.length === 1 ? "" : "s"}
-            {unassignedCount > 0 ? ` · ${unassignedCount} unassigned hidden` : ""}
+            {groupedCount} lead{groupedCount === 1 ? "" : "s"}
+            {assignedOwnerCount > 0
+              ? ` · ${assignedOwnerCount} owner${assignedOwnerCount === 1 ? "" : "s"}`
+              : ""}
           </p>
 
           {priorityGroups.length === 0 ? (
@@ -822,9 +828,7 @@ export function PipelineLeadsTab() {
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {leads.length === 0
                   ? "No leads yet. Add an inquiry to start the pipeline."
-                  : unassignedCount > 0
-                    ? "Assign an owner on each lead to build their priority queue."
-                    : "No leads match these filters."}
+                  : "No leads match these filters."}
               </p>
               {canEdit && (
                 <div className="border-t px-3 py-2">
@@ -850,7 +854,14 @@ export function PipelineLeadsTab() {
                   <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
+                        <AvatarFallback
+                          className={cn(
+                            "text-[11px] font-semibold",
+                            group.ownerId === UNASSIGNED_LEAD_OWNER_ID
+                              ? "bg-amber-50 text-amber-800"
+                              : "bg-emerald-50 text-emerald-800",
+                          )}
+                        >
                           {initials(group.ownerName)}
                         </AvatarFallback>
                       </Avatar>
@@ -859,7 +870,9 @@ export function PipelineLeadsTab() {
                           {group.ownerName}
                         </h3>
                         <p className="text-xs text-muted-foreground">
-                          Priority queue · highest first
+                          {group.ownerId === UNASSIGNED_LEAD_OWNER_ID
+                            ? "No owner yet · drag to prioritize"
+                            : "Priority queue · highest first"}
                         </p>
                       </div>
                     </div>
