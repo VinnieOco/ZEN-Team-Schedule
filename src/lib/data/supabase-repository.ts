@@ -62,6 +62,35 @@ import type {
   TodoNoteSourceType,
 } from "@/types";
 
+/** PostgREST/Supabase defaults to max 1000 rows per request — page through the rest. */
+const PAGE_SIZE = 1000;
+
+type OrderSpec = { column: string; ascending?: boolean };
+
+async function listAllRows(
+  supabase: SupabaseClient,
+  table: string,
+  orders: OrderSpec[],
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  let from = 0;
+
+  for (;;) {
+    let query = supabase.from(table).select("*");
+    for (const order of orders) {
+      query = query.order(order.column, { ascending: order.ascending ?? true });
+    }
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const chunk = (data ?? []) as Record<string, unknown>[];
+    rows.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 export function createSupabaseRepository(
   supabase: SupabaseClient,
 ): SchedulingRepository {
@@ -94,39 +123,35 @@ export function createSupabaseRepository(
     },
 
     async listAllocations() {
-      const { data, error } = await supabase
-        .from("allocations")
-        .select("*")
-        .order("allocation_date");
-      if (error) throw error;
-      return (data ?? []).map(mapAllocation);
+      const data = await listAllRows(supabase, "allocations", [
+        { column: "allocation_date" },
+        { column: "id" },
+      ]);
+      return data.map((row) => mapAllocation(row as Parameters<typeof mapAllocation>[0]));
     },
 
     async listTimeEntries() {
-      const { data, error } = await supabase
-        .from("time_entries")
-        .select("*")
-        .order("entry_date");
-      if (error) throw error;
-      return (data ?? []).map(mapTimeEntry);
+      const data = await listAllRows(supabase, "time_entries", [
+        { column: "entry_date" },
+        { column: "id" },
+      ]);
+      return data.map((row) => mapTimeEntry(row as Parameters<typeof mapTimeEntry>[0]));
     },
 
     async listProjectNotes() {
-      const { data, error } = await supabase
-        .from("project_notes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapProjectNote);
+      const data = await listAllRows(supabase, "project_notes", [
+        { column: "created_at", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) => mapProjectNote(row as Parameters<typeof mapProjectNote>[0]));
     },
 
     async listClientNotes() {
-      const { data, error } = await supabase
-        .from("client_notes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapClientNote);
+      const data = await listAllRows(supabase, "client_notes", [
+        { column: "created_at", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) => mapClientNote(row as Parameters<typeof mapClientNote>[0]));
     },
 
     async listQueueState() {
@@ -372,12 +397,11 @@ export function createSupabaseRepository(
     },
 
     async listTodos() {
-      const { data, error } = await supabase
-        .from("todos")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapTodo);
+      const data = await listAllRows(supabase, "todos", [
+        { column: "created_at", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) => mapTodo(row as Parameters<typeof mapTodo>[0]));
     },
 
     async upsertTodo(todo: Todo) {

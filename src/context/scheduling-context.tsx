@@ -905,22 +905,24 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const updateTimeEntry = useCallback(
     async (id: string, values: TimeEntryFormValues): Promise<boolean> => {
       const updated = buildTimeEntry(values, id);
+      // Capture rollback snapshot before the optimistic write (avoid relying on setState updater side effects).
       let previous: TimeEntry | undefined;
       setTimeEntries((prev) => {
         previous = prev.find((e) => e.id === id);
         return prev.map((e) => (e.id === id ? updated : e));
       });
+      const rollbackTo = previous;
       if (!repoRef.current) return true;
 
       const saved = await persistAsync(
         () => repoRef.current!.upsertTimeEntry(updated),
         () => {
           setTimeEntries((current) => {
-            if (!previous) return current;
+            if (!rollbackTo) return current;
             if (current.some((e) => e.id === id)) {
-              return current.map((e) => (e.id === id ? previous! : e));
+              return current.map((e) => (e.id === id ? rollbackTo : e));
             }
-            return [...current, previous];
+            return [...current, rollbackTo];
           });
         },
       );
@@ -936,6 +938,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         previous = prev.find((e) => e.id === id);
         return prev.filter((e) => e.id !== id);
       });
+      const rollbackTo = previous;
       if (!repoRef.current) return true;
 
       const saved = await persistAsync(
@@ -944,9 +947,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           return true as const;
         },
         () => {
-          if (!previous) return;
+          if (!rollbackTo) return;
           setTimeEntries((current) =>
-            current.some((e) => e.id === id) ? current : [...current, previous!],
+            current.some((e) => e.id === id) ? current : [...current, rollbackTo],
           );
         },
       );

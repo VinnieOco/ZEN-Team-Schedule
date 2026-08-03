@@ -19,6 +19,7 @@ import {
   dayTotalHours,
   entriesToTimesheetRows,
   isTimesheetRowLocked,
+  mergeTimesheetRowsPreservingLocalDrafts,
   parseHoursInput,
   rowToFormValues,
   rowTotalHours,
@@ -94,6 +95,10 @@ export function WeeklyTimesheet({
   const [editingRowKeys, setEditingRowKeys] = useState<Set<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const editingRowKeysRef = useRef(editingRowKeys);
+  editingRowKeysRef.current = editingRowKeys;
+  const editModeRef = useRef(editMode);
+  editModeRef.current = editMode;
 
   const lockEmployee =
     !editMode && !permissions.logTimeForAnyone && linkedEmployeeId != null;
@@ -110,14 +115,36 @@ export function WeeklyTimesheet({
     return forWeek.filter((e) => e.employee_id === employeeId);
   }, [timeEntries, selectedWeekStart, timesheetSettings, employeeId]);
 
+  const timesheetScopeKey = `${employeeId}::${weekDateKeys.join("|")}`;
+  const timesheetScopeRef = useRef(timesheetScopeKey);
+
   const loadRows = useCallback(() => {
     setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
     setEditingRowKeys(new Set());
   }, [weekEntries, weekDateKeys]);
 
   useEffect(() => {
-    setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
-  }, [weekEntries, weekDateKeys]);
+    const scopeChanged = timesheetScopeRef.current !== timesheetScopeKey;
+    timesheetScopeRef.current = timesheetScopeKey;
+
+    if (scopeChanged) {
+      setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
+      setEditingRowKeys(new Set());
+      return;
+    }
+
+    // Keep draft hours/metadata when context timeEntries updates (e.g. mid-save).
+    setRows((prev) =>
+      mergeTimesheetRowsPreservingLocalDrafts(
+        prev,
+        entriesToTimesheetRows(weekEntries, weekDateKeys),
+        {
+          editingRowKeys: editingRowKeysRef.current,
+          editMode: editModeRef.current,
+        },
+      ),
+    );
+  }, [weekEntries, weekDateKeys, timesheetScopeKey]);
 
   const startEditingRow = (rowKey: string) => {
     setEditingRowKeys((prev) => new Set(prev).add(rowKey));
@@ -242,36 +269,40 @@ export function WeeklyTimesheet({
     setSaving(true);
     setSaveMessage(null);
 
+    // Snapshot before any awaits — context updates must not change what we persist.
+    const rowsToSave = rows;
+    const unlockedKeys = editingRowKeys;
+
     try {
       const pending: Promise<boolean>[] = [];
 
-      for (const row of rows) {
-        if (!editMode && isRowLocked(row)) continue;
+      for (const row of rowsToSave) {
+        if (!editMode && isTimesheetRowLocked(row) && !unlockedKeys.has(row.key)) continue;
 
         const hasHours = weekDateKeys.some((d) => (row.hoursByDay[d] ?? 0) > 0);
 
         if (hasHours) {
-        if (!row.project_id && !row.is_non_project) {
-          setSaveMessage("Select a job for each line with hours.");
-          setSaving(false);
-          return;
-        }
-        if (row.is_non_project && !row.task_name.trim()) {
-          setSaveMessage("Enter a task name for non-project rows with hours.");
-          setSaving(false);
-          return;
-        }
-        if (!row.allocation_category_id) {
-          setSaveMessage("Select a category for each line with hours.");
-          setSaving(false);
-          return;
-        }
-        const configuredClasses = resolveClassCodes(settings);
-        if (configuredClasses.length > 0 && !row.class_code?.trim()) {
-          setSaveMessage("Select a class for each line with hours.");
-          setSaving(false);
-          return;
-        }
+          if (!row.project_id && !row.is_non_project) {
+            setSaveMessage("Select a job for each line with hours.");
+            setSaving(false);
+            return;
+          }
+          if (row.is_non_project && !row.task_name.trim()) {
+            setSaveMessage("Enter a task name for non-project rows with hours.");
+            setSaving(false);
+            return;
+          }
+          if (!row.allocation_category_id) {
+            setSaveMessage("Select a category for each line with hours.");
+            setSaving(false);
+            return;
+          }
+          const configuredClasses = resolveClassCodes(settings);
+          if (configuredClasses.length > 0 && !row.class_code?.trim()) {
+            setSaveMessage("Select a class for each line with hours.");
+            setSaving(false);
+            return;
+          }
         }
 
         for (const dateKey of weekDateKeys) {
@@ -291,9 +322,16 @@ export function WeeklyTimesheet({
         }
       }
 
+      if (pending.length === 0) {
+        setSaveMessage("Nothing to save.");
+        return;
+      }
+
       const results = await Promise.all(pending);
       if (results.some((ok) => !ok)) {
-        setSaveMessage("Could not save timesheet. Check your connection and try again.");
+        setSaveMessage(
+          "Could not save timesheet. Check the error banner at the top for details, then try again.",
+        );
         return;
       }
 
@@ -306,7 +344,9 @@ export function WeeklyTimesheet({
       }
       onSaved?.();
     } catch {
-      setSaveMessage("Could not save timesheet. Check your connection and try again.");
+      setSaveMessage(
+        "Could not save timesheet. Check the error banner at the top for details, then try again.",
+      );
     } finally {
       setSaving(false);
     }

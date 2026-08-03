@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format, isSameDay, isToday } from "date-fns";
 import { ChevronDown, Minus, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 
@@ -22,6 +22,7 @@ import {
   dayTotalHours,
   entriesToTimesheetRows,
   isTimesheetRowLocked,
+  mergeTimesheetRowsPreservingLocalDrafts,
   parseHoursInput,
   rowToFormValues,
   timesheetGrandTotal,
@@ -83,6 +84,8 @@ export function CrewMobileTimesheet() {
   const [expandedRowKeys, setExpandedRowKeys] = useState<Set<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const editingRowKeysRef = useRef(editingRowKeys);
+  editingRowKeysRef.current = editingRowKeys;
 
   useEffect(() => {
     if (lockEmployee && linkedEmployeeId) {
@@ -124,11 +127,29 @@ export function CrewMobileTimesheet() {
     setSelectedDateKey((prev) => (weekDateKeys.includes(prev) ? prev : preferred));
   }, [weekDateKeys, weekDays]);
 
+  const timesheetScopeKey = `${employeeId}::${weekDateKeys.join("|")}`;
+  const timesheetScopeRef = useRef(timesheetScopeKey);
+
   // Keep unlock state while syncing from context — clearing it here re-locks mid-edit
   // and drops in-progress hours when a sibling day save updates timeEntries.
   useEffect(() => {
-    setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
-  }, [weekEntries, weekDateKeys]);
+    const scopeChanged = timesheetScopeRef.current !== timesheetScopeKey;
+    timesheetScopeRef.current = timesheetScopeKey;
+
+    if (scopeChanged) {
+      setRows(entriesToTimesheetRows(weekEntries, weekDateKeys));
+      setEditingRowKeys(new Set());
+      return;
+    }
+
+    setRows((prev) =>
+      mergeTimesheetRowsPreservingLocalDrafts(
+        prev,
+        entriesToTimesheetRows(weekEntries, weekDateKeys),
+        { editingRowKeys: editingRowKeysRef.current },
+      ),
+    );
+  }, [weekEntries, weekDateKeys, timesheetScopeKey]);
 
   const isRowLocked = (row: TimesheetRow) =>
     isTimesheetRowLocked(row) && !editingRowKeys.has(row.key);
@@ -239,11 +260,14 @@ export function CrewMobileTimesheet() {
     setSaving(true);
     setSaveMessage(null);
 
+    const rowsToSave = rows;
+    const unlockedKeys = editingRowKeys;
+
     try {
       const pending: Promise<boolean>[] = [];
 
-      for (const row of rows) {
-        if (isRowLocked(row)) continue;
+      for (const row of rowsToSave) {
+        if (isTimesheetRowLocked(row) && !unlockedKeys.has(row.key)) continue;
 
         const hasHours = weekDateKeys.some((d) => (row.hoursByDay[d] ?? 0) > 0);
 
@@ -288,16 +312,25 @@ export function CrewMobileTimesheet() {
         }
       }
 
+      if (pending.length === 0) {
+        setSaveMessage("Nothing to save.");
+        return;
+      }
+
       const results = await Promise.all(pending);
       if (results.some((ok) => !ok)) {
-        setSaveMessage("Could not save timesheet. Check your connection and try again.");
+        setSaveMessage(
+          "Could not save timesheet. Check the error banner at the top for details, then try again.",
+        );
         return;
       }
 
       setEditingRowKeys(new Set());
       setSaveMessage("Timesheet saved.");
     } catch {
-      setSaveMessage("Could not save timesheet. Check your connection and try again.");
+      setSaveMessage(
+        "Could not save timesheet. Check the error banner at the top for details, then try again.",
+      );
     } finally {
       setSaving(false);
     }

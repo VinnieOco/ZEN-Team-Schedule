@@ -133,6 +133,70 @@ export function isTimesheetRowLocked(row: TimesheetRow): boolean {
   return Object.values(row.entryIdsByDay).some((id) => id != null);
 }
 
+/**
+ * Reconcile context time entries into local timesheet rows without wiping
+ * in-progress draft hours/metadata (including sibling days while a save is in flight).
+ */
+export function mergeTimesheetRowsPreservingLocalDrafts(
+  previous: TimesheetRow[],
+  fromServer: TimesheetRow[],
+  options: {
+    editingRowKeys: ReadonlySet<string>;
+    editMode?: boolean;
+  },
+): TimesheetRow[] {
+  const prevByKey = new Map(previous.map((row) => [row.key, row]));
+  const serverKeys = new Set(fromServer.map((row) => row.key));
+
+  const merged = fromServer.map((serverRow) => {
+    const prev = prevByKey.get(serverRow.key);
+    if (!prev) return serverRow;
+
+    const editing = Boolean(options.editMode) || options.editingRowKeys.has(serverRow.key);
+    const hasUnsavedDayHours = Object.entries(prev.hoursByDay).some(
+      ([dateKey, hours]) => (hours ?? 0) > 0 && !serverRow.entryIdsByDay[dateKey],
+    );
+
+    if (!editing && isTimesheetRowLocked(serverRow) && !hasUnsavedDayHours) {
+      return serverRow;
+    }
+
+    const hoursByDay = { ...serverRow.hoursByDay };
+    for (const [dateKey, hours] of Object.entries(prev.hoursByDay)) {
+      if (editing || !serverRow.entryIdsByDay[dateKey]) {
+        hoursByDay[dateKey] = hours;
+      }
+    }
+
+    const keepLocalMetadata = editing || !isTimesheetRowLocked(prev) || hasUnsavedDayHours;
+
+    return {
+      ...serverRow,
+      ...(keepLocalMetadata
+        ? {
+            project_id: prev.project_id,
+            is_non_project: prev.is_non_project,
+            task_name: prev.task_name,
+            allocation_category_id: prev.allocation_category_id,
+            is_billable: prev.is_billable,
+            phase: prev.phase,
+            notes: prev.notes,
+            class_code: prev.class_code,
+          }
+        : {}),
+      hoursByDay,
+      entryIdsByDay: { ...serverRow.entryIdsByDay },
+    };
+  });
+
+  const localOnlyDrafts = previous.filter(
+    (row) =>
+      !serverKeys.has(row.key) && !Object.values(row.entryIdsByDay).some((id) => id != null),
+  );
+
+  return [...merged, ...localOnlyDrafts];
+}
+
 export function rowTotalHours(row: TimesheetRow, weekDateKeys: string[]): number {
   return weekDateKeys.reduce((sum, d) => sum + (row.hoursByDay[d] ?? 0), 0);
 }
