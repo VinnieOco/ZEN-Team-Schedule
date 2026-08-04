@@ -25,7 +25,10 @@ import { useScheduling } from "@/context/scheduling-context";
 import { googleMapsUrl } from "@/lib/maps";
 import { leadStageOptions, openLeadStageIds } from "@/lib/pipeline/lead-stages";
 import { defaultLeadSourceId, leadSourceOptions } from "@/lib/pipeline/lead-sources";
-import { getEmployeeFullName } from "@/lib/week";
+import {
+  formatEmployeeOptionLabel,
+  listEmployeesForOwnerPicker,
+} from "@/lib/employee-picker-options";
 import type { Lead, LeadFormValues, LeadSource, LeadStatus } from "@/types";
 
 const UNASSIGNED = "__unassigned__";
@@ -109,10 +112,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   }, [open, lead, defaultStatus, defaultSource]);
 
   const ownerOptions = useMemo(
-    () =>
-      employees
-        .filter((e) => e.active)
-        .sort((a, b) => getEmployeeFullName(a).localeCompare(getEmployeeFullName(b))),
+    () => listEmployeesForOwnerPicker(employees),
     [employees],
   );
 
@@ -230,7 +230,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
                   <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                   {ownerOptions.map((e) => (
                     <SelectItem key={e.id} value={e.id}>
-                      {getEmployeeFullName(e)}
+                      {formatEmployeeOptionLabel(e)}
                     </SelectItem>
                   ))}
                 </SelectContent>

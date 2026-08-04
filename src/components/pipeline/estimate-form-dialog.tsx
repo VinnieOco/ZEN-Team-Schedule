@@ -25,7 +25,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useScheduling } from "@/context/scheduling-context";
 import { clientComboboxOptions } from "@/lib/clients";
 import { ESTIMATE_STAGES, ESTIMATE_TYPES } from "@/lib/estimating/metrics";
-import { getEmployeeFullName } from "@/lib/week";
+import {
+  formatEmployeeOptionLabel,
+  listEmployeesForOwnerPicker,
+} from "@/lib/employee-picker-options";
 import type {
   Estimate,
   EstimateFormValues,
@@ -98,10 +101,7 @@ export function EstimateFormDialog({
   }, [open, estimate]);
 
   const estimatorOptions = useMemo(
-    () =>
-      employees
-        .filter((e) => e.active)
-        .sort((a, b) => getEmployeeFullName(a).localeCompare(getEmployeeFullName(b))),
+    () => listEmployeesForOwnerPicker(employees),
     [employees],
   );
 
@@ -292,7 +292,7 @@ export function EstimateFormDialog({
                   <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                   {estimatorOptions.map((e) => (
                     <SelectItem key={e.id} value={e.id}>
-                      {getEmployeeFullName(e)}
+                      {formatEmployeeOptionLabel(e)}
                     </SelectItem>
                   ))}
                 </SelectContent>

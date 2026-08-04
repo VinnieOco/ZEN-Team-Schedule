@@ -246,15 +246,16 @@ function resolveOwner(
 ): { value?: string; warning?: string } {
   if (!raw.trim()) return {};
   const needle = raw.trim().toLowerCase();
-  const active = employees.filter((e) => e.active);
+  // Include inactive — owners of historical leads may no longer be on the schedule.
+  const pool = employees;
 
-  const byEmail = active.find((e) => e.email?.trim().toLowerCase() === needle);
+  const byEmail = pool.find((e) => e.email?.trim().toLowerCase() === needle);
   if (byEmail) return { value: byEmail.id };
 
-  const byName = active.find((e) => getEmployeeFullName(e).toLowerCase() === needle);
+  const byName = pool.find((e) => getEmployeeFullName(e).toLowerCase() === needle);
   if (byName) return { value: byName.id };
 
-  const partial = active.filter((e) => getEmployeeFullName(e).toLowerCase().includes(needle));
+  const partial = pool.filter((e) => getEmployeeFullName(e).toLowerCase().includes(needle));
   if (partial.length === 1) return { value: partial[0]!.id };
 
   return { warning: `Owner “${raw}” not matched — left unassigned.` };

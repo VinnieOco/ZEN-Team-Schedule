@@ -27,7 +27,7 @@ import {
   normalizeClientName,
 } from "@/lib/clients";
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
-import { getEmployeeFullName } from "@/lib/week";
+import { buildEmployeeSelectOptions } from "@/lib/employee-picker-options";
 import type { Project, ProjectFormValues } from "@/types";
 
 interface ProjectFormDialogProps {
@@ -64,12 +64,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaults }: Pro
   );
 
   const leadSelectOptions = useMemo(
-    () =>
-      employees.map((e) => ({
-        value: e.id,
-        label: getEmployeeFullName(e),
-        keywords: [e.email, e.department].filter(Boolean).join(" "),
-      })),
+    () => buildEmployeeSelectOptions(employees),
     [employees],
   );
 

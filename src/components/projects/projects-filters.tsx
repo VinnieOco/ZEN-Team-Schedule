@@ -13,7 +13,7 @@ import { UNASSIGNED_DEPARTMENT } from "@/lib/departments";
 import { getDepartmentOptions } from "@/lib/team-options";
 import { PROJECT_PHASES } from "@/lib/project-options";
 import { projectFiltersActive, type ProjectFilters } from "@/lib/filter-projects";
-import { getEmployeeFullName } from "@/lib/week";
+import { buildEmployeeSelectOptions } from "@/lib/employee-picker-options";
 
 interface ProjectsFiltersProps {
   filters: ProjectFilters;
@@ -41,10 +41,6 @@ export function ProjectsFilters({
     ]),
   ].sort((a, b) => a.localeCompare(b));
 
-  const leadOptions = employees
-    .filter((e) => e.active)
-    .sort((a, b) => getEmployeeFullName(a).localeCompare(getEmployeeFullName(b)));
-
   const hasActiveFilters = projectFiltersActive(filters);
 
   const departmentFilterOptions = useMemo(
@@ -66,13 +62,9 @@ export function ProjectsFilters({
   const leadFilterOptions = useMemo(
     () => [
       { value: "all", label: "All leads" },
-      ...leadOptions.map((employee) => ({
-        value: employee.id,
-        label: getEmployeeFullName(employee),
-        keywords: [employee.email, employee.department].filter(Boolean).join(" "),
-      })),
+      ...buildEmployeeSelectOptions(employees),
     ],
-    [leadOptions],
+    [employees],
   );
 
   return (
