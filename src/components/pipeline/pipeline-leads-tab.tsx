@@ -35,6 +35,12 @@ import { LeadFormDialog } from "@/components/pipeline/lead-form-dialog";
 import { LeadImportDialog } from "@/components/pipeline/lead-import-dialog";
 import { LeadKanban } from "@/components/pipeline/lead-kanban";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
+import {
+  PriorityColGroup,
+  leadsPriorityColWidths,
+  priorityCellClass,
+  priorityHeadClass,
+} from "@/components/pipeline/priority-table-layout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -304,7 +310,7 @@ function SortableLeadPriorityRow({
       className={cn("group cursor-pointer", isDragging && "bg-white opacity-80 shadow-lg")}
       onClick={onOpen}
     >
-      <TableCell className="relative py-3 pl-2">
+      <TableCell className={priorityCellClass("relative py-3 pl-2")}>
         <span
           className={cn(
             "absolute inset-y-2 left-0 w-1 rounded-r-full",
@@ -316,10 +322,10 @@ function SortableLeadPriorityRow({
           <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>
         <button
           type="button"
-          className="text-left font-medium text-emerald-700 group-hover:underline"
+          className="block max-w-full truncate text-left font-medium text-emerald-700 group-hover:underline"
           onClick={(event) => {
             event.stopPropagation();
             onOpen();
@@ -328,24 +334,28 @@ function SortableLeadPriorityRow({
           {leadDisplayName(lead)}
         </button>
         {lead.contact_name ? (
-          <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
+          <p className="truncate text-xs text-muted-foreground">{lead.contact_name}</p>
         ) : null}
       </TableCell>
-      <TableCell>{lead.client_name}</TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>{lead.client_name}</TableCell>
+      <TableCell className={priorityCellClass()}>
         <span
           className={cn(
-            "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+            "inline-flex max-w-full truncate rounded-md px-2 py-0.5 text-xs font-medium",
             leadSourceBadgeClass(lead.source),
           )}
         >
           {leadSourceLabel(lead.source, settings)}
         </span>
       </TableCell>
-      <TableCell className="tabular-nums text-slate-600">
+      <TableCell className={priorityCellClass("tabular-nums text-slate-600")}>
         {formatShortDate(lead.created_at)}
       </TableCell>
-      <TableCell className={cn("tabular-nums", followUpDue && "font-semibold text-rose-600")}>
+      <TableCell
+        className={priorityCellClass(
+          cn("tabular-nums", followUpDue && "font-semibold text-rose-600"),
+        )}
+      >
         {followUpLabel}
         {nextFollowUp?.follow_up_type_id ? (
           <p className="text-[11px] font-normal text-muted-foreground">
@@ -353,10 +363,7 @@ function SortableLeadPriorityRow({
           </p>
         ) : null}
       </TableCell>
-      <TableCell className={cn("text-right tabular-nums", daysLeftClass(days))}>
-        {days == null ? "—" : days}
-      </TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>
         <div className="flex flex-col gap-1">
           <Badge
             variant="secondary"
@@ -375,11 +382,11 @@ function SortableLeadPriorityRow({
           ) : null}
         </div>
       </TableCell>
-      <TableCell className="text-right font-semibold tabular-nums text-slate-900">
+      <TableCell className={priorityCellClass("text-right font-semibold tabular-nums text-slate-900")}>
         {formatProjectAmount(lead.expected_value)}
       </TableCell>
       {canEdit ? (
-        <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+        <TableCell onClick={(e) => e.stopPropagation()} className={priorityCellClass("text-right")}>
           <LeadActionsMenu
             lead={lead}
             onEdit={onEdit}
@@ -911,19 +918,19 @@ export function PipelineLeadsTab() {
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <Table>
+                        <Table className="min-w-[960px] table-fixed">
+                          <PriorityColGroup widths={leadsPriorityColWidths(canEdit)} />
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="w-14">Priority</TableHead>
-                              <TableHead>Lead</TableHead>
-                              <TableHead>Client</TableHead>
-                              <TableHead>Source</TableHead>
-                              <TableHead>Created</TableHead>
-                              <TableHead>Follow-up</TableHead>
-                              <TableHead className="text-right">Days Left</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right">Value</TableHead>
-                              {canEdit && <TableHead className="w-10" />}
+                              <TableHead className={priorityHeadClass("w-14")}>Priority</TableHead>
+                              <TableHead className={priorityHeadClass()}>Lead</TableHead>
+                              <TableHead className={priorityHeadClass()}>Client</TableHead>
+                              <TableHead className={priorityHeadClass()}>Source</TableHead>
+                              <TableHead className={priorityHeadClass()}>Created</TableHead>
+                              <TableHead className={priorityHeadClass()}>Follow-up</TableHead>
+                              <TableHead className={priorityHeadClass()}>Status</TableHead>
+                              <TableHead className={priorityHeadClass("text-right")}>Value</TableHead>
+                              {canEdit && <TableHead className={priorityHeadClass("w-10")} />}
                             </TableRow>
                           </TableHeader>
                           <TableBody>

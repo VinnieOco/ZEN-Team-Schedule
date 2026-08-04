@@ -33,6 +33,12 @@ import { HealthStatusBadge } from "@/components/queue/health-status-badge";
 import { QueueBoard } from "@/components/queue/queue-board";
 import { QueueFiltersBar } from "@/components/queue/queue-filters";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
+import {
+  PriorityColGroup,
+  designPriorityColWidths,
+  priorityCellClass,
+  priorityHeadClass,
+} from "@/components/pipeline/priority-table-layout";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -349,7 +355,7 @@ function SortableDesignPriorityRow({
         isDragging && "bg-white opacity-80 shadow-lg",
       )}
     >
-      <TableCell className="relative py-3 pl-2">
+      <TableCell className={priorityCellClass("relative py-3 pl-2")}>
         <span
           className={cn(
             "absolute inset-y-2 left-0 w-1 rounded-r-full",
@@ -361,53 +367,49 @@ function SortableDesignPriorityRow({
           <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>
         <Link
           href={`/projects/${item.project.id}`}
-          className="font-medium text-emerald-700 hover:underline"
+          className="block max-w-full truncate font-medium text-emerald-700 hover:underline"
         >
           {item.project.project_name}
         </Link>
         {item.project.project_number ? (
-          <p className="text-xs text-muted-foreground">{item.project.project_number}</p>
+          <p className="truncate text-xs text-muted-foreground">{item.project.project_number}</p>
         ) : null}
       </TableCell>
-      <TableCell>{item.project.client_name}</TableCell>
-      <TableCell>
-        <Badge variant="secondary" className="font-normal">
+      <TableCell className={priorityCellClass()}>{item.project.client_name}</TableCell>
+      <TableCell className={priorityCellClass()}>
+        <Badge variant="secondary" className="max-w-full truncate font-normal">
           {item.project.phase}
         </Badge>
       </TableCell>
-      <TableCell className="tabular-nums text-slate-700">
+      <TableCell className={priorityCellClass("tabular-nums text-slate-700")}>
         {formatShortDate(milestoneDate)}
       </TableCell>
       <TableCell
-        className={cn(
-          "tabular-nums",
-          days != null && days < 0 && "font-semibold text-rose-600",
+        className={priorityCellClass(
+          cn("tabular-nums", days != null && days < 0 && "font-semibold text-rose-600"),
         )}
       >
         {formatShortDate(item.dueDate)}
       </TableCell>
-      <TableCell className={cn("text-right tabular-nums", daysLeftClass(days))}>
-        {days == null ? "—" : days}
-      </TableCell>
-      <TableCell className="text-right tabular-nums font-medium">
+      <TableCell className={priorityCellClass("text-right tabular-nums font-medium")}>
         {formatHoursPair(item.metrics.hoursUsed, item.metrics.budgetHours)}
       </TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>
         <Badge
           variant="secondary"
-          className={cn("font-semibold", designQueueStageBadgeClass(item.stage))}
+          className={cn("max-w-full truncate font-semibold", designQueueStageBadgeClass(item.stage))}
         >
           {designStageLabel(item.stage)}
         </Badge>
       </TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>
         <HealthStatusBadge health={item.health} />
       </TableCell>
       {canManageQueue && (
-        <TableCell className="text-right">
+        <TableCell className={priorityCellClass("text-right")}>
           <DesignActionsMenu projectId={item.project.id} onRemove={onRemove} />
         </TableCell>
       )}
@@ -750,20 +752,20 @@ export function PipelineDesignTab() {
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <Table>
+                        <Table className="min-w-[1100px] table-fixed">
+                          <PriorityColGroup widths={designPriorityColWidths(canManageQueue)} />
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="w-14">Priority</TableHead>
-                              <TableHead>Project</TableHead>
-                              <TableHead>Client</TableHead>
-                              <TableHead>Phase</TableHead>
-                              <TableHead>Milestone</TableHead>
-                              <TableHead>Due</TableHead>
-                              <TableHead className="text-right">Days Left</TableHead>
-                              <TableHead className="text-right">Hours</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Health</TableHead>
-                              {canManageQueue && <TableHead className="w-12" />}
+                              <TableHead className={priorityHeadClass()}>Priority</TableHead>
+                              <TableHead className={priorityHeadClass()}>Project</TableHead>
+                              <TableHead className={priorityHeadClass()}>Client</TableHead>
+                              <TableHead className={priorityHeadClass()}>Phase</TableHead>
+                              <TableHead className={priorityHeadClass()}>Milestone</TableHead>
+                              <TableHead className={priorityHeadClass()}>Due</TableHead>
+                              <TableHead className={priorityHeadClass("text-right")}>Hours</TableHead>
+                              <TableHead className={priorityHeadClass()}>Status</TableHead>
+                              <TableHead className={priorityHeadClass()}>Health</TableHead>
+                              {canManageQueue && <TableHead className={priorityHeadClass()} />}
                             </TableRow>
                           </TableHeader>
                           <TableBody>

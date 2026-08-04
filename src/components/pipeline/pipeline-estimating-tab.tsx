@@ -31,6 +31,12 @@ import { EstimateFormDialog } from "@/components/pipeline/estimate-form-dialog";
 import { EstimateKanban } from "@/components/pipeline/estimate-kanban";
 import { EstimateWonDialog } from "@/components/pipeline/estimate-won-dialog";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
+import {
+  PriorityColGroup,
+  estimatingPriorityColWidths,
+  priorityCellClass,
+  priorityHeadClass,
+} from "@/components/pipeline/priority-table-layout";
 import { PipelinePeriodNavigator } from "@/components/pipeline/pipeline-period-navigator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -307,7 +313,7 @@ function SortableEstimatePriorityRow({
       )}
       onClick={onOpen}
     >
-      <TableCell className="relative py-3 pl-2">
+      <TableCell className={priorityCellClass("relative py-3 pl-2")}>
         <span
           className={cn(
             "absolute inset-y-2 left-0 w-1 rounded-r-full",
@@ -319,59 +325,61 @@ function SortableEstimatePriorityRow({
           <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
         </div>
       </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium text-emerald-700 group-hover:underline">
+      <TableCell className={priorityCellClass()}>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-medium text-emerald-700 group-hover:underline">
             {estimateDisplayName(estimate)}
           </span>
           {revision ? (
-            <Badge variant="secondary" className="px-1 py-0 text-[10px] font-normal">
+            <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px] font-normal">
               {revision}
             </Badge>
           ) : null}
         </div>
       </TableCell>
-      <TableCell className="text-slate-700">{estimate.client_name}</TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass("text-slate-700")}>{estimate.client_name}</TableCell>
+      <TableCell className={priorityCellClass()}>
         <span
           className={cn(
-            "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+            "inline-flex max-w-full truncate rounded-md px-2 py-0.5 text-xs font-medium",
             estimateTypeBadgeClass(estimate.estimate_type),
           )}
         >
           {estimateTypeLabel(estimate.estimate_type)}
         </span>
       </TableCell>
-      <TableCell className="tabular-nums text-slate-600">
+      <TableCell className={priorityCellClass("tabular-nums text-slate-600")}>
         {formatShortDate(estimate.received_date)}
       </TableCell>
-      <TableCell className="tabular-nums text-slate-700">
+      <TableCell className={priorityCellClass("tabular-nums text-slate-700")}>
         {formatShortDate(milestoneDate)}
       </TableCell>
       <TableCell
-        className={cn(
-          "tabular-nums",
-          isEstimateDueOverdue(estimate) ? "font-semibold text-rose-600" : "text-slate-700",
+        className={priorityCellClass(
+          cn(
+            "tabular-nums",
+            isEstimateDueOverdue(estimate) ? "font-semibold text-rose-600" : "text-slate-700",
+          ),
         )}
       >
         {formatShortDate(estimate.due_date)}
       </TableCell>
-      <TableCell className={cn("text-right tabular-nums", daysLeftClass(days))}>
-        {days == null ? "—" : days}
-      </TableCell>
-      <TableCell>
+      <TableCell className={priorityCellClass()}>
         <Badge
           variant="secondary"
-          className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+          className={cn(
+            "max-w-full truncate font-semibold",
+            estimateStageBadgeClass(estimate.stage),
+          )}
         >
           {estimateStageLabel(estimate.stage)}
         </Badge>
       </TableCell>
-      <TableCell className="text-right text-sm font-semibold tabular-nums text-slate-900">
+      <TableCell className={priorityCellClass("text-right text-sm font-semibold tabular-nums text-slate-900")}>
         {formatProjectAmount(estimate.amount)}
       </TableCell>
       {canEdit && (
-        <TableCell onClick={(e) => e.stopPropagation()} className="text-right">
+        <TableCell onClick={(e) => e.stopPropagation()} className={priorityCellClass("text-right")}>
           <EstimateActionsMenu onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
         </TableCell>
       )}
@@ -914,20 +922,20 @@ export function PipelineEstimatingTab() {
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <Table>
+                        <Table className="min-w-[1100px] table-fixed">
+                          <PriorityColGroup widths={estimatingPriorityColWidths(canEdit)} />
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="w-14">Priority</TableHead>
-                              <TableHead>Project</TableHead>
-                              <TableHead>Client</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Received</TableHead>
-                              <TableHead>Milestone</TableHead>
-                              <TableHead>Due Date</TableHead>
-                              <TableHead className="text-right">Days Left</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right">Value</TableHead>
-                              {canEdit && <TableHead className="w-10" />}
+                              <TableHead className={priorityHeadClass()}>Priority</TableHead>
+                              <TableHead className={priorityHeadClass()}>Project</TableHead>
+                              <TableHead className={priorityHeadClass()}>Client</TableHead>
+                              <TableHead className={priorityHeadClass()}>Type</TableHead>
+                              <TableHead className={priorityHeadClass()}>Received</TableHead>
+                              <TableHead className={priorityHeadClass()}>Milestone</TableHead>
+                              <TableHead className={priorityHeadClass()}>Due Date</TableHead>
+                              <TableHead className={priorityHeadClass()}>Status</TableHead>
+                              <TableHead className={priorityHeadClass("text-right")}>Value</TableHead>
+                              {canEdit && <TableHead className={priorityHeadClass()} />}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
