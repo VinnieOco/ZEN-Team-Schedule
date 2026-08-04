@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useReportsWeekStart } from "@/components/reports/use-reports-export-context";
+import { useReportsSettings, useReportsWeekStart } from "@/components/reports/use-reports-export-context";
 import { useScheduling } from "@/context/scheduling-context";
 import type { ReportsPeriod } from "@/lib/reports-export";
 import {
@@ -58,7 +58,8 @@ interface TeamUtilizationReportProps {
 }
 
 export function TeamUtilizationReport({ period }: TeamUtilizationReportProps) {
-  const { employees, allocations, selectedWeekStart, settings } = useScheduling();
+  const { employees, allocations, selectedWeekStart } = useScheduling();
+  const settings = useReportsSettings();
   const weekStart = useReportsWeekStart(period);
   const monthStart = getMonthStart(selectedWeekStart);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useReportsWeekStart } from "@/components/reports/use-reports-export-context";
+import { useReportsSettings, useReportsWeekStart } from "@/components/reports/use-reports-export-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useScheduling } from "@/context/scheduling-context";
 import type { ReportsPeriod } from "@/lib/reports-export";
@@ -20,7 +20,8 @@ interface ReportsSummaryCardsProps {
 }
 
 export function ReportsSummaryCards({ period }: ReportsSummaryCardsProps) {
-  const { employees, allocations, timeEntries, selectedWeekStart, settings } = useScheduling();
+  const { employees, allocations, timeEntries, selectedWeekStart } = useScheduling();
+  const settings = useReportsSettings();
   const weekStart = useReportsWeekStart(period);
   const monthStart = getMonthStart(selectedWeekStart);
 

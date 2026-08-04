@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { useReportsWeekStart } from "@/components/reports/use-reports-export-context";
+import { useReportsSettings, useReportsWeekStart } from "@/components/reports/use-reports-export-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -28,7 +28,8 @@ interface ScheduledVsActualReportProps {
 }
 
 export function ScheduledVsActualReport({ period }: ScheduledVsActualReportProps) {
-  const { employees, allocations, timeEntries, selectedWeekStart, settings } = useScheduling();
+  const { employees, allocations, timeEntries, selectedWeekStart } = useScheduling();
+  const settings = useReportsSettings();
   const weekStart = useReportsWeekStart(period);
   const monthStart = getMonthStart(selectedWeekStart);
 

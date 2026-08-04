@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useReportsSettings } from "@/components/reports/use-reports-export-context";
 import { useScheduling } from "@/context/scheduling-context";
 import {
   getProjectBudgetStats,
@@ -19,7 +20,8 @@ import {
 import { cn } from "@/lib/utils";
 
 export function ProjectBudgetReport() {
-  const { projects, allocations, selectedWeekStart, settings } = useScheduling();
+  const { projects, allocations, selectedWeekStart } = useScheduling();
+  const settings = useReportsSettings();
 
   const rows = projects
     .filter((p) => p.active)
