@@ -2405,12 +2405,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         if (!formValues.contract_date) {
           formValues.contract_date = resolvedWonDate;
         }
+        // Won packages move into Construction (Lead → Design → Estimating → Construction).
+        formValues.phase = "Construction";
+        formValues.department = "Construction";
         updateProject(existing.id, formValues);
         project = {
           ...existing,
           estimate_value: formValues.estimate_value ?? existing.estimate_value,
           lead_estimator_id: formValues.lead_estimator_id ?? existing.lead_estimator_id,
           contract_date: formValues.contract_date ?? existing.contract_date,
+          phase: "Construction",
+          department: "Construction",
         };
       } else if (choice.mode === "change_order") {
         const parent = projects.find((p) => p.id === choice.parentProjectId);
@@ -2422,8 +2427,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         project = addProject({
           project_name: estimate.title?.trim() || defaults.project_name || parent.project_name,
           client_name: parent.client_name,
-          department: parent.department ?? "Estimating",
-          phase: parent.phase || "Estimating",
+          department: "Construction",
+          phase: "Construction",
           lead_employee_id: parent.lead_employee_id,
           lead_estimator_id: estimate.estimator_id || parent.lead_estimator_id,
           budgeted_design_hours: 0,
@@ -2440,8 +2445,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         project = addProject({
           project_name: estimate.title?.trim() || estimate.client_name.trim(),
           client_name: estimate.client_name,
-          department: "Estimating",
-          phase: "Estimating",
+          department: "Construction",
+          phase: "Construction",
           lead_estimator_id: estimate.estimator_id,
           budgeted_design_hours: 0,
           estimate_value: estimate.amount,

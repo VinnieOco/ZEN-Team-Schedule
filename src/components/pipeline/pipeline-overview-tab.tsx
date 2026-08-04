@@ -29,7 +29,7 @@ import {
 import { buildPipelineJobs, formatPipelineValue } from "@/lib/pipeline/stages";
 import { cn } from "@/lib/utils";
 
-type PipelineTabTarget = "leads" | "design" | "estimating";
+type PipelineTabTarget = "leads" | "design" | "estimating" | "construction";
 
 const STAGE_CARD: Record<
   OverviewStageBarId,

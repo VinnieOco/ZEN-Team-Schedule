@@ -25,8 +25,8 @@ export interface OverviewStageBar {
   label: string;
   count: number;
   value: number;
-  /** Pipeline tab this bar links to; construction has no tab yet. */
-  tab?: "leads" | "design" | "estimating";
+  /** Pipeline tab this bar links to. */
+  tab?: "leads" | "design" | "estimating" | "construction";
 }
 
 function normalizePhase(phase?: string): string {
@@ -151,6 +151,7 @@ export function buildOverviewStageBars(
       label: "Construction",
       count: constructionJobs.length,
       value: sumJobValue(constructionJobs),
+      tab: "construction",
     },
   ];
 }

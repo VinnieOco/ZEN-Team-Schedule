@@ -526,7 +526,7 @@ export const DEFAULT_JOB_ROLES: string[] = [
   "Construction PM",
 ];
 
-export const DEFAULT_DEPARTMENTS: string[] = ["Design", "Estimating"];
+export const DEFAULT_DEPARTMENTS: string[] = ["Design", "Estimating", "Construction"];
 
 /** @deprecated Use settings.job_roles or DEFAULT_JOB_ROLES */
 export const EMPLOYEE_ROLE_OPTIONS: EmployeeRole[] = DEFAULT_JOB_ROLES as EmployeeRole[];

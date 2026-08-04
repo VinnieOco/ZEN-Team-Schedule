@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
+import { PipelineConstructionTab } from "@/components/pipeline/pipeline-construction-tab";
 import { PipelineDesignTab } from "@/components/pipeline/pipeline-design-tab";
 import { PipelineEstimatingTab } from "@/components/pipeline/pipeline-estimating-tab";
 import { PipelineLeadsTab } from "@/components/pipeline/pipeline-leads-tab";
@@ -12,7 +13,14 @@ import { useOptimisticUrlTab } from "@/hooks/use-optimistic-url-tab";
 import { PIPELINE_TABS, type PipelineTab } from "@/lib/pipeline/types";
 
 function parseTab(value: string | null): PipelineTab {
-  if (value === "leads" || value === "design" || value === "estimating") return value;
+  if (
+    value === "leads" ||
+    value === "design" ||
+    value === "estimating" ||
+    value === "construction"
+  ) {
+    return value;
+  }
   return "overview";
 }
 
@@ -56,6 +64,9 @@ export function PipelinePageClient() {
       </TabsContent>
       <TabsContent value="estimating" className="mt-5 min-w-0">
         <PipelineEstimatingTab />
+      </TabsContent>
+      <TabsContent value="construction" className="mt-5 min-w-0">
+        <PipelineConstructionTab />
       </TabsContent>
     </Tabs>
   );

@@ -13,13 +13,14 @@ export const PIPELINE_STAGES: { id: PipelineStage; label: string }[] = [
   { id: "closeout", label: "Closeout" },
 ];
 
-export type PipelineTab = "overview" | "leads" | "design" | "estimating";
+export type PipelineTab = "overview" | "leads" | "design" | "estimating" | "construction";
 
 export const PIPELINE_TABS: { id: PipelineTab; label: string; ready: boolean }[] = [
   { id: "overview", label: "Overview", ready: true },
   { id: "leads", label: "Leads", ready: true },
   { id: "design", label: "Design", ready: true },
   { id: "estimating", label: "Estimating", ready: true },
+  { id: "construction", label: "Construction", ready: true },
 ];
 
 export interface PipelineJob {
