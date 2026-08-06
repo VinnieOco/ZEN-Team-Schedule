@@ -60,7 +60,13 @@ export function ProjectDetailsCard({
 }: ProjectDetailsCardProps) {
   const designAmount = budgetRollup?.totalDesignAmount ?? getProjectDesignAmount(project);
   const estimateAmount = budgetRollup?.totalEstimateAmount ?? getProjectEstimateValue(project);
-  const showRollup = Boolean(budgetRollup && budgetRollup.changeOrderCount > 0);
+  const showDesignRollup = Boolean(
+    budgetRollup && budgetRollup.changeOrderCount > 0 && budgetRollup.changeOrderDesignAmount > 0,
+  );
+  const showEstimateParts = Boolean(
+    budgetRollup &&
+      (budgetRollup.contractCount > 0 || budgetRollup.changeOrderEstimateAmount > 0),
+  );
 
   return (
     <Card>
@@ -171,7 +177,7 @@ export function ProjectDetailsCard({
               </InfoField>
               <InfoField label="Design amount">
                 {formatProjectAmount(designAmount)}
-                {showRollup && budgetRollup && budgetRollup.changeOrderDesignAmount > 0 && (
+                {showDesignRollup && budgetRollup && (
                   <span className="mt-1 block text-xs font-normal text-muted-foreground">
                     incl. {formatProjectAmount(budgetRollup.changeOrderDesignAmount)} from COs
                   </span>
@@ -179,9 +185,18 @@ export function ProjectDetailsCard({
               </InfoField>
               <InfoField label="Estimate amount">
                 {formatProjectAmount(estimateAmount)}
-                {showRollup && budgetRollup && budgetRollup.changeOrderEstimateAmount > 0 && (
+                {showEstimateParts && budgetRollup && (
                   <span className="mt-1 block text-xs font-normal text-muted-foreground">
-                    incl. {formatProjectAmount(budgetRollup.changeOrderEstimateAmount)} from COs
+                    {[
+                      budgetRollup.contractCount > 0
+                        ? `${formatProjectAmount(budgetRollup.contractEstimateAmount)} contracts`
+                        : null,
+                      budgetRollup.changeOrderEstimateAmount > 0
+                        ? `${formatProjectAmount(budgetRollup.changeOrderEstimateAmount)} COs`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 )}
               </InfoField>

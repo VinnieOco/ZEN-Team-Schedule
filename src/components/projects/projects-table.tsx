@@ -33,6 +33,7 @@ import {
   getProjectBudgetRollup,
   getProjectHoursRollup,
   hasChangeOrderRollup,
+  hasEstimateRollup,
   isChangeOrder,
   isParentProject,
 } from "@/lib/change-orders";
@@ -45,7 +46,7 @@ import {
 import { getProjectActualHours } from "@/lib/utilization";
 import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
-import type { Employee, Project, TimeEntry } from "@/types";
+import type { Employee, Estimate, Project, TimeEntry } from "@/types";
 
 interface ProjectListRow {
   project: Project;
@@ -71,14 +72,16 @@ function buildProjectListRow(
   allProjects: Project[],
   timeEntries: TimeEntry[],
   getEmployeeById: (id: string) => Employee | undefined,
+  estimates: Estimate[] = [],
 ): ProjectListRow {
-  const budgetRollup = getProjectBudgetRollup(allProjects, project);
+  const budgetRollup = getProjectBudgetRollup(allProjects, project, estimates);
   const hoursRollup = getProjectHoursRollup(allProjects, project, timeEntries);
-  const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
-  const actual = showRollup
+  const showHoursRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
+  const showEstimateRollup = isParentProject(project) && hasEstimateRollup(budgetRollup);
+  const actual = showHoursRollup
     ? hoursRollup.totalActualHours
     : getProjectActualHours(timeEntries, project.id);
-  const budgetedHours = showRollup
+  const budgetedHours = showHoursRollup
     ? budgetRollup.totalBudgetHours
     : project.budgeted_design_hours;
   const lead = project.lead_employee_id ? getEmployeeById(project.lead_employee_id) : null;
@@ -91,10 +94,10 @@ function buildProjectListRow(
     budgetedHours,
     actual,
     remaining: budgetedHours - actual,
-    designAmount: showRollup
+    designAmount: showHoursRollup
       ? budgetRollup.totalDesignAmount
       : getProjectDesignAmount(project),
-    estimateAmount: showRollup
+    estimateAmount: showEstimateRollup
       ? budgetRollup.totalEstimateAmount
       : getProjectEstimateValue(project),
     leadName: lead ? getEmployeeFullName(lead) : null,
@@ -313,7 +316,7 @@ function ProjectDesktopRow({
 }
 
 export function ProjectsTable() {
-  const { projects, timeEntries, getEmployeeById, isLoading } = useScheduling();
+  const { projects, estimates, timeEntries, getEmployeeById, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -332,10 +335,13 @@ export function ProjectsTable() {
   const rowsByProjectId = useMemo(() => {
     const map = new Map<string, ProjectListRow>();
     for (const project of visibleProjects) {
-      map.set(project.id, buildProjectListRow(project, projects, timeEntries, getEmployeeById));
+      map.set(
+        project.id,
+        buildProjectListRow(project, projects, timeEntries, getEmployeeById, estimates),
+      );
     }
     return map;
-  }, [visibleProjects, projects, timeEntries, getEmployeeById]);
+  }, [visibleProjects, projects, timeEntries, getEmployeeById, estimates]);
 
   const totalCount = useMemo(
     () =>

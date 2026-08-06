@@ -9,6 +9,7 @@ import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { AppPage } from "@/components/layout/app-page";
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
+import { ContractsSection } from "@/components/projects/contracts-section";
 import { ProjectActualWorkSection } from "@/components/projects/project-actual-work-section";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
@@ -25,6 +26,7 @@ import {
   getProjectBudgetRollup,
   getProjectHoursRollup,
   hasChangeOrderRollup,
+  hasEstimateRollup,
   isChangeOrder,
   isParentProject,
 } from "@/lib/change-orders";
@@ -39,6 +41,7 @@ export default function ProjectDetailPage() {
   const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "overview";
   const {
     projects,
+    estimates,
     employees,
     timeEntries,
     getEmployeeById,
@@ -63,11 +66,14 @@ export default function ProjectDetailPage() {
   }
 
   const actual = getProjectActualHours(timeEntries, project.id);
-  const budgetRollup = getProjectBudgetRollup(projects, project);
+  const budgetRollup = getProjectBudgetRollup(projects, project, estimates);
   const hoursRollup = getProjectHoursRollup(projects, project, timeEntries);
-  const showRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
-  const budgetedHours = showRollup ? budgetRollup.totalBudgetHours : project.budgeted_design_hours;
-  const actualHours = showRollup ? hoursRollup.totalActualHours : actual;
+  const showHoursRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
+  const showEstimateRollup = isParentProject(project) && hasEstimateRollup(budgetRollup);
+  const budgetedHours = showHoursRollup
+    ? budgetRollup.totalBudgetHours
+    : project.budgeted_design_hours;
+  const actualHours = showHoursRollup ? hoursRollup.totalActualHours : actual;
   const remaining = budgetedHours - actualHours;
   const percentUsed =
     budgetedHours > 0 ? Math.round((actualHours / budgetedHours) * 100) : 0;
@@ -165,7 +171,7 @@ export default function ProjectDetailPage() {
                 <p className="text-xl font-bold sm:text-2xl">
                   {formatProjectHours(budgetedHours)}h
                 </p>
-                {showRollup && (
+                {showHoursRollup && (
                   <p className="text-[11px] text-muted-foreground sm:text-sm">
                     {formatProjectHours(budgetRollup.baseBudgetHours)}h base +{" "}
                     {formatProjectHours(budgetRollup.changeOrderBudgetHours)}h COs
@@ -186,7 +192,7 @@ export default function ProjectDetailPage() {
                 <p className="text-[11px] text-muted-foreground sm:text-sm">
                   {percentUsed}% of budget
                 </p>
-                {showRollup && hoursRollup.changeOrderActualHours > 0 && (
+                {showHoursRollup && hoursRollup.changeOrderActualHours > 0 && (
                   <p className="text-[11px] text-muted-foreground sm:text-sm">
                     {formatProjectHours(hoursRollup.baseActualHours)}h base +{" "}
                     {formatProjectHours(hoursRollup.changeOrderActualHours)}h COs
@@ -214,7 +220,7 @@ export default function ProjectDetailPage() {
             project={project}
             lead={lead}
             leadEstimator={leadEstimator}
-            budgetRollup={showRollup ? budgetRollup : undefined}
+            budgetRollup={showEstimateRollup || showHoursRollup ? budgetRollup : undefined}
             canEdit={permissions.editProjects}
             onEdit={() => setEditDialogOpen(true)}
             onMerge={
@@ -228,7 +234,10 @@ export default function ProjectDetailPage() {
           />
 
           {isParentProject(project) && (
-            <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
+            <>
+              <ContractsSection project={project} canEdit={permissions.editProjects} />
+              <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
+            </>
           )}
 
           <ProjectNotesSection project={project} />

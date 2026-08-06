@@ -1,6 +1,7 @@
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
+import { summarizeContracts } from "@/lib/project-contracts";
 import { getProjectActualHours } from "@/lib/utilization";
-import type { Project, ProjectFormValues, TimeEntry } from "@/types";
+import type { Estimate, Project, ProjectFormValues, TimeEntry } from "@/types";
 
 export function isChangeOrder(project: Pick<Project, "is_change_order" | "parent_project_id">): boolean {
   return Boolean(project.is_change_order || project.parent_project_id);
@@ -67,9 +68,12 @@ export interface ProjectBudgetRollup {
   baseDesignAmount: number;
   changeOrderDesignAmount: number;
   totalDesignAmount: number;
+  /** Project estimate_value when no linked contracts; otherwise sum of contracts. */
   baseEstimateAmount: number;
+  contractEstimateAmount: number;
   changeOrderEstimateAmount: number;
   totalEstimateAmount: number;
+  contractCount: number;
   changeOrderCount: number;
 }
 
@@ -80,7 +84,11 @@ export interface ProjectHoursRollup {
   changeOrderCount: number;
 }
 
-export function getProjectBudgetRollup(projects: Project[], project: Project): ProjectBudgetRollup {
+export function getProjectBudgetRollup(
+  projects: Project[],
+  project: Project,
+  estimates: Estimate[] = [],
+): ProjectBudgetRollup {
   const coSummary = isParentProject(project)
     ? summarizeChangeOrders(projects, project.id)
     : {
@@ -90,8 +98,16 @@ export function getProjectBudgetRollup(projects: Project[], project: Project): P
         totalEstimateAmount: 0,
       };
 
+  const contractSummary = isParentProject(project)
+    ? summarizeContracts(estimates, project.id)
+    : { count: 0, activeCount: 0, totalAmount: 0 };
+
   const baseDesignAmount = getProjectDesignAmount(project) ?? 0;
-  const baseEstimateAmount = getProjectEstimateValue(project) ?? 0;
+  const projectEstimateValue = getProjectEstimateValue(project) ?? 0;
+  // Linked contracts are the source of truth for estimate $ when present;
+  // otherwise fall back to the project's estimate_value field.
+  const baseEstimateAmount =
+    contractSummary.count > 0 ? contractSummary.totalAmount : projectEstimateValue;
 
   return {
     baseBudgetHours: project.budgeted_design_hours,
@@ -101,8 +117,10 @@ export function getProjectBudgetRollup(projects: Project[], project: Project): P
     changeOrderDesignAmount: coSummary.totalDesignAmount,
     totalDesignAmount: baseDesignAmount + coSummary.totalDesignAmount,
     baseEstimateAmount,
+    contractEstimateAmount: contractSummary.totalAmount,
     changeOrderEstimateAmount: coSummary.totalEstimateAmount,
     totalEstimateAmount: baseEstimateAmount + coSummary.totalEstimateAmount,
+    contractCount: contractSummary.count,
     changeOrderCount: coSummary.count,
   };
 }
@@ -128,6 +146,12 @@ export function getProjectHoursRollup(
 
 export function hasChangeOrderRollup(rollup: Pick<ProjectBudgetRollup, "changeOrderCount">): boolean {
   return rollup.changeOrderCount > 0;
+}
+
+export function hasEstimateRollup(
+  rollup: Pick<ProjectBudgetRollup, "changeOrderCount" | "contractCount">,
+): boolean {
+  return rollup.changeOrderCount > 0 || rollup.contractCount > 0;
 }
 
 export function summarizeChangeOrders(

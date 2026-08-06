@@ -43,6 +43,8 @@ interface EstimateFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   estimate?: Estimate | null;
+  /** Prefill when creating a new estimate (e.g. contract from a project page). */
+  defaults?: Partial<EstimateFormValues>;
   /**
    * When saving with stage Won (and it wasn't won before), save other fields first
    * then call this so the parent can open the project link dialog.
@@ -50,19 +52,19 @@ interface EstimateFormDialogProps {
   onRequestWon?: (estimateId: string) => void;
 }
 
-function emptyValues(): EstimateFormValues {
+function emptyValues(defaults?: Partial<EstimateFormValues>): EstimateFormValues {
   return {
-    client_name: "",
-    project_id: "",
-    title: "",
-    estimate_type: "budget",
-    estimator_id: "",
-    received_date: "",
-    due_date: "",
-    submitted_date: "",
-    amount: undefined,
-    stage: "backlog",
-    notes: "",
+    client_name: defaults?.client_name ?? "",
+    project_id: defaults?.project_id ?? "",
+    title: defaults?.title ?? "",
+    estimate_type: defaults?.estimate_type ?? "budget",
+    estimator_id: defaults?.estimator_id ?? "",
+    received_date: defaults?.received_date ?? "",
+    due_date: defaults?.due_date ?? "",
+    submitted_date: defaults?.submitted_date ?? "",
+    amount: defaults?.amount,
+    stage: defaults?.stage ?? "backlog",
+    notes: defaults?.notes ?? "",
   };
 }
 
@@ -86,19 +88,20 @@ export function EstimateFormDialog({
   open,
   onOpenChange,
   estimate,
+  defaults,
   onRequestWon,
 }: EstimateFormDialogProps) {
   const { employees, projects, clients, addEstimate, updateEstimate } = useScheduling();
-  const [values, setValues] = useState<EstimateFormValues>(emptyValues);
+  const [values, setValues] = useState<EstimateFormValues>(() => emptyValues(defaults));
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = Boolean(estimate);
 
   useEffect(() => {
     if (!open) return;
-    setValues(estimate ? fromEstimate(estimate) : emptyValues());
+    setValues(estimate ? fromEstimate(estimate) : emptyValues(defaults));
     setError(null);
-  }, [open, estimate]);
+  }, [open, estimate, defaults]);
 
   const estimatorOptions = useMemo(
     () => listEmployeesForOwnerPicker(employees),
@@ -197,9 +200,11 @@ export function EstimateFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit estimate" : "New estimate"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit estimate" : defaults?.estimate_type === "contract" ? "New contract" : "New estimate"}</DialogTitle>
           <DialogDescription>
-            Track an estimate package through pricing, submittal, and follow-up.
+            {defaults?.estimate_type === "contract" && !isEdit
+              ? "Add a contract package linked to this project. Amounts roll into Estimate amount."
+              : "Track an estimate package through pricing, submittal, and follow-up."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
