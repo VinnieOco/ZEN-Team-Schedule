@@ -1,3 +1,4 @@
+import type { InclusiveDateRange } from "@/lib/data/list-all-rows";
 import type { QueueStateSnapshot } from "@/lib/queue/queue-state-types";
 import type {
   Allocation,
@@ -19,12 +20,16 @@ import type {
   TodoNoteSourceType,
 } from "@/types";
 
+export type { InclusiveDateRange };
+
 export interface SchedulingRepository {
   listEmployees(): Promise<Employee[]>;
   listProjects(): Promise<Project[]>;
   listCategories(): Promise<AllocationCategory[]>;
-  listAllocations(): Promise<Allocation[]>;
-  listTimeEntries(): Promise<TimeEntry[]>;
+  /** When `range` is set, only rows with dates in [from, to] are returned. */
+  listAllocations(range?: InclusiveDateRange): Promise<Allocation[]>;
+  /** When `range` is set, only rows with dates in [from, to] are returned. */
+  listTimeEntries(range?: InclusiveDateRange): Promise<TimeEntry[]>;
   listProjectNotes(): Promise<ProjectNote[]>;
   listClientNotes(): Promise<ClientNote[]>;
   listQueueState(): Promise<QueueStateSnapshot>;

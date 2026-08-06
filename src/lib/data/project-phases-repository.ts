@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { listAllRows } from "@/lib/data/list-all-rows";
 import {
   mapScheduledProjectPhase,
   scheduledProjectPhaseToRow,
@@ -9,13 +10,14 @@ import type { ScheduledProjectPhase } from "@/types";
 export async function listProjectPhases(
   supabase: SupabaseClient,
 ): Promise<ScheduledProjectPhase[]> {
-  const { data, error } = await supabase
-    .from("project_phases")
-    .select("*")
-    .order("project_id")
-    .order("sort_order");
-  if (error) throw error;
-  return (data ?? []).map(mapScheduledProjectPhase);
+  const data = await listAllRows(supabase, "project_phases", [
+    { column: "project_id" },
+    { column: "sort_order" },
+    { column: "id" },
+  ]);
+  return data.map((row) =>
+    mapScheduledProjectPhase(row as Parameters<typeof mapScheduledProjectPhase>[0]),
+  );
 }
 
 export async function upsertProjectPhases(

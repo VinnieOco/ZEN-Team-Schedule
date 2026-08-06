@@ -41,6 +41,10 @@ import {
   listProjectMilestones as fetchProjectMilestones,
   syncProjectMilestones as syncMilestones,
 } from "@/lib/data/project-milestones-repository";
+import {
+  listAllRows,
+  type InclusiveDateRange,
+} from "@/lib/data/list-all-rows";
 import type { SchedulingRepository } from "@/lib/repository";
 import type {
   Allocation,
@@ -62,35 +66,6 @@ import type {
   TodoNoteSourceType,
 } from "@/types";
 
-/** PostgREST/Supabase defaults to max 1000 rows per request — page through the rest. */
-const PAGE_SIZE = 1000;
-
-type OrderSpec = { column: string; ascending?: boolean };
-
-async function listAllRows(
-  supabase: SupabaseClient,
-  table: string,
-  orders: OrderSpec[],
-): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  let from = 0;
-
-  for (;;) {
-    let query = supabase.from(table).select("*");
-    for (const order of orders) {
-      query = query.order(order.column, { ascending: order.ascending ?? true });
-    }
-    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
-    if (error) throw error;
-    const chunk = (data ?? []) as Record<string, unknown>[];
-    rows.push(...chunk);
-    if (chunk.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-
-  return rows;
-}
-
 export function createSupabaseRepository(
   supabase: SupabaseClient,
 ): SchedulingRepository {
@@ -105,12 +80,11 @@ export function createSupabaseRepository(
     },
 
     async listProjects() {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .order("project_name");
-      if (error) throw error;
-      return (data ?? []).map(mapProject);
+      const data = await listAllRows(supabase, "projects", [
+        { column: "project_name" },
+        { column: "id" },
+      ]);
+      return data.map((row) => mapProject(row as Parameters<typeof mapProject>[0]));
     },
 
     async listCategories() {
@@ -122,19 +96,33 @@ export function createSupabaseRepository(
       return (data ?? []).map(mapCategory);
     },
 
-    async listAllocations() {
-      const data = await listAllRows(supabase, "allocations", [
-        { column: "allocation_date" },
-        { column: "id" },
-      ]);
+    async listAllocations(range?: InclusiveDateRange) {
+      const data = await listAllRows(
+        supabase,
+        "allocations",
+        [
+          { column: "allocation_date" },
+          { column: "id" },
+        ],
+        range
+          ? { column: "allocation_date", gte: range.from, lte: range.to }
+          : undefined,
+      );
       return data.map((row) => mapAllocation(row as Parameters<typeof mapAllocation>[0]));
     },
 
-    async listTimeEntries() {
-      const data = await listAllRows(supabase, "time_entries", [
-        { column: "entry_date" },
-        { column: "id" },
-      ]);
+    async listTimeEntries(range?: InclusiveDateRange) {
+      const data = await listAllRows(
+        supabase,
+        "time_entries",
+        [
+          { column: "entry_date" },
+          { column: "id" },
+        ],
+        range
+          ? { column: "entry_date", gte: range.from, lte: range.to }
+          : undefined,
+      );
       return data.map((row) => mapTimeEntry(row as Parameters<typeof mapTimeEntry>[0]));
     },
 
@@ -183,12 +171,11 @@ export function createSupabaseRepository(
     },
 
     async listClients() {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .order("name");
-      if (error) throw error;
-      return (data ?? []).map(mapClient);
+      const data = await listAllRows(supabase, "clients", [
+        { column: "name" },
+        { column: "id" },
+      ]);
+      return data.map((row) => mapClient(row as Parameters<typeof mapClient>[0]));
     },
 
     async upsertClient(client: Client) {
@@ -434,12 +421,11 @@ export function createSupabaseRepository(
     },
 
     async listLeads() {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapLead);
+      const data = await listAllRows(supabase, "leads", [
+        { column: "created_at", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) => mapLead(row as Parameters<typeof mapLead>[0]));
     },
 
     async upsertLead(lead: Lead) {
@@ -458,12 +444,11 @@ export function createSupabaseRepository(
     },
 
     async listLeadNotes() {
-      const { data, error } = await supabase
-        .from("lead_notes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapLeadNote);
+      const data = await listAllRows(supabase, "lead_notes", [
+        { column: "created_at", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) => mapLeadNote(row as Parameters<typeof mapLeadNote>[0]));
     },
 
     async insertLeadNote(note: LeadNote) {
@@ -477,12 +462,13 @@ export function createSupabaseRepository(
     },
 
     async listLeadFollowUps() {
-      const { data, error } = await supabase
-        .from("lead_follow_ups")
-        .select("*")
-        .order("due_date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapLeadFollowUp);
+      const data = await listAllRows(supabase, "lead_follow_ups", [
+        { column: "due_date", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) =>
+        mapLeadFollowUp(row as Parameters<typeof mapLeadFollowUp>[0]),
+      );
     },
 
     async upsertLeadFollowUp(followUp: LeadFollowUp) {
@@ -506,13 +492,12 @@ export function createSupabaseRepository(
     },
 
     async listEstimates() {
-      const { data, error } = await supabase
-        .from("estimates")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map(mapEstimate);
+      const data = await listAllRows(supabase, "estimates", [
+        { column: "sort_order", ascending: true },
+        { column: "created_at", ascending: false },
+        { column: "id", ascending: false },
+      ]);
+      return data.map((row) => mapEstimate(row as Parameters<typeof mapEstimate>[0]));
     },
 
     async upsertEstimate(estimate: Estimate) {

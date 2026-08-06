@@ -21,6 +21,11 @@ import {
   projects as seedProjects,
 } from "@/data/mock-data";
 import { createQueueStatePersistence } from "@/lib/data/queue-repository";
+import { mergeById, type InclusiveDateRange } from "@/lib/data/list-all-rows";
+import {
+  defaultOperationalDateRange,
+  nextOperationalExpand,
+} from "@/lib/data/operational-date-window";
 import { createSupabaseRepository } from "@/lib/data/supabase-repository";
 import {
   flushPersistQueue,
@@ -338,6 +343,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
   const repoRef = useRef<SchedulingRepository | null>(null);
   const milestoneSyncSeqRef = useRef(new Map<string, number>());
+  /** Inclusive YYYY-MM-DD window currently held in allocations / timeEntries. */
+  const loadedOperationalRangeRef = useRef<InclusiveDateRange | null>(null);
+  const expandInFlightRef = useRef(false);
 
   const persisted = !useSupabase ? loadPersistedState() : null;
 
@@ -448,15 +456,17 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const supabase = createClient();
       repoRef.current = createSupabaseRepository(supabase);
       const repo = repoRef.current;
+      const operationalRange = defaultOperationalDateRange(new Date());
       const [emp, proj, notes, cats, alloc, times, sett] = await Promise.all([
         repo.listEmployees(),
         repo.listProjects(),
         repo.listProjectNotes(),
         repo.listCategories(),
-        repo.listAllocations(),
-        repo.listTimeEntries(),
+        repo.listAllocations(operationalRange),
+        repo.listTimeEntries(operationalRange),
         repo.getSettings(),
       ]);
+      loadedOperationalRangeRef.current = operationalRange;
 
       let clientNotesData: ClientNote[] = [];
       try {
@@ -569,11 +579,49 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     }
   }, [useSupabase]);
 
+  const ensureOperationalDateCoverage = useCallback(
+    async (anchor: Date) => {
+      if (!useSupabase || !repoRef.current || expandInFlightRef.current) return;
+
+      expandInFlightRef.current = true;
+      try {
+        // Cap iterations so a pathological jump cannot loop forever.
+        for (let i = 0; i < 8; i += 1) {
+          const loaded = loadedOperationalRangeRef.current;
+          if (!loaded) return;
+          const expand = nextOperationalExpand(loaded, anchor);
+          if (!expand) return;
+
+          const repo = repoRef.current;
+          if (!repo) return;
+
+          const [allocChunk, timeChunk] = await Promise.all([
+            repo.listAllocations(expand.fetch),
+            repo.listTimeEntries(expand.fetch),
+          ]);
+          setAllocations((prev) => mergeById(prev, allocChunk));
+          setTimeEntries((prev) => mergeById(prev, timeChunk));
+          loadedOperationalRangeRef.current = expand.nextLoaded;
+        }
+      } catch {
+        // Keep existing in-memory window; next navigation can retry.
+      } finally {
+        expandInFlightRef.current = false;
+      }
+    },
+    [useSupabase],
+  );
+
   useEffect(() => {
     if (useSupabase) {
       refreshData();
     }
   }, [useSupabase, refreshData]);
+
+  useEffect(() => {
+    if (!useSupabase || isLoading) return;
+    void ensureOperationalDateCoverage(selectedWeekStart);
+  }, [useSupabase, isLoading, selectedWeekStart, ensureOperationalDateCoverage]);
 
   useEffect(() => {
     if (useSupabase) return;

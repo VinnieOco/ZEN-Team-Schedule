@@ -1,19 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { listAllRows } from "@/lib/data/list-all-rows";
 import { mapProjectMilestone, projectMilestoneToRow } from "@/lib/data/mappers";
 import type { ProjectMilestone } from "@/types";
 
 export async function listProjectMilestones(
   supabase: SupabaseClient,
 ): Promise<ProjectMilestone[]> {
-  const { data, error } = await supabase
-    .from("project_milestones")
-    .select("*")
-    .order("project_id")
-    .order("sort_order")
-    .order("milestone_date");
-  if (error) throw error;
-  return (data ?? []).map(mapProjectMilestone);
+  const data = await listAllRows(supabase, "project_milestones", [
+    { column: "project_id" },
+    { column: "sort_order" },
+    { column: "milestone_date" },
+    { column: "id" },
+  ]);
+  return data.map((row) =>
+    mapProjectMilestone(row as Parameters<typeof mapProjectMilestone>[0]),
+  );
 }
 
 /** Upsert current milestones and delete rows removed from the project. */
