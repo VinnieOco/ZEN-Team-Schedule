@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { HealthStatusBadge } from "@/components/queue/health-status-badge";
+import { PipelineDueBuckets } from "@/components/pipeline/pipeline-due-buckets";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import {
   PriorityColGroup,
@@ -73,6 +74,7 @@ import {
 import { useScheduling } from "@/context/scheduling-context";
 import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { usePermissions } from "@/hooks/use-permissions";
+import { usePipelineListFocus } from "@/hooks/use-pipeline-list-focus";
 import { buildEmployeeSelectOptions } from "@/lib/employee-picker-options";
 import { estimateDisplayName } from "@/lib/estimating/metrics";
 import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
@@ -97,6 +99,10 @@ import {
   sortConstructionJobsByOrder,
   type ConstructionTableFilters,
 } from "@/lib/pipeline/construction";
+import {
+  pipelineFocusLabel,
+  togglePipelineFocus,
+} from "@/lib/pipeline/focus";
 import { formatPipelineValue, buildPipelineJobs } from "@/lib/pipeline/stages";
 import type { PipelineJob } from "@/lib/pipeline/types";
 import { projectToFormValues } from "@/lib/project-form";
@@ -120,11 +126,10 @@ function initials(name: string): string {
   return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
 }
 
-const DEFAULT_FILTERS: ConstructionTableFilters = {
+const DEFAULT_FILTERS: Omit<ConstructionTableFilters, "focus"> = {
   search: "",
   pmId: "all",
   health: "all",
-  focus: "all",
 };
 
 function PhaseDonut({ buckets }: { buckets: { phase: string; count: number }[] }) {
@@ -390,7 +395,12 @@ export function PipelineConstructionTab() {
   } = useScheduling();
   const { permissions } = usePermissions();
   const canEdit = permissions.editProjects;
-  const [filters, setFilters] = useState<ConstructionTableFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [focus, setFocus] = usePipelineListFocus();
+  const tableFilters: ConstructionTableFilters = useMemo(
+    () => ({ ...filters, focus }),
+    [filters, focus],
+  );
   const [orderRevision, setOrderRevision] = useState(0);
   const [assignProjectId, setAssignProjectId] = useState<string | null>(null);
   const [assignPmId, setAssignPmId] = useState<string>("");
@@ -419,17 +429,27 @@ export function PipelineConstructionTab() {
     [jobs, estimates, constructionMilestoneDates],
   );
 
+  const recentWon = useMemo(() => recentWonEstimatesForConstruction(estimates), [estimates]);
+
   const constructionJobsList = useMemo(() => {
-    const items = listFilteredConstructionJobs(
+    let items = listFilteredConstructionJobs(
       jobs,
-      filters,
+      tableFilters,
       constructionMilestoneDates,
     );
+    if (focus === "recent_won") {
+      const linkedIds = new Set(
+        recentWon
+          .map((estimate) => estimate.project_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+      items = items.filter((job) => linkedIds.has(job.projectId));
+    }
     return sortConstructionJobsByOrder(
       items,
       getConstructionPmPriorityOrder(CONSTRUCTION_LIST_ORDER_KEY),
     );
-  }, [jobs, filters, constructionMilestoneDates, orderRevision]);
+  }, [jobs, tableFilters, constructionMilestoneDates, orderRevision, focus, recentWon]);
 
   const workload = useMemo(
     () =>
@@ -455,7 +475,6 @@ export function PipelineConstructionTab() {
 
   const activeCount = constructionJobs(jobs).length;
   const priorityCount = constructionJobsList.length;
-  const recentWon = useMemo(() => recentWonEstimatesForConstruction(estimates), [estimates]);
 
   const pmOptions = useMemo(() => {
     const fromJobs = constructionJobs(jobs);
@@ -531,10 +550,10 @@ export function PipelineConstructionTab() {
           {
             label: "Active Construction",
             value: String(kpis.activeCount),
-            sub: filters.focus === "all" ? "In construction" : "Clear focus",
+            sub: focus === "all" ? "In construction" : "Clear focus",
             icon: Hammer,
             accent: "amber",
-            onClick: () => setFilters((f) => ({ ...f, focus: "all" })),
+            onClick: () => setFocus("all"),
           },
           {
             label: "Contract value",
@@ -549,7 +568,7 @@ export function PipelineConstructionTab() {
             sub: "Construction milestones",
             icon: CalendarClock,
             accent: "sky",
-            onClick: () => setFilters((f) => ({ ...f, focus: "due_week" })),
+            onClick: () => setFocus(togglePipelineFocus(focus, "due_week")),
           },
           {
             label: "Overdue",
@@ -557,7 +576,7 @@ export function PipelineConstructionTab() {
             sub: "Past due",
             icon: AlertTriangle,
             accent: kpis.overdueCount > 0 ? "rose" : "slate",
-            onClick: () => setFilters((f) => ({ ...f, focus: "overdue" })),
+            onClick: () => setFocus(togglePipelineFocus(focus, "overdue")),
           },
           {
             label: "Unassigned",
@@ -565,7 +584,7 @@ export function PipelineConstructionTab() {
             sub: "No PM",
             icon: UserRound,
             accent: "slate",
-            onClick: () => setFilters((f) => ({ ...f, focus: "unassigned" })),
+            onClick: () => setFocus(togglePipelineFocus(focus, "unassigned")),
           },
           {
             label: "Recently won",
@@ -573,6 +592,7 @@ export function PipelineConstructionTab() {
             sub: "Last 30 days",
             icon: Sparkles,
             accent: "violet",
+            onClick: () => setFocus(togglePipelineFocus(focus, "recent_won")),
           },
         ]}
       />
@@ -684,7 +704,7 @@ export function PipelineConstructionTab() {
         <p className="text-xs text-muted-foreground lg:pb-2">
           {priorityCount} job{priorityCount === 1 ? "" : "s"}
           {canEdit ? " · drag to set priority" : ""}
-          {filters.focus !== "all" ? ` · focus: ${filters.focus.replace("_", " ")}` : ""}
+          {focus !== "all" ? ` · focus: ${pipelineFocusLabel(focus)}` : ""}
         </p>
       </div>
 
@@ -708,7 +728,10 @@ export function PipelineConstructionTab() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setFilters(DEFAULT_FILTERS)}
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS);
+                  setFocus("all");
+                }}
               >
                 Clear filters
               </Button>
@@ -881,57 +904,11 @@ export function PipelineConstructionTab() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-900">Upcoming Due Dates</h3>
-          <ul className="mt-4 space-y-2.5">
-            {[
-              {
-                label: "Overdue",
-                count: dueBuckets.overdue,
-                className: "bg-rose-50 text-rose-700",
-                dot: "bg-rose-500",
-              },
-              {
-                label: "Today",
-                count: dueBuckets.today,
-                className: "bg-rose-50 text-rose-700",
-                dot: "bg-rose-500",
-              },
-              {
-                label: "Tomorrow",
-                count: dueBuckets.tomorrow,
-                className: "bg-amber-50 text-amber-800",
-                dot: "bg-amber-500",
-              },
-              {
-                label: "This week",
-                count: dueBuckets.thisWeek,
-                className: "bg-sky-50 text-sky-800",
-                dot: "bg-sky-500",
-              },
-              {
-                label: "Next week",
-                count: dueBuckets.nextWeek,
-                className: "bg-slate-50 text-slate-700",
-                dot: "bg-slate-400",
-              },
-            ].map((row) => (
-              <li
-                key={row.label}
-                className={cn(
-                  "flex items-center justify-between rounded-lg px-2.5 py-2 text-sm",
-                  row.className,
-                )}
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <span className={cn("h-2 w-2 rounded-full", row.dot)} />
-                  {row.label}
-                </span>
-                <span className="tabular-nums font-semibold">{row.count}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <PipelineDueBuckets
+          buckets={dueBuckets}
+          focus={focus}
+          onFocusChange={setFocus}
+        />
       </div>
 
       <Dialog

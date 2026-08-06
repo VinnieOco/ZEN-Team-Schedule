@@ -32,10 +32,14 @@ export function PipelinePageClient() {
     if (tab === "overview") {
       params.delete("tab");
       params.delete("view");
+      params.delete("focus");
     } else {
       params.set("tab", tab);
-      // Sub-view is per tab, so drop it whenever the tab itself changes.
-      if (tab !== previous) params.delete("view");
+      // Sub-view / list focus are per tab, so drop them whenever the tab itself changes.
+      if (tab !== previous) {
+        params.delete("view");
+        params.delete("focus");
+      }
     }
   }, []);
 

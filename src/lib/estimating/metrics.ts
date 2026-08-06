@@ -16,6 +16,11 @@ import type {
   EstimateStage,
   EstimateType,
 } from "@/types";
+import {
+  matchesDueFocus,
+  parsePipelineDueDate,
+  type PipelineListFocus,
+} from "@/lib/pipeline/focus";
 import { getColumnOrder } from "@/lib/queue/column-order";
 
 export const ESTIMATE_TYPES: { value: EstimateType; label: string }[] = [
@@ -79,6 +84,8 @@ export interface EstimateKpiSummary {
   dueThisWeek: number;
   submittedThisWeekCount: number;
   submittedThisWeekAmount: number;
+  wonThisWeekCount: number;
+  wonThisWeekAmount: number;
   pipelineValue: number;
   winRatePercent: number | null;
   avgTurnaroundDays: number | null;
@@ -114,6 +121,12 @@ export function buildEstimateKpis(
       : false;
   });
 
+  const wonThisWeekEstimates = estimates.filter((estimate) => {
+    if (estimate.result !== "won" && estimate.stage !== "won") return false;
+    const won = parseDate(estimate.won_date);
+    return won ? isWithinInterval(won, { start: rangeStart, end: rangeEnd }) : false;
+  });
+
   const decidedYtd = estimates.filter((estimate) => {
     if (estimate.result === "pending") return false;
     const decidedOn =
@@ -137,6 +150,11 @@ export function buildEstimateKpis(
     dueThisWeek: dueThisWeek.length,
     submittedThisWeekCount: submittedThisWeek.length,
     submittedThisWeekAmount: submittedThisWeek.reduce(
+      (sum, estimate) => sum + (estimate.amount ?? 0),
+      0,
+    ),
+    wonThisWeekCount: wonThisWeekEstimates.length,
+    wonThisWeekAmount: wonThisWeekEstimates.reduce(
       (sum, estimate) => sum + (estimate.amount ?? 0),
       0,
     ),
@@ -198,6 +216,23 @@ export function submittedThisWeek(
     .sort((a, b) => (a.submitted_date ?? "").localeCompare(b.submitted_date ?? ""));
 }
 
+/** Estimates marked won whose won_date falls in the selected period. */
+export function wonThisWeek(
+  estimates: Estimate[],
+  now = new Date(),
+  periodRange?: { start: Date; end: Date },
+): Estimate[] {
+  const rangeStart = periodRange?.start ?? startOfWeek(now, { weekStartsOn: 1 });
+  const rangeEnd = periodRange?.end ?? endOfWeek(now, { weekStartsOn: 1 });
+  return estimates
+    .filter((estimate) => {
+      if (estimate.result !== "won" && estimate.stage !== "won") return false;
+      const won = parseDate(estimate.won_date);
+      return won ? isWithinInterval(won, { start: rangeStart, end: rangeEnd }) : false;
+    })
+    .sort((a, b) => (b.won_date ?? "").localeCompare(a.won_date ?? ""));
+}
+
 export interface EstimateTypeBucket {
   type: EstimateType;
   label: string;
@@ -242,6 +277,29 @@ export function isEstimateDueOverdue(estimate: Estimate, now = new Date()): bool
   if (!isOpenEstimate(estimate)) return false;
   const due = parseDate(estimate.due_date);
   return due ? due < startOfDay(now) : false;
+}
+
+/** Whether an estimate matches Pipeline list focus (metrics / due buckets). */
+export function matchesEstimateListFocus(
+  estimate: Estimate,
+  focus: PipelineListFocus,
+  now = new Date(),
+  options?: {
+    milestoneDates?: Map<string, string>;
+    periodRange?: { start: Date; end: Date };
+  },
+): boolean {
+  if (focus === "all") return true;
+  if (focus === "unassigned") return !estimate.estimator_id;
+
+  const dueRaw =
+    (estimate.project_id && options?.milestoneDates?.get(estimate.project_id)) ||
+    estimate.due_date;
+  const due = parsePipelineDueDate(dueRaw);
+  const dueMatch = matchesDueFocus(due, focus, now, options?.periodRange);
+  if (dueMatch != null) return dueMatch;
+
+  return true;
 }
 
 /** Calendar days until due (negative when overdue). Null when no due date. */

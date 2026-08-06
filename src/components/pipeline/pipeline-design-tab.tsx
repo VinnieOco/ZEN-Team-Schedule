@@ -32,6 +32,7 @@ import { AddToQueueDialog } from "@/components/queue/add-to-queue-dialog";
 import { HealthStatusBadge } from "@/components/queue/health-status-badge";
 import { QueueBoard } from "@/components/queue/queue-board";
 import { QueueFiltersBar } from "@/components/queue/queue-filters";
+import { PipelineDueBuckets } from "@/components/pipeline/pipeline-due-buckets";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import {
   PriorityColGroup,
@@ -64,6 +65,7 @@ import { useScheduling } from "@/context/scheduling-context";
 import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
+import { usePipelineListFocus } from "@/hooks/use-pipeline-list-focus";
 import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
 import { useQueueMembership } from "@/hooks/use-queue-membership";
 import { useQueueStageOverrides } from "@/hooks/use-queue-stage-overrides";
@@ -73,6 +75,7 @@ import {
   queueFiltersActive,
 } from "@/lib/filter-queue";
 import {
+  UNASSIGNED_DESIGN_OWNER_ID,
   buildDesignDueBuckets,
   buildDesignKpis,
   buildDesignPhaseDistribution,
@@ -87,6 +90,10 @@ import {
   designRowAccentClass,
   designStageLabel,
 } from "@/lib/pipeline/design";
+import {
+  pipelineFocusLabel,
+  togglePipelineFocus,
+} from "@/lib/pipeline/focus";
 import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
 import { buildDesignQueueItems } from "@/lib/queue/build-queue-items";
 import { arrayMoveIds, sortQueueColumnItems } from "@/lib/queue/column-order";
@@ -444,6 +451,7 @@ export function PipelineDesignTab() {
 
   const [filters, setFilters] = useState(defaultQueueFilters);
   const [tableSearch, setTableSearch] = useState("");
+  const [focus, setFocus] = usePipelineListFocus();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [dragRevision, setDragRevision] = useState(0);
   const isNarrow = useIsNarrowViewport();
@@ -501,7 +509,12 @@ export function PipelineDesignTab() {
   const workloadMax = Math.max(1, ...workload.map((w) => w.projectCount));
 
   const priorityGroups = useMemo(() => {
-    const groups = buildDesignPriorityGroups(designItems, tableSearch);
+    const groups = buildDesignPriorityGroups(
+      designItems,
+      tableSearch,
+      focus,
+      designMilestoneDates,
+    );
     return groups.map((group) => ({
       ...group,
       items: sortQueueColumnItems(
@@ -511,7 +524,15 @@ export function PipelineDesignTab() {
         "priority",
       ),
     }));
-  }, [designItems, tableSearch, orderRevision]);
+  }, [designItems, tableSearch, focus, designMilestoneDates, orderRevision]);
+
+  const applyFocus = useCallback(
+    (next: typeof focus) => {
+      setFocus(next);
+      if (next !== "all") setView("table");
+    },
+    [setFocus, setView],
+  );
 
   const priorityCount = priorityGroups.reduce((sum, g) => sum + g.items.length, 0);
   const unassignedActiveCount = designItems.filter(
@@ -575,9 +596,13 @@ export function PipelineDesignTab() {
           {
             label: "Active Design",
             value: String(kpis.activeCount),
-            sub: "In production",
+            sub: focus === "all" ? "In production" : "Clear focus",
             icon: Layers,
             accent: "sky",
+            onClick: () => {
+              setFocus("all");
+              setView("table");
+            },
           },
           {
             label: "Due This Week",
@@ -585,6 +610,7 @@ export function PipelineDesignTab() {
             sub: "Milestone dates",
             icon: CalendarClock,
             accent: "amber",
+            onClick: () => applyFocus(togglePipelineFocus(focus, "due_week")),
           },
           {
             label: "In Review",
@@ -592,6 +618,7 @@ export function PipelineDesignTab() {
             sub: "Internal + client",
             icon: Users,
             accent: "violet",
+            onClick: () => applyFocus(togglePipelineFocus(focus, "in_review")),
           },
           {
             label: "Hours vs Capacity",
@@ -606,6 +633,7 @@ export function PipelineDesignTab() {
             sub: "Past due or flagged",
             icon: AlertTriangle,
             accent: "rose",
+            onClick: () => applyFocus(togglePipelineFocus(focus, "overdue")),
           },
           {
             label: "Unassigned",
@@ -613,6 +641,7 @@ export function PipelineDesignTab() {
             sub: "No lead designer",
             icon: UserRound,
             accent: "slate",
+            onClick: () => applyFocus(togglePipelineFocus(focus, "unassigned")),
           },
         ]}
       />
@@ -659,11 +688,20 @@ export function PipelineDesignTab() {
               />
             </div>
             <p className="text-xs text-muted-foreground sm:pb-2">
-              {priorityCount} assigned · {priorityGroups.length} designer
-              {priorityGroups.length === 1 ? "" : "s"}
-              {unassignedActiveCount > 0
+              {priorityCount} project{priorityCount === 1 ? "" : "s"}
+              {priorityGroups.filter((g) => g.designerId !== UNASSIGNED_DESIGN_OWNER_ID).length >
+              0
+                ? ` · ${priorityGroups.filter((g) => g.designerId !== UNASSIGNED_DESIGN_OWNER_ID).length} designer${
+                    priorityGroups.filter((g) => g.designerId !== UNASSIGNED_DESIGN_OWNER_ID)
+                      .length === 1
+                      ? ""
+                      : "s"
+                  }`
+                : ""}
+              {focus === "all" && unassignedActiveCount > 0
                 ? ` · ${unassignedActiveCount} unassigned hidden`
                 : ""}
+              {focus !== "all" ? ` · focus: ${pipelineFocusLabel(focus)}` : ""}
             </p>
           </div>
 
@@ -675,8 +713,8 @@ export function PipelineDesignTab() {
               <p className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {designItems.filter((i) => i.stage !== "complete").length === 0
                   ? "No design projects in the queue yet. Add a project or convert a lead."
-                  : tableSearch.trim()
-                    ? "No assigned design projects match this search."
+                  : tableSearch.trim() || focus !== "all"
+                    ? "No design projects match this focus or search."
                     : "Assign a lead designer on projects to build each designer's priority queue."}
               </p>
               {canManageQueue && (
@@ -703,7 +741,13 @@ export function PipelineDesignTab() {
                   <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
+                        <AvatarFallback
+                          className={
+                            group.designerId === UNASSIGNED_DESIGN_OWNER_ID
+                              ? "bg-amber-50 text-[11px] font-semibold text-amber-800"
+                              : "bg-emerald-50 text-[11px] font-semibold text-emerald-800"
+                          }
+                        >
                           {initials(group.designerName)}
                         </AvatarFallback>
                       </Avatar>
@@ -712,7 +756,9 @@ export function PipelineDesignTab() {
                           {group.designerName}
                         </h3>
                         <p className="text-xs text-muted-foreground">
-                          Priority queue · highest first
+                          {group.designerId === UNASSIGNED_DESIGN_OWNER_ID
+                            ? "No lead designer · assign to prioritize"
+                            : "Priority queue · highest first"}
                         </p>
                       </div>
                     </div>
@@ -903,57 +949,11 @@ export function PipelineDesignTab() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">Upcoming Due Dates</h3>
-              <ul className="mt-4 space-y-2.5">
-                {[
-                  {
-                    label: "Overdue",
-                    count: dueBuckets.overdue,
-                    className: "bg-rose-50 text-rose-700",
-                    dot: "bg-rose-500",
-                  },
-                  {
-                    label: "Today",
-                    count: dueBuckets.today,
-                    className: "bg-rose-50 text-rose-700",
-                    dot: "bg-rose-500",
-                  },
-                  {
-                    label: "Tomorrow",
-                    count: dueBuckets.tomorrow,
-                    className: "bg-amber-50 text-amber-800",
-                    dot: "bg-amber-500",
-                  },
-                  {
-                    label: "This Week",
-                    count: dueBuckets.thisWeek,
-                    className: "bg-amber-50/70 text-amber-900",
-                    dot: "bg-amber-400",
-                  },
-                  {
-                    label: "Next Week",
-                    count: dueBuckets.nextWeek,
-                    className: "bg-emerald-50 text-emerald-800",
-                    dot: "bg-emerald-500",
-                  },
-                ].map((row) => (
-                  <li
-                    key={row.label}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
-                      row.className,
-                    )}
-                  >
-                    <span className="flex items-center gap-2 font-medium">
-                      <span className={cn("h-2 w-2 rounded-full", row.dot)} />
-                      {row.label}
-                    </span>
-                    <span className="tabular-nums font-semibold">{row.count}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <PipelineDueBuckets
+              buckets={dueBuckets}
+              focus={focus}
+              onFocusChange={applyFocus}
+            />
           </div>
         </TabsContent>
 

@@ -135,6 +135,12 @@ export function pipelinePeriodSubmittedLabel(mode: PipelinePeriodMode): string {
   return "Submitted This Week";
 }
 
+export function pipelinePeriodWonLabel(mode: PipelinePeriodMode): string {
+  if (mode === "month") return "Won This Month";
+  if (mode === "custom") return "Won in Range";
+  return "Won This Week";
+}
+
 export function pipelinePeriodTotalLabel(mode: PipelinePeriodMode): string {
   if (mode === "month") return "Monthly Total";
   if (mode === "custom") return "Period Total";

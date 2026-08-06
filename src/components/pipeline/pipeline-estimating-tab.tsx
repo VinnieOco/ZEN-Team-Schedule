@@ -69,11 +69,11 @@ import { useScheduling } from "@/context/scheduling-context";
 import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
+import { usePipelineListFocus } from "@/hooks/use-pipeline-list-focus";
 import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
 import {
   ESTIMATE_STAGES,
   ESTIMATE_TYPES,
-  buildEstimateDueBuckets,
   buildEstimateKpis,
   buildEstimatePriorityGroups,
   buildEstimateTypeBuckets,
@@ -91,15 +91,22 @@ import {
   estimateTypeLabel,
   isEstimateDueOverdue,
   isOpenEstimate,
+  matchesEstimateListFocus,
   sortEstimatePriorityItems,
   submittedThisWeek,
+  wonThisWeek,
 } from "@/lib/estimating/metrics";
 import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
+import {
+  pipelineFocusLabel,
+  togglePipelineFocus,
+} from "@/lib/pipeline/focus";
 import {
   createDefaultPipelinePeriod,
   pipelinePeriodDueLabel,
   pipelinePeriodSubmittedLabel,
   pipelinePeriodTotalLabel,
+  pipelinePeriodWonLabel,
   resolvePipelinePeriodRange,
   type PipelinePeriod,
 } from "@/lib/pipeline/period";
@@ -113,7 +120,7 @@ import type { Estimate, EstimateStage } from "@/types";
 const ALL = "__all__";
 const OPEN_ONLY = "__open__";
 
-type EstimatingView = "table" | "kanban" | "submitted";
+type EstimatingView = "table" | "kanban" | "submitted" | "won";
 
 const TYPE_COLORS: Record<string, string> = {
   budget: "#059669",
@@ -123,7 +130,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 function parseView(value: string | null): EstimatingView {
-  if (value === "kanban" || value === "submitted") return value;
+  if (value === "kanban" || value === "submitted" || value === "won") return value;
   return "table";
 }
 
@@ -484,6 +491,7 @@ export function PipelineEstimatingTab() {
   const [stageFilter, setStageFilter] = useState(OPEN_ONLY);
   const [typeFilter, setTypeFilter] = useState(ALL);
   const [estimatorFilter, setEstimatorFilter] = useState(ALL);
+  const [focus, setFocus] = usePipelineListFocus();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Estimate | null>(null);
   const [detail, setDetail] = useState<Estimate | null>(null);
@@ -516,6 +524,7 @@ export function PipelineEstimatingTab() {
   const periodRange = useMemo(() => resolvePipelinePeriodRange(period), [period]);
   const duePeriodLabel = pipelinePeriodDueLabel(period.mode);
   const submittedPeriodLabel = pipelinePeriodSubmittedLabel(period.mode);
+  const wonPeriodLabel = pipelinePeriodWonLabel(period.mode);
   const totalPeriodLabel = pipelinePeriodTotalLabel(period.mode);
 
   const prioritySensors = useSensors(
@@ -552,9 +561,12 @@ export function PipelineEstimatingTab() {
   );
   const workload = useMemo(() => buildEstimatorWorkload(estimates), [estimates]);
   const typeBuckets = useMemo(() => buildEstimateTypeBuckets(estimates), [estimates]);
-  const dueBuckets = useMemo(() => buildEstimateDueBuckets(estimates), [estimates]);
   const submitted = useMemo(
     () => submittedThisWeek(estimates, new Date(), periodRange),
+    [estimates, periodRange],
+  );
+  const won = useMemo(
+    () => wonThisWeek(estimates, new Date(), periodRange),
     [estimates, periodRange],
   );
   const workloadMax = Math.max(1, ...workload.map((w) => w.openCount));
@@ -588,6 +600,14 @@ export function PipelineEstimatingTab() {
         }
         if (typeFilter !== ALL && estimate.estimate_type !== typeFilter) return false;
         if (estimatorFilter !== ALL && estimate.estimator_id !== estimatorFilter) return false;
+        if (
+          !matchesEstimateListFocus(estimate, focus, new Date(), {
+            milestoneDates: estimatingMilestoneDates,
+            periodRange: focus === "due_week" ? periodRange : undefined,
+          })
+        ) {
+          return false;
+        }
         if (!q) return true;
         const haystack = [
           estimateDisplayName(estimate),
@@ -603,7 +623,28 @@ export function PipelineEstimatingTab() {
         return haystack.includes(q);
       })
       .sort(compareEstimatesForQueue);
-  }, [estimates, search, stageFilter, typeFilter, estimatorFilter, estimatorName]);
+  }, [
+    estimates,
+    search,
+    stageFilter,
+    typeFilter,
+    estimatorFilter,
+    focus,
+    estimatingMilestoneDates,
+    periodRange,
+    estimatorName,
+  ]);
+
+  const applyFocus = useCallback(
+    (next: typeof focus) => {
+      setFocus(next);
+      if (next !== "all") {
+        setStageFilter(OPEN_ONLY);
+        setView("table");
+      }
+    },
+    [setFocus, setView],
+  );
 
   const priorityGroups = useMemo(() => {
     const groups = buildEstimatePriorityGroups(filtered, resolveEstimatorName);
@@ -673,11 +714,12 @@ export function PipelineEstimatingTab() {
           {
             label: "Active Estimates",
             value: String(kpis.activeCount),
-            sub: "View all",
+            sub: focus === "all" ? "View all" : "Clear focus",
             icon: Briefcase,
             accent: "violet",
             onClick: () => {
               setStageFilter(OPEN_ONLY);
+              setFocus("all");
               setView("table");
             },
           },
@@ -687,10 +729,7 @@ export function PipelineEstimatingTab() {
             sub: "Milestone dates",
             icon: CalendarClock,
             accent: "amber",
-            onClick: () => {
-              setStageFilter(OPEN_ONLY);
-              setView("table");
-            },
+            onClick: () => applyFocus(togglePipelineFocus(focus, "due_week")),
           },
           {
             label: submittedPeriodLabel,
@@ -744,6 +783,12 @@ export function PipelineEstimatingTab() {
               className="rounded-none border-b-2 border-transparent px-3 pb-2.5 pt-1 data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-emerald-800 data-[state=active]:shadow-none"
             >
               Submitted
+            </TabsTrigger>
+            <TabsTrigger
+              value="won"
+              className="rounded-none border-b-2 border-transparent px-3 pb-2.5 pt-1 data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:text-emerald-800 data-[state=active]:shadow-none"
+            >
+              Won
             </TabsTrigger>
           </ScrollableTabsList>
           {canEdit && (
@@ -827,7 +872,10 @@ export function PipelineEstimatingTab() {
           <p className="px-1 text-xs text-muted-foreground">
             {groupedCount} estimate{groupedCount === 1 ? "" : "s"} · {priorityGroups.length}{" "}
             estimator{priorityGroups.length === 1 ? "" : "s"}
-            {unassignedCount > 0 ? ` · ${unassignedCount} unassigned hidden` : ""}
+            {focus === "all" && unassignedCount > 0
+              ? ` · ${unassignedCount} unassigned hidden`
+              : ""}
+            {focus !== "all" ? ` · focus: ${pipelineFocusLabel(focus)}` : ""}
           </p>
 
           {priorityGroups.length === 0 ? (
@@ -991,7 +1039,7 @@ export function PipelineEstimatingTab() {
             </div>
           )}
 
-          <div className="grid min-w-0 gap-3 lg:grid-cols-2 xl:grid-cols-4">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
               <h3 className="text-sm font-semibold text-slate-900">Workload by Estimator</h3>
               <div className="mt-4 space-y-3">
@@ -1082,62 +1130,58 @@ export function PipelineEstimatingTab() {
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">Estimates by Type</h3>
-              <div className="mt-3">
-                <TypeDonut buckets={typeBuckets} />
+              <h3 className="text-sm font-semibold text-slate-900">{wonPeriodLabel}</h3>
+              <div className="mt-3 space-y-0">
+                {won.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nothing won yet.</p>
+                ) : (
+                  <>
+                    <div className="mb-1 grid grid-cols-[52px_1fr_auto] gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span>Date</span>
+                      <span>Project</span>
+                      <span className="text-right">Value</span>
+                    </div>
+                    {won.slice(0, 5).map((estimate) => (
+                      <button
+                        key={estimate.id}
+                        type="button"
+                        onClick={() => setDetail(estimate)}
+                        className="grid w-full grid-cols-[52px_1fr_auto] items-center gap-2 border-t border-slate-100 py-2 text-left text-sm first:border-t-0"
+                      >
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatShortDate(estimate.won_date)}
+                        </span>
+                        <span className="min-w-0 truncate font-medium text-emerald-700">
+                          {estimateDisplayName(estimate)}
+                        </span>
+                        <span className="tabular-nums text-slate-800">
+                          {formatProjectAmount(estimate.amount)}
+                        </span>
+                      </button>
+                    ))}
+                    <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm font-semibold">
+                      <span className="text-slate-700">{totalPeriodLabel}</span>
+                      <span className="tabular-nums text-emerald-700">
+                        {formatPipelineValue(kpis.wonThisWeekAmount)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setView("won")}
+                      className="mt-2 text-xs font-medium text-emerald-700 hover:underline"
+                    >
+                      View all won
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">Upcoming Due Dates</h3>
-              <ul className="mt-4 space-y-2.5">
-                {[
-                  {
-                    label: "Overdue",
-                    count: dueBuckets.overdue,
-                    className: "bg-rose-50 text-rose-700",
-                    dot: "bg-rose-500",
-                  },
-                  {
-                    label: "Today",
-                    count: dueBuckets.today,
-                    className: "bg-rose-50 text-rose-700",
-                    dot: "bg-rose-500",
-                  },
-                  {
-                    label: "Tomorrow",
-                    count: dueBuckets.tomorrow,
-                    className: "bg-amber-50 text-amber-800",
-                    dot: "bg-amber-500",
-                  },
-                  {
-                    label: "This Week",
-                    count: dueBuckets.thisWeek,
-                    className: "bg-amber-50/70 text-amber-900",
-                    dot: "bg-amber-400",
-                  },
-                  {
-                    label: "Next Week",
-                    count: dueBuckets.nextWeek,
-                    className: "bg-emerald-50 text-emerald-800",
-                    dot: "bg-emerald-500",
-                  },
-                ].map((row) => (
-                  <li
-                    key={row.label}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
-                      row.className,
-                    )}
-                  >
-                    <span className="flex items-center gap-2 font-medium">
-                      <span className={cn("h-2 w-2 rounded-full", row.dot)} />
-                      {row.label}
-                    </span>
-                    <span className="tabular-nums font-semibold">{row.count}</span>
-                  </li>
-                ))}
-              </ul>
+              <h3 className="text-sm font-semibold text-slate-900">Estimates by Type</h3>
+              <div className="mt-3">
+                <TypeDonut buckets={typeBuckets} />
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -1269,6 +1313,125 @@ export function PipelineEstimatingTab() {
                         <TableCell>{estimatorName(estimate) ?? "—"}</TableCell>
                         <TableCell className="tabular-nums">
                           {formatShortDate(estimate.submitted_date)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {formatProjectAmount(estimate.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+                          >
+                            {estimateStageLabel(estimate.stage)}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="won" className="mt-4 min-w-0 space-y-4">
+          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b bg-slate-50/80 px-4 py-2.5">
+              <h3 className="text-sm font-semibold text-slate-900">{wonPeriodLabel}</h3>
+              <span className="text-sm font-semibold tabular-nums text-emerald-700">
+                {formatPipelineValue(kpis.wonThisWeekAmount)}
+              </span>
+            </div>
+            {won.length === 0 ? (
+              <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+                Nothing won in this period yet. Mark an estimate as won to log it here.
+              </p>
+            ) : isNarrow ? (
+              <ul className="divide-y divide-slate-100">
+                {won.map((estimate) => (
+                  <li key={estimate.id}>
+                    <button
+                      type="button"
+                      className="flex w-full flex-col gap-1.5 px-3 py-3 text-left active:bg-slate-50"
+                      onClick={() => setDetail(estimate)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-emerald-700">
+                            {estimateDisplayName(estimate)}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {estimate.client_name}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
+                          {formatProjectAmount(estimate.amount)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+                        >
+                          {estimateStageLabel(estimate.stage)}
+                        </Badge>
+                        <span
+                          className={cn(
+                            "inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium",
+                            estimateTypeBadgeClass(estimate.estimate_type),
+                          )}
+                        >
+                          {estimateTypeLabel(estimate.estimate_type)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="truncate">{estimatorName(estimate) ?? "—"}</span>
+                        <span className="tabular-nums">
+                          Won {formatShortDate(estimate.won_date)}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Package</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Estimator</TableHead>
+                      <TableHead>Won</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Stage</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {won.map((estimate) => (
+                      <TableRow
+                        key={estimate.id}
+                        className="cursor-pointer"
+                        onClick={() => setDetail(estimate)}
+                      >
+                        <TableCell className="font-medium text-emerald-700">
+                          {estimateDisplayName(estimate)}
+                        </TableCell>
+                        <TableCell>{estimate.client_name}</TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
+                              estimateTypeBadgeClass(estimate.estimate_type),
+                            )}
+                          >
+                            {estimateTypeLabel(estimate.estimate_type)}
+                          </span>
+                        </TableCell>
+                        <TableCell>{estimatorName(estimate) ?? "—"}</TableCell>
+                        <TableCell className="tabular-nums">
+                          {formatShortDate(estimate.won_date)}
                         </TableCell>
                         <TableCell className="text-right font-semibold tabular-nums">
                           {formatProjectAmount(estimate.amount)}

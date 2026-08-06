@@ -34,6 +34,7 @@ import { LeadContactDialog } from "@/components/pipeline/lead-contact-dialog";
 import { LeadFormDialog } from "@/components/pipeline/lead-form-dialog";
 import { LeadImportDialog } from "@/components/pipeline/lead-import-dialog";
 import { LeadKanban } from "@/components/pipeline/lead-kanban";
+import { PipelineDueBuckets } from "@/components/pipeline/pipeline-due-buckets";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import {
   PriorityColGroup,
@@ -73,6 +74,11 @@ import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { useLeadOwnerPriorityOrder } from "@/hooks/use-lead-owner-priority-order";
 import { usePermissions } from "@/hooks/use-permissions";
+import { usePipelineListFocus } from "@/hooks/use-pipeline-list-focus";
+import {
+  pipelineFocusLabel,
+  togglePipelineFocus,
+} from "@/lib/pipeline/focus";
 import {
   buildLeadFollowUpBuckets,
   buildLeadKpis,
@@ -90,6 +96,7 @@ import {
   leadSourceLabel,
   leadStatusBadgeClass,
   leadStatusLabel,
+  matchesLeadListFocus,
   newLeadsThisWeek,
   sortLeadPriorityItems,
   UNASSIGNED_LEAD_OWNER_ID,
@@ -526,6 +533,7 @@ export function PipelineLeadsTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(OPEN_ONLY);
   const [sourceFilter, setSourceFilter] = useState(ALL);
+  const [focus, setFocus] = usePipelineListFocus();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
@@ -572,6 +580,7 @@ export function PipelineLeadsTab() {
           return false;
         }
         if (sourceFilter !== ALL && lead.source !== sourceFilter) return false;
+        if (!matchesLeadListFocus(lead, focus, new Date(), settings)) return false;
         if (!q) return true;
         const haystack = [
           leadDisplayName(lead),
@@ -588,7 +597,18 @@ export function PipelineLeadsTab() {
         return haystack.includes(q);
       })
       .sort(compareLeadsForQueue);
-  }, [leads, search, statusFilter, sourceFilter, ownerName, settings]);
+  }, [leads, search, statusFilter, sourceFilter, focus, ownerName, settings]);
+
+  const applyFocus = useCallback(
+    (next: typeof focus) => {
+      setFocus(next);
+      if (next !== "all") {
+        setStatusFilter(OPEN_ONLY);
+        setView("table");
+      }
+    },
+    [setFocus, setView],
+  );
 
   const resolveOwnerName = useCallback(
     (ownerId: string) => {
@@ -689,11 +709,12 @@ export function PipelineLeadsTab() {
           {
             label: "Open Leads",
             value: String(kpis.openCount),
-            sub: "Active inquiries",
+            sub: focus === "all" ? "Active inquiries" : "Clear focus",
             icon: Users,
             accent: "sky",
             onClick: () => {
               setStatusFilter(OPEN_ONLY);
+              setFocus("all");
               setView("table");
             },
           },
@@ -703,6 +724,7 @@ export function PipelineLeadsTab() {
             sub: "Created",
             icon: CalendarPlus,
             accent: "emerald",
+            onClick: () => applyFocus(togglePipelineFocus(focus, "new_week")),
           },
           {
             label: "Follow-ups Due",
@@ -710,6 +732,7 @@ export function PipelineLeadsTab() {
             sub: "Today or overdue",
             icon: Bell,
             accent: "amber",
+            onClick: () => applyFocus(togglePipelineFocus(focus, "follow_ups")),
           },
           {
             label: "Expected Value",
@@ -825,6 +848,7 @@ export function PipelineLeadsTab() {
             {assignedOwnerCount > 0
               ? ` · ${assignedOwnerCount} owner${assignedOwnerCount === 1 ? "" : "s"}`
               : ""}
+            {focus !== "all" ? ` · focus: ${pipelineFocusLabel(focus)}` : ""}
           </p>
 
           {priorityGroups.length === 0 ? (
@@ -1071,57 +1095,12 @@ export function PipelineLeadsTab() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-900">Upcoming Follow-ups</h3>
-              <ul className="mt-4 space-y-2.5">
-                {[
-                  {
-                    label: "Overdue",
-                    count: followUpBuckets.overdue,
-                    className: "bg-rose-50 text-rose-700",
-                    dot: "bg-rose-500",
-                  },
-                  {
-                    label: "Today",
-                    count: followUpBuckets.today,
-                    className: "bg-rose-50 text-rose-700",
-                    dot: "bg-rose-500",
-                  },
-                  {
-                    label: "Tomorrow",
-                    count: followUpBuckets.tomorrow,
-                    className: "bg-amber-50 text-amber-800",
-                    dot: "bg-amber-500",
-                  },
-                  {
-                    label: "This Week",
-                    count: followUpBuckets.thisWeek,
-                    className: "bg-amber-50/70 text-amber-900",
-                    dot: "bg-amber-400",
-                  },
-                  {
-                    label: "Next Week",
-                    count: followUpBuckets.nextWeek,
-                    className: "bg-emerald-50 text-emerald-800",
-                    dot: "bg-emerald-500",
-                  },
-                ].map((row) => (
-                  <li
-                    key={row.label}
-                    className={cn(
-                      "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
-                      row.className,
-                    )}
-                  >
-                    <span className="flex items-center gap-2 font-medium">
-                      <span className={cn("h-2 w-2 rounded-full", row.dot)} />
-                      {row.label}
-                    </span>
-                    <span className="tabular-nums font-semibold">{row.count}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <PipelineDueBuckets
+              title="Upcoming Follow-ups"
+              buckets={followUpBuckets}
+              focus={focus}
+              onFocusChange={applyFocus}
+            />
           </div>
         </TabsContent>
 

@@ -11,11 +11,18 @@ import {
 } from "date-fns";
 
 import { daysLeftClass } from "@/lib/estimating/metrics";
+import {
+  matchesDueFocus,
+  parsePipelineDueDate,
+  type PipelineListFocus,
+} from "@/lib/pipeline/focus";
 import { designStageLabel } from "@/lib/queue/stages";
 import type { DesignQueueItem, DesignQueueStage, QueueHealth } from "@/lib/queue/types";
 import { filterAllocationsForWeek } from "@/lib/utilization";
 import { getWeekStart } from "@/lib/week";
 import type { Allocation, CompanySettings, Employee } from "@/types";
+
+export const UNASSIGNED_DESIGN_OWNER_ID = "__unassigned_design__";
 
 export interface DesignKpiSummary {
   activeCount: number;
@@ -374,18 +381,48 @@ export interface DesignPriorityGroup {
   items: DesignQueueItem[];
 }
 
+function matchesDesignListFocus(
+  item: DesignQueueItem,
+  focus: PipelineListFocus,
+  milestoneDates?: Map<string, string>,
+  now = new Date(),
+): boolean {
+  if (focus === "all") return true;
+  if (focus === "unassigned") return !item.project.lead_employee_id;
+  if (focus === "in_review") {
+    return item.stage === "in_review" || item.stage === "client_review";
+  }
+
+  const dueRaw = milestoneDates?.get(item.project.id) ?? item.dueDate;
+  const due = parsePipelineDueDate(dueRaw);
+  const dueMatch = matchesDueFocus(due, focus, now);
+  if (dueMatch != null) {
+    if (focus === "overdue") {
+      return dueMatch || item.health === "overdue";
+    }
+    return dueMatch;
+  }
+
+  return true;
+}
+
 /**
  * Priority queue grouped by lead designer.
- * Only assigned projects appear; designers with zero matching projects are omitted.
+ * Unassigned projects are omitted when focus is `all` (shown via the hidden count).
+ * When focus is set, matching unassigned projects appear in an Unassigned group.
  */
 export function buildDesignPriorityGroups(
   items: DesignQueueItem[],
   search = "",
+  focus: PipelineListFocus = "all",
+  milestoneDates?: Map<string, string>,
+  now = new Date(),
 ): DesignPriorityGroup[] {
   const q = search.trim().toLowerCase();
   const eligible = items.filter((item) => {
     if (item.stage === "complete") return false;
-    if (!item.project.lead_employee_id) return false;
+    if (!matchesDesignListFocus(item, focus, milestoneDates, now)) return false;
+    if (focus === "all" && !item.project.lead_employee_id) return false;
     if (!q) return true;
     const haystack = [
       item.project.project_name,
@@ -402,20 +439,35 @@ export function buildDesignPriorityGroups(
   });
 
   const byDesigner = new Map<string, DesignQueueItem[]>();
+  const unassigned: DesignQueueItem[] = [];
   for (const item of eligible) {
-    const id = item.project.lead_employee_id!;
+    const id = item.project.lead_employee_id;
+    if (!id) {
+      unassigned.push(item);
+      continue;
+    }
     const list = byDesigner.get(id) ?? [];
     list.push(item);
     byDesigner.set(id, list);
   }
 
-  return [...byDesigner.entries()]
+  const groups = [...byDesigner.entries()]
     .map(([designerId, groupItems]) => ({
       designerId,
       designerName: groupItems[0]?.leadName?.trim() || "Designer",
       items: groupItems,
     }))
     .sort((a, b) => a.designerName.localeCompare(b.designerName));
+
+  if (unassigned.length > 0) {
+    groups.push({
+      designerId: UNASSIGNED_DESIGN_OWNER_ID,
+      designerName: "Unassigned",
+      items: unassigned,
+    });
+  }
+
+  return groups;
 }
 
 export { designStageLabel, daysLeftClass };

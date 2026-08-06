@@ -16,6 +16,7 @@ import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards
 import type { PipelineMetricAccent } from "@/components/pipeline/pipeline-metric-cards";
 import { useScheduling } from "@/context/scheduling-context";
 import { buildEstimateKpis } from "@/lib/estimating/metrics";
+import type { PipelineListFocus } from "@/lib/pipeline/focus";
 import { buildLeadKpis, buildLeadSourceBuckets } from "@/lib/pipeline/leads";
 import {
   buildOverviewAttention,
@@ -341,10 +342,12 @@ export function PipelineOverviewTab() {
     [leads, estimates, jobs, leadKpis.followUpsDue],
   );
 
-  const goToTab = (tab: PipelineTabTarget) => {
+  const goToTab = (tab: PipelineTabTarget, focus?: PipelineListFocus) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("tab", tab);
     next.delete("view");
+    if (focus && focus !== "all") next.set("focus", focus);
+    else next.delete("focus");
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   };
 
@@ -357,6 +360,7 @@ export function PipelineOverviewTab() {
       label: "Follow-ups due",
       count: attention.followUpsDue,
       tab: "leads" as const,
+      focus: "follow_ups" as const,
       chip: "bg-amber-50 text-amber-800",
       dot: "bg-amber-500",
     },
@@ -364,6 +368,7 @@ export function PipelineOverviewTab() {
       label: "Estimates past due",
       count: attention.estimatesOverdue,
       tab: "estimating" as const,
+      focus: "overdue" as const,
       chip: "bg-rose-50 text-rose-700",
       dot: "bg-rose-500",
     },
@@ -371,6 +376,7 @@ export function PipelineOverviewTab() {
       label: "Design overdue",
       count: attention.designOverdue,
       tab: "design" as const,
+      focus: "overdue" as const,
       chip: "bg-rose-50 text-rose-700",
       dot: "bg-rose-500",
     },
@@ -378,6 +384,7 @@ export function PipelineOverviewTab() {
       label: "Jobs without owner",
       count: attention.unassignedJobs,
       tab: "design" as const,
+      focus: "unassigned" as const,
       chip: "bg-slate-50 text-slate-700",
       dot: "bg-slate-400",
     },
@@ -436,7 +443,7 @@ export function PipelineOverviewTab() {
             <li key={row.label}>
               <button
                 type="button"
-                onClick={() => goToTab(row.tab)}
+                onClick={() => goToTab(row.tab, row.focus)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-opacity hover:opacity-80",
                   row.count > 0 ? row.chip : "bg-slate-50/60 text-muted-foreground",

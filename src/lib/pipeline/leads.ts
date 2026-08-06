@@ -12,6 +12,11 @@ import {
 
 import { daysLeftClass } from "@/lib/estimating/metrics";
 import {
+  matchesDueFocus,
+  parsePipelineDueDate,
+  type PipelineListFocus,
+} from "@/lib/pipeline/focus";
+import {
   leadStageKind as resolveLeadStageKind,
   leadStageLabel as resolveLeadStageLabel,
   openLeadStageIds,
@@ -312,6 +317,31 @@ export function isLeadFollowUpDue(
   if (!isOpenLead(lead, settings)) return false;
   const days = leadFollowUpDaysLeft(lead, now);
   return days != null && days <= 0;
+}
+
+/** Whether a lead matches Pipeline list focus (metrics / follow-up buckets). */
+export function matchesLeadListFocus(
+  lead: Lead,
+  focus: PipelineListFocus,
+  now = new Date(),
+  settings?: CompanySettings,
+): boolean {
+  if (focus === "all") return true;
+  if (focus === "unassigned") return !lead.owner_employee_id;
+  if (focus === "new_week") {
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const created = parseDate(lead.created_at);
+    return Boolean(created && created >= weekStart);
+  }
+  if (focus === "follow_ups") {
+    return isLeadFollowUpDue(lead, now, settings);
+  }
+
+  const followUp = parsePipelineDueDate(lead.next_follow_up_date);
+  const dueMatch = matchesDueFocus(followUp, focus, now);
+  if (dueMatch != null) return dueMatch;
+
+  return true;
 }
 
 export function leadRowAccentClass(

@@ -12,6 +12,11 @@ import {
 import { daysLeftClass } from "@/lib/estimating/metrics";
 import type { PipelineJob } from "@/lib/pipeline/types";
 import type { QueueHealth } from "@/lib/queue/types";
+import {
+  matchesDueFocus,
+  parsePipelineDueDate,
+  type PipelineListFocus,
+} from "@/lib/pipeline/focus";
 import { filterAllocationsForWeek } from "@/lib/utilization";
 import { getWeekStart } from "@/lib/week";
 import type { Allocation, CompanySettings, Employee, Estimate } from "@/types";
@@ -62,7 +67,7 @@ export interface ConstructionTableFilters {
   pmId: string | "all";
   health: ConstructionHealthFilter;
   /** When set, only jobs with this attention focus. */
-  focus: "all" | "due_week" | "overdue" | "unassigned" | "recent_won";
+  focus: PipelineListFocus;
 }
 
 const PHASE_COLORS = [
@@ -75,12 +80,7 @@ const PHASE_COLORS = [
 ];
 
 function parseDue(value?: string): Date | null {
-  if (!value?.trim()) return null;
-  try {
-    return startOfDay(parseISO(value));
-  } catch {
-    return null;
-  }
+  return parsePipelineDueDate(value);
 }
 
 export function constructionJobs(jobs: PipelineJob[]): PipelineJob[] {
@@ -159,22 +159,19 @@ function matchesConstructionFilters(
 
   const dueRaw = milestoneDates?.get(job.projectId) ?? job.dueDate;
   const due = parseDue(dueRaw);
-  const today = startOfDay(now);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
-  switch (filters.focus) {
-    case "due_week":
-      return Boolean(due && isWithinInterval(due, { start: weekStart, end: weekEnd }));
-    case "overdue":
-      return Boolean(due && due < today) || job.health === "overdue";
-    case "unassigned":
-      return !job.ownerId;
-    case "recent_won":
-      return true;
-    default:
-      return true;
+  if (filters.focus === "unassigned") return !job.ownerId;
+  if (filters.focus === "recent_won") return true;
+
+  const dueMatch = matchesDueFocus(due, filters.focus, now);
+  if (dueMatch != null) {
+    if (filters.focus === "overdue") {
+      return dueMatch || job.health === "overdue";
+    }
+    return dueMatch;
   }
+
+  return true;
 }
 
 /**
