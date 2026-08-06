@@ -62,15 +62,23 @@ export function estimatingPriorityColWidths(includeActions: boolean): string[] {
   ];
 }
 
-/** Construction: Accent | Project | Phase | Contract $ | Due | Health */
-export const CONSTRUCTION_PRIORITY_COL_WIDTHS = [
-  "28px",
-  "34%",
-  "16%",
-  "14%",
-  "14%",
-  "14%",
-] as const;
+/** Construction: Priority | Project | Client | PM | Phase | Due | Contract $ | Health | Actions? */
+export function constructionPriorityColWidths(includeActions: boolean): string[] {
+  return [
+    "56px",
+    "18%",
+    "12%",
+    "12%",
+    "11%",
+    "10%",
+    "88px",
+    "11%",
+    ...(includeActions ? ["44px"] : []),
+  ];
+}
+
+/** @deprecated Prefer constructionPriorityColWidths(includeActions) */
+export const CONSTRUCTION_PRIORITY_COL_WIDTHS = constructionPriorityColWidths(false);
 
 export function priorityHeadClass(extra?: string) {
   return cn("px-3", extra);

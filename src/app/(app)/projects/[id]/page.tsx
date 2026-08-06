@@ -3,29 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { format, parseISO } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 
 import { ClientCrmLink } from "@/components/crm/client-crm-link";
-import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
-import { ProjectScheduleSection } from "@/components/projects/project-schedule-section";
 import { AppPage } from "@/components/layout/app-page";
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
+import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
+import { ProjectActualWorkSection } from "@/components/projects/project-actual-work-section";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { ProjectMergeDialog } from "@/components/projects/project-merge-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
+import { ProjectScheduleSection } from "@/components/projects/project-schedule-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
@@ -38,7 +30,6 @@ import {
 } from "@/lib/change-orders";
 import { formatProjectDepartment, formatProjectHours } from "@/lib/project-format";
 import { getProjectActualHours } from "@/lib/utilization";
-import { getEmployeeFullName } from "@/lib/week";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -48,11 +39,9 @@ export default function ProjectDetailPage() {
   const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "overview";
   const {
     projects,
-    allocations,
-    timeEntries,
     employees,
+    timeEntries,
     getEmployeeById,
-    getCategoryById,
     deleteChangeOrder,
   } = useScheduling();
   const { permissions } = usePermissions();
@@ -69,7 +58,7 @@ export default function ProjectDetailPage() {
         <Button variant="ghost" asChild className="mt-2 px-0">
           <Link href="/projects">Back to projects</Link>
         </Button>
-    </AppPage>
+      </AppPage>
     );
   }
 
@@ -87,10 +76,6 @@ export default function ProjectDetailPage() {
     ? getEmployeeById(project.lead_estimator_id)
     : null;
   const parentProject = isChangeOrder(project) ? getParentProject(projects, project) : undefined;
-
-  const projectAllocations = allocations
-    .filter((a) => a.project_id === project.id)
-    .sort((a, b) => b.allocation_date.localeCompare(a.allocation_date));
 
   const handleDeleteChangeOrder = () => {
     if (
@@ -156,165 +141,103 @@ export default function ProjectDetailPage() {
         </ScrollableTabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4 sm:mt-6 sm:space-y-6 print:hidden">
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
-              Department
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-            <p className="text-sm font-semibold sm:text-base">
-              {formatProjectDepartment(project.department)}
-            </p>
-            <p className="text-xs text-muted-foreground sm:text-sm">{project.phase}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
-              Budgeted hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-            <p className="text-xl font-bold sm:text-2xl">
-              {formatProjectHours(budgetedHours)}h
-            </p>
-            {showRollup && (
-              <p className="text-[11px] text-muted-foreground sm:text-sm">
-                {formatProjectHours(budgetRollup.baseBudgetHours)}h base +{" "}
-                {formatProjectHours(budgetRollup.changeOrderBudgetHours)}h COs
-              </p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
-              Actual
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-            <p className="text-xl font-bold sm:text-2xl">
-              {formatProjectHours(actualHours)}h
-            </p>
-            <p className="text-[11px] text-muted-foreground sm:text-sm">
-              {percentUsed}% of budget
-            </p>
-            {showRollup && hoursRollup.changeOrderActualHours > 0 && (
-              <p className="text-[11px] text-muted-foreground sm:text-sm">
-                {formatProjectHours(hoursRollup.baseActualHours)}h base +{" "}
-                {formatProjectHours(hoursRollup.changeOrderActualHours)}h COs
-              </p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
-              Remaining
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-            <p
-              className={`text-xl font-bold sm:text-2xl ${remaining < 0 ? "text-red-600" : ""}`}
-            >
-              {formatProjectHours(remaining)}h
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  Department
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                <p className="text-sm font-semibold sm:text-base">
+                  {formatProjectDepartment(project.department)}
+                </p>
+                <p className="text-xs text-muted-foreground sm:text-sm">{project.phase}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  Budgeted hours
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                <p className="text-xl font-bold sm:text-2xl">
+                  {formatProjectHours(budgetedHours)}h
+                </p>
+                {showRollup && (
+                  <p className="text-[11px] text-muted-foreground sm:text-sm">
+                    {formatProjectHours(budgetRollup.baseBudgetHours)}h base +{" "}
+                    {formatProjectHours(budgetRollup.changeOrderBudgetHours)}h COs
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  Actual
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                <p className="text-xl font-bold sm:text-2xl">
+                  {formatProjectHours(actualHours)}h
+                </p>
+                <p className="text-[11px] text-muted-foreground sm:text-sm">
+                  {percentUsed}% of budget
+                </p>
+                {showRollup && hoursRollup.changeOrderActualHours > 0 && (
+                  <p className="text-[11px] text-muted-foreground sm:text-sm">
+                    {formatProjectHours(hoursRollup.baseActualHours)}h base +{" "}
+                    {formatProjectHours(hoursRollup.changeOrderActualHours)}h COs
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground sm:text-sm">
+                  Remaining
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                <p
+                  className={`text-xl font-bold sm:text-2xl ${remaining < 0 ? "text-red-600" : ""}`}
+                >
+                  {formatProjectHours(remaining)}h
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      <ProjectDetailsCard
-        project={project}
-        lead={lead}
-        leadEstimator={leadEstimator}
-        budgetRollup={showRollup ? budgetRollup : undefined}
-        canEdit={permissions.editProjects}
-        onEdit={() => setEditDialogOpen(true)}
-        onMerge={
-          permissions.editProjects ? () => setMergeDialogOpen(true) : undefined
-        }
-        onDelete={
-          permissions.editProjects && isChangeOrder(project)
-            ? handleDeleteChangeOrder
-            : undefined
-        }
-      />
+          <ProjectDetailsCard
+            project={project}
+            lead={lead}
+            leadEstimator={leadEstimator}
+            budgetRollup={showRollup ? budgetRollup : undefined}
+            canEdit={permissions.editProjects}
+            onEdit={() => setEditDialogOpen(true)}
+            onMerge={
+              permissions.editProjects ? () => setMergeDialogOpen(true) : undefined
+            }
+            onDelete={
+              permissions.editProjects && isChangeOrder(project)
+                ? handleDeleteChangeOrder
+                : undefined
+            }
+          />
 
-      {isParentProject(project) && (
-        <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
-      )}
-
-      <ProjectNotesSection project={project} />
-
-      <Card>
-        <CardHeader className="p-4 sm:p-6">
-          <CardTitle className="text-base">
-            Scheduled work ({projectAllocations.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
-          {projectAllocations.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0">
-              No hours scheduled for this project yet.
-            </p>
-          ) : (
-            <>
-              <ul className="divide-y divide-slate-100 md:hidden">
-                {projectAllocations.map((alloc) => {
-                  const emp = employees.find((e) => e.id === alloc.employee_id);
-                  const cat = getCategoryById(alloc.allocation_category_id);
-                  return (
-                    <li key={alloc.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {emp ? getEmployeeFullName(emp) : "—"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(parseISO(alloc.allocation_date), "EEE, MMM d")}
-                          {cat?.name ? ` · ${cat.name}` : ""}
-                        </p>
-                      </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
-                        {alloc.hours}h
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Team member</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead className="text-right">Hours</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {projectAllocations.map((alloc) => {
-                      const emp = employees.find((e) => e.id === alloc.employee_id);
-                      const cat = getCategoryById(alloc.allocation_category_id);
-                      return (
-                        <TableRow key={alloc.id}>
-                          <TableCell>
-                            {format(parseISO(alloc.allocation_date), "EEE, MMM d, yyyy")}
-                          </TableCell>
-                          <TableCell>{emp ? getEmployeeFullName(emp) : "—"}</TableCell>
-                          <TableCell>{cat?.name ?? "—"}</TableCell>
-                          <TableCell className="text-right font-medium">{alloc.hours}h</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
+          {isParentProject(project) && (
+            <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
           )}
-        </CardContent>
-      </Card>
+
+          <ProjectNotesSection project={project} />
+
+          <ProjectActualWorkSection
+            projectId={project.id}
+            timeEntries={timeEntries}
+            employees={employees}
+          />
         </TabsContent>
 
         <TabsContent value="schedule" className="mt-4 sm:mt-6">
