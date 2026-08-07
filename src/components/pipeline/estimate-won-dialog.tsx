@@ -205,7 +205,7 @@ export function EstimateWonDialog({
             ) : (
               <>
                 Link <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
-                to a project and update the project&apos;s estimate amount
+                to a project as a contract and update the project&apos;s estimate amount
                 {wonAmount != null ? ` (${formatProjectAmount(wonAmount)})` : ""}.
               </>
             )}
@@ -335,7 +335,7 @@ export function EstimateWonDialog({
               {wonAmount != null
                 ? ` with estimate amount ${formatProjectAmount(wonAmount)}`
                 : ""}
-              .
+              . The won package becomes a Contract on that project.
             </p>
           ) : null}
 

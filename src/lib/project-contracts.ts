@@ -1,5 +1,5 @@
 import { estimateDisplayName } from "@/lib/estimating/metrics";
-import type { Estimate, EstimateFormValues, Project } from "@/types";
+import type { Estimate, EstimateFormValues, EstimateType, Project } from "@/types";
 
 /** Linked contract packages for a project (estimate_type === "contract"). */
 export function getContractsForProject(
@@ -69,4 +69,14 @@ export function buildContractEstimateDefaults(
 
 export function contractRowLabel(estimate: Estimate): string {
   return estimateDisplayName(estimate);
+}
+
+/**
+ * When a package is won and linked to a job, promote its type so it appears in
+ * Contracts (or Change Orders for CO flow).
+ */
+export function estimateTypeAfterWon(
+  mode: "existing" | "new" | "change_order",
+): EstimateType {
+  return mode === "change_order" ? "change_order" : "contract";
 }

@@ -68,6 +68,7 @@ import {
   getChangeOrdersForParent,
   isChangeOrder,
 } from "@/lib/change-orders";
+import { estimateTypeAfterWon } from "@/lib/project-contracts";
 import {
   applyProjectMergeState,
   validateProjectMerge,
@@ -230,8 +231,9 @@ interface SchedulingContextValue {
   convertLeadToProject: (id: string) => Project | null;
   /**
    * Marks an estimate as won, links it to a project (existing, newly created, or
-   * a new change order under a parent), and copies the estimate amount onto
-   * the project's estimate_value.
+   * a new change order under a parent), copies the estimate amount onto the
+   * project's estimate_value, and promotes the package to Contract (or Change
+   * order) so it appears on the project page.
    */
   applyWonEstimateToProject: (
     estimateId: string,
@@ -2539,6 +2541,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         stage: "won",
         result: "won",
         project_id: project!.id,
+        estimate_type: estimateTypeAfterWon(choice.mode),
         won_date: resolvedWonDate,
         submitted_date:
           existing.submitted_date || format(new Date(), "yyyy-MM-dd"),
