@@ -57,6 +57,18 @@ export interface Project {
   design_amount?: number;
   /** Construction estimate amount (DB: estimate_value). */
   estimate_value?: number;
+  /** WIP Schedule: actual cost incurred to date. */
+  wip_cost_to_date?: number;
+  /** WIP Schedule: remaining estimated cost to finish. */
+  wip_estimated_cost_to_complete?: number;
+  /** WIP Schedule: amount billed to client to date. */
+  wip_billings_to_date?: number;
+  /** WIP Schedule: optional provision for loss. */
+  wip_provision_for_loss?: number;
+  /** WIP Schedule: revenue recognized in prior fiscal years. */
+  wip_prior_fy_revenue?: number;
+  /** WIP Schedule: cost recognized in prior fiscal years. */
+  wip_prior_fy_cost?: number;
   start_date?: string;
   contract_date?: string;
   /** Design completion target (DB: target_completion_date). */

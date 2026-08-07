@@ -38,6 +38,7 @@ import {
 import { removeProjectFromQueue } from "@/lib/queue/queue-membership";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type { ProjectWipInputFields } from "@/lib/pipeline/wip-schedule";
 import type { SchedulingRepository } from "@/lib/repository";
 import {
   appendDepartment,
@@ -194,6 +195,8 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => Promise<boolean>;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
+  /** Patch WIP schedule entry fields on a project. */
+  updateProjectWipFields: (id: string, patch: Partial<ProjectWipInputFields>) => void;
   /** Deletes a change-order project only. Returns an error message when blocked. */
   deleteChangeOrder: (id: string) => { ok: true } | { ok: false; message: string };
   /** Moves source project data into target, then deletes the source. */
@@ -1229,6 +1232,32 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         const existing = prev.find((p) => p.id === id);
         if (!existing) return prev;
         const merged = projectFromFormValues(values, existing);
+        const next = prev.map((p) => (p.id === id ? merged : p));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.updateProject(merged),
+            () => setProjects(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setProjects((current) =>
+                current.map((p) => (p.id === id ? saved : p)),
+              );
+            }
+          });
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const updateProjectWipFields = useCallback(
+    (id: string, patch: Partial<ProjectWipInputFields>) => {
+      setProjects((prev) => {
+        const snapshot = prev;
+        const existing = prev.find((p) => p.id === id);
+        if (!existing) return prev;
+        const merged: Project = { ...existing, ...patch };
         const next = prev.map((p) => (p.id === id ? merged : p));
         if (repoRef.current) {
           void persistAsync(
@@ -2888,6 +2917,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateProjectWipFields,
       deleteChangeOrder,
       mergeProjects,
       addClient,
@@ -2982,6 +3012,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateProjectWipFields,
       deleteChangeOrder,
       mergeProjects,
       addClient,

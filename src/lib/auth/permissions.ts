@@ -27,6 +27,8 @@ export interface AppPermissions {
   manageTeamOptions: boolean;
   /** Invites, app roles, manual login links, permissions matrix */
   manageAppAccess: boolean;
+  /** Construction WIP schedule (cost / billing figures) */
+  viewWipSchedule: boolean;
 }
 
 export interface PermissionRow {
@@ -106,6 +108,13 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
     member: "Hidden",
     crew: "Hidden",
   },
+  {
+    label: "Pipeline — WIP schedule",
+    admin: "View and edit",
+    manager: "Hidden",
+    member: "Hidden",
+    crew: "Hidden",
+  },
 ];
 
 function adminPermissions(): AppPermissions {
@@ -131,6 +140,7 @@ function adminPermissions(): AppPermissions {
     deleteTeamMembers: true,
     manageTeamOptions: true,
     manageAppAccess: true,
+    viewWipSchedule: true,
   };
 }
 
@@ -157,6 +167,7 @@ function managerPermissions(): AppPermissions {
     deleteTeamMembers: false,
     manageTeamOptions: true,
     manageAppAccess: false,
+    viewWipSchedule: false,
   };
 }
 
@@ -183,6 +194,7 @@ function memberPermissions(): AppPermissions {
     deleteTeamMembers: false,
     manageTeamOptions: false,
     manageAppAccess: false,
+    viewWipSchedule: false,
   };
 }
 
@@ -209,6 +221,7 @@ function crewPermissions(): AppPermissions {
     deleteTeamMembers: false,
     manageTeamOptions: false,
     manageAppAccess: false,
+    viewWipSchedule: false,
   };
 }
 

@@ -53,6 +53,12 @@ type ProjectRow = {
   budgeted_design_hours: number;
   estimated_construction_value: number | null;
   estimate_value: number | null;
+  wip_cost_to_date: number | null;
+  wip_estimated_cost_to_complete: number | null;
+  wip_billings_to_date: number | null;
+  wip_provision_for_loss: number | null;
+  wip_prior_fy_revenue: number | null;
+  wip_prior_fy_cost: number | null;
   start_date: string | null;
   contract_date: string | null;
   target_completion_date: string | null;
@@ -177,6 +183,19 @@ export function mapProject(row: ProjectRow): Project {
         ? Number(row.estimated_construction_value)
         : undefined,
     estimate_value: row.estimate_value != null ? Number(row.estimate_value) : undefined,
+    wip_cost_to_date: row.wip_cost_to_date != null ? Number(row.wip_cost_to_date) : undefined,
+    wip_estimated_cost_to_complete:
+      row.wip_estimated_cost_to_complete != null
+        ? Number(row.wip_estimated_cost_to_complete)
+        : undefined,
+    wip_billings_to_date:
+      row.wip_billings_to_date != null ? Number(row.wip_billings_to_date) : undefined,
+    wip_provision_for_loss:
+      row.wip_provision_for_loss != null ? Number(row.wip_provision_for_loss) : undefined,
+    wip_prior_fy_revenue:
+      row.wip_prior_fy_revenue != null ? Number(row.wip_prior_fy_revenue) : undefined,
+    wip_prior_fy_cost:
+      row.wip_prior_fy_cost != null ? Number(row.wip_prior_fy_cost) : undefined,
     start_date: row.start_date ?? undefined,
     contract_date: row.contract_date ?? undefined,
     target_completion_date: row.target_completion_date ?? undefined,
@@ -674,6 +693,12 @@ export function projectToRow(project: Project) {
     budgeted_design_hours: project.budgeted_design_hours,
     estimated_construction_value: project.design_amount ?? null,
     estimate_value: project.estimate_value ?? null,
+    wip_cost_to_date: project.wip_cost_to_date ?? null,
+    wip_estimated_cost_to_complete: project.wip_estimated_cost_to_complete ?? null,
+    wip_billings_to_date: project.wip_billings_to_date ?? null,
+    wip_provision_for_loss: project.wip_provision_for_loss ?? null,
+    wip_prior_fy_revenue: project.wip_prior_fy_revenue ?? null,
+    wip_prior_fy_cost: project.wip_prior_fy_cost ?? null,
     start_date: project.start_date ?? null,
     contract_date: project.contract_date ?? null,
     target_completion_date: project.target_completion_date ?? null,
