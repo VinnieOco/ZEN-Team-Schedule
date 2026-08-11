@@ -24,6 +24,7 @@ interface PipelinePeriodNavigatorProps {
 const MODES: { value: PipelinePeriodMode; label: string }[] = [
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
+  { value: "year", label: "Year" },
   { value: "custom", label: "Custom" },
 ];
 

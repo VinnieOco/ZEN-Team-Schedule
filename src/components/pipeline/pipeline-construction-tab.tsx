@@ -15,6 +15,7 @@ import {
 import { ConstructionWipSchedule } from "@/components/pipeline/construction-wip-schedule";
 import { PipelineDueBuckets } from "@/components/pipeline/pipeline-due-buckets";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
+import { PipelinePeriodNavigator } from "@/components/pipeline/pipeline-period-navigator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,13 +42,21 @@ import {
   constructionJobs,
   constructionPhaseColor,
   listFilteredConstructionJobs,
-  recentWonEstimatesForConstruction,
+  wonEstimatesForConstruction,
   type ConstructionTableFilters,
 } from "@/lib/pipeline/construction";
 import {
   pipelineFocusLabel,
   togglePipelineFocus,
 } from "@/lib/pipeline/focus";
+import {
+  createDefaultPipelinePeriod,
+  formatPipelinePeriodLabel,
+  pipelinePeriodTotalLabel,
+  pipelinePeriodWonLabel,
+  resolvePipelinePeriodRange,
+  type PipelinePeriod,
+} from "@/lib/pipeline/period";
 import { formatPipelineValue, buildPipelineJobs } from "@/lib/pipeline/stages";
 import { formatProjectAmount } from "@/lib/project-format";
 import { cn } from "@/lib/utils";
@@ -136,10 +145,14 @@ export function PipelineConstructionTab() {
   const canViewWip = permissions.viewWipSchedule;
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [focus, setFocus] = usePipelineListFocus();
+  const [period, setPeriod] = useState<PipelinePeriod>(() => createDefaultPipelinePeriod());
   const tableFilters: ConstructionTableFilters = useMemo(
     () => ({ ...filters, focus }),
     [filters, focus],
   );
+  const periodRange = useMemo(() => resolvePipelinePeriodRange(period), [period]);
+  const wonPeriodLabel = pipelinePeriodWonLabel(period.mode);
+  const totalPeriodLabel = pipelinePeriodTotalLabel(period.mode);
 
   const jobs = useMemo(
     () => buildPipelineJobs(projects, timeEntries, getEmployeeById, { includeChangeOrders: true }),
@@ -156,11 +169,14 @@ export function PipelineConstructionTab() {
   }, [projects, projectMilestones]);
 
   const kpis = useMemo(
-    () => buildConstructionKpis(jobs, estimates, constructionMilestoneDates),
-    [jobs, estimates, constructionMilestoneDates],
+    () => buildConstructionKpis(jobs, estimates, constructionMilestoneDates, new Date(), periodRange),
+    [jobs, estimates, constructionMilestoneDates, periodRange],
   );
 
-  const recentWon = useMemo(() => recentWonEstimatesForConstruction(estimates), [estimates]);
+  const projectsWon = useMemo(
+    () => wonEstimatesForConstruction(estimates, periodRange),
+    [estimates, periodRange],
+  );
 
   const constructionJobsList = useMemo(() => {
     let items = listFilteredConstructionJobs(
@@ -170,14 +186,14 @@ export function PipelineConstructionTab() {
     );
     if (focus === "recent_won") {
       const linkedIds = new Set(
-        recentWon
+        projectsWon
           .map((estimate) => estimate.project_id)
           .filter((id): id is string => Boolean(id)),
       );
       items = items.filter((job) => linkedIds.has(job.projectId));
     }
     return items;
-  }, [jobs, tableFilters, constructionMilestoneDates, focus, recentWon]);
+  }, [jobs, tableFilters, constructionMilestoneDates, focus, projectsWon]);
 
   const workload = useMemo(
     () =>
@@ -225,6 +241,8 @@ export function PipelineConstructionTab() {
 
   return (
     <div className="space-y-5">
+      <PipelinePeriodNavigator period={period} onPeriodChange={setPeriod} />
+
       <PipelineMetricCards
         columns={6}
         items={[
@@ -268,9 +286,9 @@ export function PipelineConstructionTab() {
             onClick: () => setFocus(togglePipelineFocus(focus, "unassigned")),
           },
           {
-            label: "Recently won",
-            value: String(kpis.recentlyWonCount),
-            sub: "Last 30 days",
+            label: "Projects won",
+            value: String(kpis.projectsWonCount),
+            sub: formatPipelineValue(kpis.projectsWonAmount),
             icon: Sparkles,
             accent: "violet",
             onClick: () => setFocus(togglePipelineFocus(focus, "recent_won")),
@@ -278,16 +296,26 @@ export function PipelineConstructionTab() {
         ]}
       />
 
-      {recentWon.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-          <div className="border-b bg-amber-50/60 px-4 py-2.5">
-            <h3 className="text-sm font-semibold text-slate-900">Recently won</h3>
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="flex flex-col gap-1 border-b bg-amber-50/60 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-slate-900">Projects won</h3>
             <p className="text-xs text-muted-foreground">
-              Estimates marked won — linked projects should be in Construction.
+              {wonPeriodLabel} · {formatPipelinePeriodLabel(period)}. Linked projects should be in
+              Construction.
             </p>
           </div>
+          <span className="text-sm font-semibold tabular-nums text-emerald-700">
+            {formatPipelineValue(kpis.projectsWonAmount)}
+          </span>
+        </div>
+        {projectsWon.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+            Nothing won in this period yet. Mark an estimate as won to log it here.
+          </p>
+        ) : (
           <ul className="divide-y">
-            {recentWon.map((estimate) => {
+            {projectsWon.map((estimate) => {
               const project = estimate.project_id
                 ? getProjectById(estimate.project_id)
                 : undefined;
@@ -323,9 +351,15 @@ export function PipelineConstructionTab() {
                 </li>
               );
             })}
+            <li className="flex items-center justify-between gap-3 bg-slate-50/80 px-4 py-2.5 text-sm font-semibold">
+              <span className="text-slate-700">{totalPeriodLabel}</span>
+              <span className="tabular-nums text-emerald-700">
+                {formatPipelineValue(kpis.projectsWonAmount)}
+              </span>
+            </li>
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm lg:flex-row lg:items-end">
         <div className="min-w-0 flex-1 space-y-1.5 sm:min-w-[160px]">

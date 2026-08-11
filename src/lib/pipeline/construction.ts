@@ -29,7 +29,9 @@ export interface ConstructionKpiSummary {
   dueThisWeek: number;
   overdueCount: number;
   unassignedCount: number;
-  recentlyWonCount: number;
+  /** Won estimates in the selected period (won_date). */
+  projectsWonCount: number;
+  projectsWonAmount: number;
 }
 
 export interface ConstructionPriorityGroup {
@@ -92,11 +94,14 @@ export function buildConstructionKpis(
   estimates: Estimate[],
   milestoneDates?: Map<string, string>,
   now = new Date(),
+  periodRange?: { start: Date; end: Date },
 ): ConstructionKpiSummary {
   const active = constructionJobs(jobs);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
   const today = startOfDay(now);
+  const wonRangeStart = periodRange?.start ?? weekStart;
+  const wonRangeEnd = periodRange?.end ?? weekEnd;
 
   const effectiveDue = (job: PipelineJob) =>
     milestoneDates?.get(job.projectId) ?? job.dueDate;
@@ -110,13 +115,10 @@ export function buildConstructionKpis(
     else if (isWithinInterval(due, { start: weekStart, end: weekEnd })) dueThisWeek += 1;
   }
 
-  const thirtyDaysAgo = startOfDay(new Date(now));
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const recentlyWonCount = estimates.filter((estimate) => {
-    if (estimate.result !== "won" && estimate.stage !== "won") return false;
-    const won = parseDue(estimate.won_date);
-    return won ? won >= thirtyDaysAgo : false;
-  }).length;
+  const projectsWon = wonEstimatesForConstruction(estimates, {
+    start: wonRangeStart,
+    end: wonRangeEnd,
+  });
 
   return {
     activeCount: active.length,
@@ -124,7 +126,8 @@ export function buildConstructionKpis(
     dueThisWeek,
     overdueCount,
     unassignedCount: active.filter((job) => !job.ownerId).length,
-    recentlyWonCount,
+    projectsWonCount: projectsWon.length,
+    projectsWonAmount: projectsWon.reduce((sum, estimate) => sum + (estimate.amount ?? 0), 0),
   };
 }
 
@@ -392,14 +395,20 @@ export function buildConstructionDueBuckets(
   return buckets;
 }
 
-export function recentWonEstimatesForConstruction(
+/** Won estimates whose won_date falls in the selected period. */
+export function wonEstimatesForConstruction(
   estimates: Estimate[],
-  limit = 8,
+  periodRange: { start: Date; end: Date },
 ): Estimate[] {
   return estimates
-    .filter((e) => e.stage === "won" || e.result === "won")
-    .sort((a, b) => (b.won_date ?? "").localeCompare(a.won_date ?? ""))
-    .slice(0, limit);
+    .filter((estimate) => {
+      if (estimate.result !== "won" && estimate.stage !== "won") return false;
+      const won = parseDue(estimate.won_date);
+      return won
+        ? isWithinInterval(won, { start: periodRange.start, end: periodRange.end })
+        : false;
+    })
+    .sort((a, b) => (b.won_date ?? "").localeCompare(a.won_date ?? ""));
 }
 
 export function constructionDaysLeft(dueDate: string | undefined, now = new Date()): number | null {

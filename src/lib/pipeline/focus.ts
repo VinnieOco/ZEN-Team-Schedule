@@ -71,7 +71,7 @@ export function pipelineFocusLabel(focus: PipelineListFocus): string {
     case "in_review":
       return "in review";
     case "recent_won":
-      return "recently won";
+      return "projects won";
   }
 }
 
