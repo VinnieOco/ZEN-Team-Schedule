@@ -4,15 +4,11 @@ import {
   buildWonEstimateFromLegacyChangeOrder,
   changeOrderCountsTowardEstimate,
   findEstimateConvertedFromLegacyCo,
-  findHoursProjectForEstimate,
   getChangeOrderEstimatesForProject,
   getPendingChangeOrderEstimatesForProject,
-  HOURS_PROJECT_NOTE_PREFIX,
   LEGACY_CO_PROJECT_NOTE_PREFIX,
   legacyChangeOrdersNeedingConversion,
   summarizeChangeOrderEstimates,
-  withHoursProjectNote,
-  wonChangeOrdersNeedingHoursProject,
 } from "@/lib/change-orders";
 import type { Estimate, Project } from "@/types";
 
@@ -125,7 +121,7 @@ describe("change order project packages", () => {
 });
 
 describe("legacy change order conversion", () => {
-  it("builds a won package marked with legacy + hours project ids", () => {
+  it("builds a won package marked with the legacy project id", () => {
     const parent = project({ id: "parent", project_name: "Main Job" });
     const co = project({
       id: "co-1",
@@ -144,10 +140,8 @@ describe("legacy change order conversion", () => {
     expect(converted.result).toBe("won");
     expect(converted.amount).toBe(12_500);
     expect(converted.title).toBe("Main Job — CO-01");
-    expect(converted.notes).toContain(`${LEGACY_CO_PROJECT_NOTE_PREFIX}co-1`);
-    expect(converted.notes).toContain(`${HOURS_PROJECT_NOTE_PREFIX}co-1`);
+    expect(converted.notes).toBe(`${LEGACY_CO_PROJECT_NOTE_PREFIX}co-1`);
     expect(findEstimateConvertedFromLegacyCo([converted], "co-1")?.id).toBe("pkg-1");
-    expect(findHoursProjectForEstimate([co], converted)?.id).toBe("co-1");
   });
 
   it("only lists legacy COs that still need conversion", () => {
@@ -174,49 +168,11 @@ describe("legacy change order conversion", () => {
         project_id: "parent",
         stage: "won",
         result: "won",
-        notes: `${LEGACY_CO_PROJECT_NOTE_PREFIX}co-a ${HOURS_PROJECT_NOTE_PREFIX}co-a`,
+        notes: `${LEGACY_CO_PROJECT_NOTE_PREFIX}co-a`,
       }),
     ];
 
     const needing = legacyChangeOrdersNeedingConversion(projects, estimates, "parent");
     expect(needing.map((p) => p.id)).toEqual(["co-b"]);
-  });
-
-  it("flags won packages that lost their hours project", () => {
-    const projects = [project({ id: "parent", project_name: "Main" })];
-    const estimates = [
-      estimate({
-        id: "pkg-a",
-        project_id: "parent",
-        stage: "won",
-        result: "won",
-        amount: 5_000,
-        notes: `${HOURS_PROJECT_NOTE_PREFIX}missing-co`,
-      }),
-      estimate({
-        id: "pkg-b",
-        project_id: "parent",
-        stage: "won",
-        result: "won",
-        amount: 2_000,
-        notes: withHoursProjectNote(undefined, "still-here"),
-      }),
-    ];
-    const withHours = [
-      ...projects,
-      project({
-        id: "still-here",
-        project_name: "CO B",
-        parent_project_id: "parent",
-        is_change_order: true,
-      }),
-    ];
-
-    expect(
-      wonChangeOrdersNeedingHoursProject(projects, estimates, "parent").map((e) => e.id),
-    ).toEqual(["pkg-a", "pkg-b"]);
-    expect(
-      wonChangeOrdersNeedingHoursProject(withHours, estimates, "parent").map((e) => e.id),
-    ).toEqual(["pkg-a"]);
   });
 });

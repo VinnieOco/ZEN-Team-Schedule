@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ChevronDown, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 
 import { EstimateDetailDialog } from "@/components/pipeline/estimate-detail-dialog";
 import { EstimateFormDialog } from "@/components/pipeline/estimate-form-dialog";
@@ -21,7 +20,6 @@ import {
 import { useScheduling } from "@/context/scheduling-context";
 import {
   buildChangeOrderEstimateDefaults,
-  findHoursProjectForEstimate,
   formatChangeOrderPackageRollup,
   getChangeOrderEstimatesForProject,
   getChangeOrdersForParent,
@@ -34,8 +32,7 @@ import {
   estimateStageLabel,
   estimateTypeLabel,
 } from "@/lib/estimating/metrics";
-import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
-import { getProjectActualHours } from "@/lib/utilization";
+import { formatProjectAmount } from "@/lib/project-format";
 import { cn } from "@/lib/utils";
 import { getEmployeeFullName } from "@/lib/week";
 import type { Estimate, Project } from "@/types";
@@ -51,86 +48,60 @@ function PackageRows({
   packages,
   canEdit,
   estimatorName,
-  hoursProjectFor,
-  actualHoursFor,
   onOpen,
   onDelete,
-  showHoursLink,
 }: {
   packages: Estimate[];
   canEdit: boolean;
   estimatorName: (estimate: Estimate) => string | undefined;
-  hoursProjectFor?: (estimate: Estimate) => Project | undefined;
-  actualHoursFor?: (hoursProject: Project) => number;
   onOpen: (estimate: Estimate) => void;
   onDelete: (estimate: Estimate) => void;
-  showHoursLink?: boolean;
 }) {
   return (
     <>
       <ul className="divide-y divide-slate-100 md:hidden">
-        {packages.map((estimate) => {
-          const hoursProject = hoursProjectFor?.(estimate);
-          const actual = hoursProject && actualHoursFor ? actualHoursFor(hoursProject) : null;
-          return (
-            <li key={estimate.id} className="space-y-2 px-4 py-3">
-              <div className="flex items-start justify-between gap-2">
-                <button
+        {packages.map((estimate) => (
+          <li key={estimate.id} className="space-y-2 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => onOpen(estimate)}
+                className="min-w-0 text-left font-medium text-emerald-700 hover:underline"
+              >
+                {estimateDisplayName(estimate)}
+              </button>
+              {canEdit ? (
+                <Button
                   type="button"
-                  onClick={() => onOpen(estimate)}
-                  className="min-w-0 text-left font-medium text-emerald-700 hover:underline"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                  onClick={() => onDelete(estimate)}
+                  aria-label={`Delete ${estimateDisplayName(estimate)}`}
                 >
-                  {estimateDisplayName(estimate)}
-                </button>
-                {canEdit ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                    onClick={() => onDelete(estimate)}
-                    aria-label={`Delete ${estimateDisplayName(estimate)}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge
-                  variant="secondary"
-                  className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
-                >
-                  {estimateStageLabel(estimate.stage)}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {estimateTypeLabel(estimate.estimate_type)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2 text-xs tabular-nums">
-                <span className="text-muted-foreground">
-                  {estimatorName(estimate) ?? "Unassigned"}
-                </span>
-                <span className="font-medium">{formatProjectAmount(estimate.amount)}</span>
-              </div>
-              {showHoursLink && hoursProject ? (
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <Link
-                    href={`/projects/${hoursProject.id}`}
-                    className="inline-flex items-center gap-1 text-slate-600 hover:underline"
-                  >
-                    Enter time
-                    <ExternalLink className="h-3 w-3 opacity-50" />
-                  </Link>
-                  {actual != null ? (
-                    <span className="tabular-nums text-muted-foreground">
-                      {formatProjectHours(actual)}h logged
-                    </span>
-                  ) : null}
-                </div>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               ) : null}
-            </li>
-          );
-        })}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant="secondary"
+                className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+              >
+                {estimateStageLabel(estimate.stage)}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {estimateTypeLabel(estimate.estimate_type)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2 text-xs tabular-nums">
+              <span className="text-muted-foreground">
+                {estimatorName(estimate) ?? "Unassigned"}
+              </span>
+              <span className="font-medium">{formatProjectAmount(estimate.amount)}</span>
+            </div>
+          </li>
+        ))}
       </ul>
 
       <div className="hidden overflow-x-auto md:block">
@@ -140,72 +111,48 @@ function PackageRows({
               <TableHead>Name</TableHead>
               <TableHead>Stage</TableHead>
               <TableHead>Estimator</TableHead>
-              {showHoursLink ? <TableHead>Time</TableHead> : null}
               <TableHead className="text-right">Amount</TableHead>
               {canEdit ? <TableHead className="w-[1%] text-right"> </TableHead> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {packages.map((estimate) => {
-              const hoursProject = hoursProjectFor?.(estimate);
-              const actual =
-                hoursProject && actualHoursFor ? actualHoursFor(hoursProject) : null;
-              return (
-                <TableRow
-                  key={estimate.id}
-                  className="cursor-pointer"
-                  onClick={() => onOpen(estimate)}
-                >
-                  <TableCell className="font-medium text-emerald-700">
-                    {estimateDisplayName(estimate)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+            {packages.map((estimate) => (
+              <TableRow
+                key={estimate.id}
+                className="cursor-pointer"
+                onClick={() => onOpen(estimate)}
+              >
+                <TableCell className="font-medium text-emerald-700">
+                  {estimateDisplayName(estimate)}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="secondary"
+                    className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+                  >
+                    {estimateStageLabel(estimate.stage)}
+                  </Badge>
+                </TableCell>
+                <TableCell>{estimatorName(estimate) ?? "—"}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatProjectAmount(estimate.amount)}
+                </TableCell>
+                {canEdit ? (
+                  <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                      onClick={() => onDelete(estimate)}
+                      aria-label={`Delete ${estimateDisplayName(estimate)}`}
                     >
-                      {estimateStageLabel(estimate.stage)}
-                    </Badge>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
-                  <TableCell>{estimatorName(estimate) ?? "—"}</TableCell>
-                  {showHoursLink ? (
-                    <TableCell onClick={(event) => event.stopPropagation()}>
-                      {hoursProject ? (
-                        <Link
-                          href={`/projects/${hoursProject.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-slate-600 hover:underline"
-                        >
-                          {actual != null ? `${formatProjectHours(actual)}h` : "Enter time"}
-                          <ExternalLink className="h-3 w-3 opacity-50" />
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                  ) : null}
-                  <TableCell className="text-right tabular-nums">
-                    {formatProjectAmount(estimate.amount)}
-                  </TableCell>
-                  {canEdit ? (
-                    <TableCell
-                      className="text-right"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                        onClick={() => onDelete(estimate)}
-                        aria-label={`Delete ${estimateDisplayName(estimate)}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              );
-            })}
+                ) : null}
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
@@ -217,7 +164,6 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
   const {
     projects,
     estimates,
-    timeEntries,
     getEmployeeById,
     deleteEstimate,
     migrateLegacyChangeOrdersForParent,
@@ -228,10 +174,11 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
   const [wonEstimateId, setWonEstimateId] = useState<string | null>(null);
   const [showAllWon, setShowAllWon] = useState(false);
 
-  // Ensure packages for $ + hours-only child projects for timesheets.
+  // One-shot: convert older CO project rows into won Estimating packages, then merge away.
   useEffect(() => {
+    if (getChangeOrdersForParent(projects, project.id).length === 0) return;
     migrateLegacyChangeOrdersForParent(project.id);
-  }, [project.id, projects, estimates, migrateLegacyChangeOrdersForParent]);
+  }, [project.id, projects, migrateLegacyChangeOrdersForParent]);
 
   const pendingPackages = useMemo(
     () => getPendingChangeOrderEstimatesForProject(estimates, project.id),
@@ -256,13 +203,9 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
   const visibleWon = showAllWon ? wonPackages : wonPackages.slice(0, WON_PREVIEW_COUNT);
   const hiddenWonCount = Math.max(0, wonPackages.length - WON_PREVIEW_COUNT);
   const packageRollup = formatChangeOrderPackageRollup(packageSummary);
-  const hoursJobCount = getChangeOrdersForParent(projects, project.id).length;
   const wonDescription = [
     "Change orders that count toward this job's Estimate amount.",
     packageRollup,
-    hoursJobCount > 0
-      ? `Enter time against the linked CO job (${hoursJobCount} available in timesheets).`
-      : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -277,12 +220,6 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
     const employee = getEmployeeById(estimate.estimator_id);
     return employee ? getEmployeeFullName(employee) : undefined;
   };
-
-  const hoursProjectFor = (estimate: Estimate) =>
-    findHoursProjectForEstimate(projects, estimate);
-
-  const actualHoursFor = (hoursProject: Project) =>
-    getProjectActualHours(timeEntries, hoursProject.id);
 
   const openNew = () => {
     setEditing(null);
@@ -362,9 +299,6 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                 packages={visibleWon}
                 canEdit={canEdit}
                 estimatorName={estimatorName}
-                hoursProjectFor={hoursProjectFor}
-                actualHoursFor={actualHoursFor}
-                showHoursLink
                 onOpen={setDetail}
                 onDelete={handleDeletePackage}
               />
