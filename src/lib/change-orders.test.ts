@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildWonEstimateFromLegacyChangeOrder,
   changeOrderCountsTowardEstimate,
-  findEstimateConvertedFromLegacyCo,
   getChangeOrderEstimatesForProject,
   getPendingChangeOrderEstimatesForProject,
-  LEGACY_CO_PROJECT_NOTE_PREFIX,
-  legacyChangeOrdersNeedingConversion,
   summarizeChangeOrderEstimates,
 } from "@/lib/change-orders";
-import type { Estimate, Project } from "@/types";
+import type { Estimate } from "@/types";
 
 function estimate(partial: Partial<Estimate> & Pick<Estimate, "id">): Estimate {
   return {
@@ -23,17 +19,6 @@ function estimate(partial: Partial<Estimate> & Pick<Estimate, "id">): Estimate {
     sort_order: 0,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
-    ...partial,
-  };
-}
-
-function project(partial: Partial<Project> & Pick<Project, "id" | "project_name">): Project {
-  return {
-    client_name: "Client",
-    department: "Construction",
-    phase: "Construction",
-    budgeted_design_hours: 0,
-    active: true,
     ...partial,
   };
 }
@@ -117,62 +102,5 @@ describe("change order project packages", () => {
 
     const pending = getPendingChangeOrderEstimatesForProject(estimates, "p1");
     expect(pending.map((e) => e.id).sort()).toEqual(["1", "4"]);
-  });
-});
-
-describe("legacy change order conversion", () => {
-  it("builds a won package marked with the legacy project id", () => {
-    const parent = project({ id: "parent", project_name: "Main Job" });
-    const co = project({
-      id: "co-1",
-      project_name: "Main Job — CO-01",
-      parent_project_id: "parent",
-      is_change_order: true,
-      estimate_value: 12_500,
-      contract_date: "2026-07-01",
-      lead_estimator_id: "est-1",
-    });
-
-    const converted = buildWonEstimateFromLegacyChangeOrder(co, parent, "pkg-1");
-    expect(converted.project_id).toBe("parent");
-    expect(converted.estimate_type).toBe("change_order");
-    expect(converted.stage).toBe("won");
-    expect(converted.result).toBe("won");
-    expect(converted.amount).toBe(12_500);
-    expect(converted.title).toBe("Main Job — CO-01");
-    expect(converted.notes).toBe(`${LEGACY_CO_PROJECT_NOTE_PREFIX}co-1`);
-    expect(findEstimateConvertedFromLegacyCo([converted], "co-1")?.id).toBe("pkg-1");
-  });
-
-  it("only lists legacy COs that still need conversion", () => {
-    const projects = [
-      project({ id: "parent", project_name: "Main" }),
-      project({
-        id: "co-a",
-        project_name: "CO A",
-        parent_project_id: "parent",
-        is_change_order: true,
-        estimate_value: 1_000,
-      }),
-      project({
-        id: "co-b",
-        project_name: "CO B",
-        parent_project_id: "parent",
-        is_change_order: true,
-        estimate_value: 2_000,
-      }),
-    ];
-    const estimates = [
-      estimate({
-        id: "pkg-a",
-        project_id: "parent",
-        stage: "won",
-        result: "won",
-        notes: `${LEGACY_CO_PROJECT_NOTE_PREFIX}co-a`,
-      }),
-    ];
-
-    const needing = legacyChangeOrdersNeedingConversion(projects, estimates, "parent");
-    expect(needing.map((p) => p.id)).toEqual(["co-b"]);
   });
 });

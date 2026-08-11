@@ -108,68 +108,6 @@ export function changeOrderEstimateRowLabel(estimate: Estimate): string {
   return estimateDisplayName(estimate);
 }
 
-/** Marker stored on estimates created from legacy CO project rows. */
-export const LEGACY_CO_PROJECT_NOTE_PREFIX = "legacy_co_project_id:";
-
-export function legacyCoProjectIdFromEstimateNotes(notes?: string): string | undefined {
-  if (!notes?.includes(LEGACY_CO_PROJECT_NOTE_PREFIX)) return undefined;
-  const match = notes.match(new RegExp(`${LEGACY_CO_PROJECT_NOTE_PREFIX}([^\\s]+)`));
-  return match?.[1];
-}
-
-export function findEstimateConvertedFromLegacyCo(
-  estimates: Estimate[],
-  coProjectId: string,
-): Estimate | undefined {
-  return estimates.find(
-    (estimate) => legacyCoProjectIdFromEstimateNotes(estimate.notes) === coProjectId,
-  );
-}
-
-/** Legacy CO project rows under a parent that still need a won Estimating package. */
-export function legacyChangeOrdersNeedingConversion(
-  projects: Project[],
-  estimates: Estimate[],
-  parentId: string,
-): Project[] {
-  return getChangeOrdersForParent(projects, parentId).filter(
-    (co) => !findEstimateConvertedFromLegacyCo(estimates, co.id),
-  );
-}
-
-/**
- * Build a won change-order estimate package from an older CO project record.
- * Dollar amount moves to Estimating; the project row can then be merged/retired.
- */
-export function buildWonEstimateFromLegacyChangeOrder(
-  co: Project,
-  parent: Project,
-  id: string,
-  now = new Date(),
-): Estimate {
-  const iso = now.toISOString();
-  const amount = getProjectEstimateValue(co) ?? getProjectDesignAmount(co);
-  return {
-    id,
-    client_name: parent.client_name,
-    project_id: parent.id,
-    title: co.project_name,
-    estimate_type: "change_order",
-    revision_number: 0,
-    estimator_id: co.lead_estimator_id,
-    amount: amount != null && Number.isFinite(amount) ? amount : undefined,
-    stage: "won",
-    result: "won",
-    won_date: co.contract_date ?? iso.slice(0, 10),
-    submitted_date: co.contract_date ?? iso.slice(0, 10),
-    checklist: [],
-    notes: `${LEGACY_CO_PROJECT_NOTE_PREFIX}${co.id}`,
-    sort_order: 0,
-    created_at: iso,
-    updated_at: iso,
-  };
-}
-
 export function getParentProject(projects: Project[], project: Project): Project | undefined {
   if (!project.parent_project_id) return undefined;
   return projects.find((p) => p.id === project.parent_project_id);
@@ -265,11 +203,9 @@ export function getProjectBudgetRollup(
   // otherwise fall back to the project's estimate_value field.
   const baseEstimateAmount =
     contractSummary.count > 0 ? contractSummary.totalAmount : projectEstimateValue;
-  // Won Estimating packages + any remaining legacy CO project estimate_value
-  // (legacy amounts are cleared when converted to packages).
   const changeOrderEstimateAmount =
-    estimateCoSummary.totalAmount + coSummary.totalEstimateAmount;
-  const changeOrderCount = estimateCoSummary.count + coSummary.count;
+    coSummary.totalEstimateAmount + estimateCoSummary.totalAmount;
+  const changeOrderCount = coSummary.count + estimateCoSummary.count;
 
   return {
     baseBudgetHours: project.budgeted_design_hours,

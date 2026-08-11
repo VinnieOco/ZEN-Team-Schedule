@@ -64,9 +64,9 @@ import {
 } from "@/lib/clients";
 import { projectFromFormValues, projectToFormValues } from "@/lib/project-form";
 import {
-  buildWonEstimateFromLegacyChangeOrder,
+  buildChangeOrderFormDefaults,
+  getChangeOrdersForParent,
   isChangeOrder,
-  legacyChangeOrdersNeedingConversion,
 } from "@/lib/change-orders";
 import { estimateTypeAfterWon } from "@/lib/project-contracts";
 import {
@@ -202,11 +202,6 @@ interface SchedulingContextValue {
   deleteChangeOrder: (id: string) => { ok: true } | { ok: false; message: string };
   /** Moves source project data into target, then deletes the source. */
   mergeProjects: (sourceId: string, targetId: string) => ProjectMergeActionResult;
-  /**
-   * Converts older CO project rows under a parent into won Estimating packages,
-   * then merges each child into the parent (hours/time fold in; $ lives on packages).
-   */
-  migrateLegacyChangeOrdersForParent: (parentId: string) => number;
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
   /** Sync address, phone, and email to registry + every project for this client key. */
   updateClientContact: (
@@ -352,8 +347,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const useSupabase = isSupabaseConfigured();
   const { profile } = useAuth();
   const repoRef = useRef<SchedulingRepository | null>(null);
-  /** Prevents double conversion of legacy CO projects in Strict Mode / re-entry. */
-  const legacyCoMigrationDoneRef = useRef(new Set<string>());
   const milestoneSyncSeqRef = useRef(new Map<string, number>());
   /** Inclusive YYYY-MM-DD window currently held in allocations / timeEntries. */
   const loadedOperationalRangeRef = useRef<InclusiveDateRange | null>(null);
@@ -1423,123 +1416,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         targetId,
         targetName: next.mergedTarget.project_name,
       };
-    },
-    [
-      projects,
-      projectNotes,
-      projectPhases,
-      projectMilestones,
-      todos,
-      estimates,
-      allocations,
-      timeEntries,
-      leads,
-      persistAsync,
-    ],
-  );
-
-  const migrateLegacyChangeOrdersForParent = useCallback(
-    (parentId: string): number => {
-      if (legacyCoMigrationDoneRef.current.has(parentId)) return 0;
-
-      const parent = projects.find((p) => p.id === parentId);
-      if (!parent || isChangeOrder(parent)) return 0;
-
-      const needing = legacyChangeOrdersNeedingConversion(projects, estimates, parentId);
-      if (needing.length === 0) return 0;
-
-      legacyCoMigrationDoneRef.current.add(parentId);
-
-      const projectsSnapshot = projects;
-      const notesSnapshot = projectNotes;
-      const phasesSnapshot = projectPhases;
-      const milestonesSnapshot = projectMilestones;
-      const todosSnapshot = todos;
-      const estimatesSnapshot = estimates;
-      const allocationsSnapshot = allocations;
-      const timeEntriesSnapshot = timeEntries;
-      const leadsSnapshot = leads;
-
-      const createdPackages = needing.map((co) =>
-        buildWonEstimateFromLegacyChangeOrder(co, parent, generateId()),
-      );
-
-      let working = {
-        projects: projects.map((p) =>
-          needing.some((co) => co.id === p.id)
-            ? { ...p, estimate_value: 0, design_amount: 0 }
-            : p,
-        ),
-        allocations,
-        timeEntries,
-        projectNotes,
-        estimates: [...createdPackages, ...estimates],
-        todos,
-        leads,
-        projectPhases,
-        projectMilestones,
-      };
-
-      const mergeOps: { sourceId: string; mergedTarget: Project }[] = [];
-      for (const co of needing) {
-        if (!working.projects.some((p) => p.id === co.id)) continue;
-        const next = applyProjectMergeState(working, co.id, parentId);
-        mergeOps.push({ sourceId: co.id, mergedTarget: next.mergedTarget });
-        working = {
-          projects: next.projects,
-          allocations: next.allocations,
-          timeEntries: next.timeEntries,
-          projectNotes: next.projectNotes,
-          estimates: next.estimates,
-          todos: next.todos,
-          leads: next.leads,
-          projectPhases: next.projectPhases,
-          projectMilestones: next.projectMilestones,
-        };
-      }
-
-      setProjects(working.projects);
-      setAllocations(working.allocations);
-      setTimeEntries(working.timeEntries);
-      setProjectNotes(working.projectNotes);
-      setEstimates(working.estimates);
-      setTodos(working.todos);
-      setLeads(working.leads);
-      setProjectPhases(working.projectPhases);
-      setProjectMilestones(working.projectMilestones);
-
-      for (const co of needing) {
-        removeProjectFromQueue("design", co.id);
-        removeProjectFromQueue("estimating", co.id);
-      }
-      setQueueRevision((n) => n + 1);
-
-      if (repoRef.current) {
-        void persistAsync(
-          async () => {
-            for (const packageEstimate of createdPackages) {
-              await repoRef.current!.upsertEstimate(packageEstimate);
-            }
-            for (const { sourceId, mergedTarget } of mergeOps) {
-              await repoRef.current!.mergeProjects(sourceId, parentId, mergedTarget);
-            }
-          },
-          () => {
-            legacyCoMigrationDoneRef.current.delete(parentId);
-            setProjects(projectsSnapshot);
-            setProjectNotes(notesSnapshot);
-            setProjectPhases(phasesSnapshot);
-            setProjectMilestones(milestonesSnapshot);
-            setTodos(todosSnapshot);
-            setEstimates(estimatesSnapshot);
-            setAllocations(allocationsSnapshot);
-            setTimeEntries(timeEntriesSnapshot);
-            setLeads(leadsSnapshot);
-          },
-        );
-      }
-
-      return mergeOps.length;
     },
     [
       projects,
@@ -2626,10 +2502,29 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           department: "Construction",
         };
       } else if (choice.mode === "change_order") {
-        // Link the package to the parent job — do not create a child CO project.
         const parent = projects.find((p) => p.id === choice.parentProjectId);
         if (!parent || isChangeOrder(parent)) return null;
-        project = parent;
+
+        const siblings = getChangeOrdersForParent(projects, parent.id);
+        const defaults = buildChangeOrderFormDefaults(parent, siblings);
+
+        project = addProject({
+          project_name: estimate.title?.trim() || defaults.project_name || parent.project_name,
+          client_name: parent.client_name,
+          department: "Construction",
+          phase: "Construction",
+          lead_employee_id: parent.lead_employee_id,
+          lead_estimator_id: estimate.estimator_id || parent.lead_estimator_id,
+          budgeted_design_hours: 0,
+          estimate_value: estimate.amount,
+          contract_date: resolvedWonDate,
+          address: parent.address,
+          phone: parent.phone,
+          email: parent.email,
+          parent_project_id: parent.id,
+          is_change_order: true,
+          active: true,
+        });
       } else {
         project = addProject({
           project_name: estimate.title?.trim() || estimate.client_name.trim(),
@@ -3033,7 +2928,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProjectWipFields,
       deleteChangeOrder,
       mergeProjects,
-      migrateLegacyChangeOrdersForParent,
       addClient,
       updateClientContact,
       renameClient,
@@ -3129,7 +3023,6 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       updateProjectWipFields,
       deleteChangeOrder,
       mergeProjects,
-      migrateLegacyChangeOrdersForParent,
       addClient,
       updateClientContact,
       renameClient,
