@@ -73,10 +73,13 @@ export function contractRowLabel(estimate: Estimate): string {
 
 /**
  * When a package is won and linked to a job, promote its type so it appears in
- * Contracts (or Change Orders for CO flow).
+ * Contracts (or Change Orders). Preserve change_order packages even when linked
+ * via existing/new project modes.
  */
 export function estimateTypeAfterWon(
   mode: "existing" | "new" | "change_order",
+  currentType?: EstimateType,
 ): EstimateType {
-  return mode === "change_order" ? "change_order" : "contract";
+  if (mode === "change_order" || currentType === "change_order") return "change_order";
+  return "contract";
 }

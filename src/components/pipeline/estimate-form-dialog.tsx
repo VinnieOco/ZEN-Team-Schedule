@@ -200,11 +200,21 @@ export function EstimateFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit estimate" : defaults?.estimate_type === "contract" ? "New contract" : "New estimate"}</DialogTitle>
+          <DialogTitle>
+            {isEdit
+              ? "Edit estimate"
+              : defaults?.estimate_type === "contract"
+                ? "New contract"
+                : defaults?.estimate_type === "change_order"
+                  ? "New change order"
+                  : "New estimate"}
+          </DialogTitle>
           <DialogDescription>
             {defaults?.estimate_type === "contract" && !isEdit
               ? "Add a contract package linked to this project. Amounts roll into Estimate amount."
-              : "Track an estimate package through pricing, submittal, and follow-up."}
+              : defaults?.estimate_type === "change_order" && !isEdit
+                ? "Add a change-order package linked to this project. Mark it won to log the date and show it in Estimating."
+                : "Track an estimate package through pricing, submittal, and follow-up."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

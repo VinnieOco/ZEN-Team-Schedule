@@ -1,7 +1,11 @@
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
-import { summarizeContracts } from "@/lib/project-contracts";
+import {
+  contractCountsTowardEstimate,
+  summarizeContracts,
+} from "@/lib/project-contracts";
+import { estimateDisplayName } from "@/lib/estimating/metrics";
 import { getProjectActualHours } from "@/lib/utilization";
-import type { Estimate, Project, ProjectFormValues, TimeEntry } from "@/types";
+import type { Estimate, EstimateFormValues, Project, ProjectFormValues, TimeEntry } from "@/types";
 
 export function isChangeOrder(project: Pick<Project, "is_change_order" | "parent_project_id">): boolean {
   return Boolean(project.is_change_order || project.parent_project_id);
@@ -15,6 +19,59 @@ export function getChangeOrdersForParent(projects: Project[], parentId: string):
   return projects
     .filter((p) => p.parent_project_id === parentId)
     .sort((a, b) => a.project_name.localeCompare(b.project_name));
+}
+
+/** Linked change-order estimate packages for a project. */
+export function getChangeOrderEstimatesForProject(
+  estimates: Estimate[],
+  projectId: string,
+): Estimate[] {
+  return estimates
+    .filter(
+      (estimate) =>
+        estimate.project_id === projectId && estimate.estimate_type === "change_order",
+    )
+    .sort((a, b) => {
+      const aDate = a.won_date ?? a.submitted_date ?? a.updated_at;
+      const bDate = b.won_date ?? b.submitted_date ?? b.updated_at;
+      return bDate.localeCompare(aDate);
+    });
+}
+
+export function summarizeChangeOrderEstimates(
+  estimates: Estimate[],
+  projectId: string,
+): { count: number; activeCount: number; totalAmount: number } {
+  const packages = getChangeOrderEstimatesForProject(estimates, projectId);
+  const active = packages.filter(contractCountsTowardEstimate);
+  return {
+    count: packages.length,
+    activeCount: active.length,
+    totalAmount: active.reduce((sum, estimate) => sum + (estimate.amount ?? 0), 0),
+  };
+}
+
+export function buildChangeOrderEstimateDefaults(
+  project: Project,
+  existingPackages: Estimate[] = [],
+): Partial<EstimateFormValues> {
+  const nextNumber =
+    existingPackages.filter(
+      (estimate) =>
+        estimate.project_id === project.id && estimate.estimate_type === "change_order",
+    ).length + 1;
+  return {
+    client_name: project.client_name,
+    project_id: project.id,
+    title: `${project.project_name} — CO-${String(nextNumber).padStart(2, "0")}`,
+    estimate_type: "change_order",
+    stage: "pricing",
+    amount: undefined,
+  };
+}
+
+export function changeOrderEstimateRowLabel(estimate: Estimate): string {
+  return estimateDisplayName(estimate);
 }
 
 export function getParentProject(projects: Project[], project: Project): Project | undefined {
@@ -98,6 +155,10 @@ export function getProjectBudgetRollup(
         totalEstimateAmount: 0,
       };
 
+  const estimateCoSummary = isParentProject(project)
+    ? summarizeChangeOrderEstimates(estimates, project.id)
+    : { count: 0, activeCount: 0, totalAmount: 0 };
+
   const contractSummary = isParentProject(project)
     ? summarizeContracts(estimates, project.id)
     : { count: 0, activeCount: 0, totalAmount: 0 };
@@ -108,6 +169,9 @@ export function getProjectBudgetRollup(
   // otherwise fall back to the project's estimate_value field.
   const baseEstimateAmount =
     contractSummary.count > 0 ? contractSummary.totalAmount : projectEstimateValue;
+  const changeOrderEstimateAmount =
+    coSummary.totalEstimateAmount + estimateCoSummary.totalAmount;
+  const changeOrderCount = coSummary.count + estimateCoSummary.count;
 
   return {
     baseBudgetHours: project.budgeted_design_hours,
@@ -118,10 +182,10 @@ export function getProjectBudgetRollup(
     totalDesignAmount: baseDesignAmount + coSummary.totalDesignAmount,
     baseEstimateAmount,
     contractEstimateAmount: contractSummary.totalAmount,
-    changeOrderEstimateAmount: coSummary.totalEstimateAmount,
-    totalEstimateAmount: baseEstimateAmount + coSummary.totalEstimateAmount,
+    changeOrderEstimateAmount,
+    totalEstimateAmount: baseEstimateAmount + changeOrderEstimateAmount,
     contractCount: contractSummary.count,
-    changeOrderCount: coSummary.count,
+    changeOrderCount,
   };
 }
 
@@ -179,6 +243,20 @@ export function formatChangeOrderRollup(summary: ChangeOrderSummary): string | n
     );
   } else if (summary.totalDesignAmount > 0) {
     parts.push(`+$${Math.round(summary.totalDesignAmount).toLocaleString("en-US")}`);
+  }
+  return parts.join(" · ");
+}
+
+export function formatChangeOrderPackageRollup(summary: {
+  count: number;
+  totalAmount: number;
+}): string | null {
+  if (summary.count === 0) return null;
+  const parts = [
+    `${summary.count} change order${summary.count === 1 ? "" : "s"}`,
+  ];
+  if (summary.totalAmount > 0) {
+    parts.push(`$${Math.round(summary.totalAmount).toLocaleString("en-US")}`);
   }
   return parts.join(" · ");
 }

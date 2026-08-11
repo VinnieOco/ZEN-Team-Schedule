@@ -11,4 +11,9 @@ describe("estimateTypeAfterWon", () => {
   it("promotes change-order wins to change_order", () => {
     expect(estimateTypeAfterWon("change_order")).toBe("change_order");
   });
+
+  it("keeps change_order type when linking to an existing project", () => {
+    expect(estimateTypeAfterWon("existing", "change_order")).toBe("change_order");
+    expect(estimateTypeAfterWon("new", "change_order")).toBe("change_order");
+  });
 });

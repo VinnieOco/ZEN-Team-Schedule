@@ -2475,7 +2475,12 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         if (!existing) return null;
 
         const formValues = projectToFormValues(existing);
-        if (estimate.amount != null && Number.isFinite(estimate.amount)) {
+        // Change-order packages roll up separately — don't overwrite the base contract $.
+        if (
+          estimate.estimate_type !== "change_order" &&
+          estimate.amount != null &&
+          Number.isFinite(estimate.amount)
+        ) {
           formValues.estimate_value = estimate.amount;
         }
         if (!formValues.lead_estimator_id && estimate.estimator_id) {
@@ -2541,7 +2546,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         stage: "won",
         result: "won",
         project_id: project!.id,
-        estimate_type: estimateTypeAfterWon(choice.mode),
+        estimate_type: estimateTypeAfterWon(choice.mode, existing.estimate_type),
         won_date: resolvedWonDate,
         submitted_date:
           existing.submitted_date || format(new Date(), "yyyy-MM-dd"),

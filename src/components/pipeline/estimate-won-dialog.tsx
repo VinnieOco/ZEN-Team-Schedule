@@ -65,6 +65,16 @@ export function EstimateWonDialog({
 
     const linkedParentId = resolveParentId(estimate, projects);
     if (estimate.estimate_type === "change_order") {
+      // Already linked to the parent job (e.g. from project Change Orders) — keep it there.
+      if (
+        estimate.project_id &&
+        projects.some((p) => p.id === estimate.project_id && isParentProject(p))
+      ) {
+        setMode("existing");
+        setProjectId(estimate.project_id);
+        setParentProjectId(estimate.project_id);
+        return;
+      }
       setMode("change_order");
       setParentProjectId(linkedParentId);
       setProjectId("");
@@ -311,10 +321,16 @@ export function EstimateWonDialog({
                 placeholder="Search projects…"
                 searchPlaceholder="Search by name or client…"
               />
-              {selectedProject &&
-              wonAmount != null &&
-              selectedEstimateValue != null &&
-              selectedEstimateValue !== wonAmount ? (
+              {isChangeOrderEstimate && selectedProject && wonAmount != null ? (
+                <p className="text-xs text-muted-foreground">
+                  Links this change order to {selectedProject.project_name}
+                  {` (${formatProjectAmount(wonAmount)})`}. The amount rolls up with other change
+                  orders — it does not replace the base contract amount.
+                </p>
+              ) : selectedProject &&
+                wonAmount != null &&
+                selectedEstimateValue != null &&
+                selectedEstimateValue !== wonAmount ? (
                 <p className="text-xs text-amber-800">
                   This will change the project estimate amount from{" "}
                   {formatProjectAmount(selectedEstimateValue)} to{" "}
