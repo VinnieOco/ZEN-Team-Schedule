@@ -146,8 +146,8 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
           <div className="min-w-0">
             <CardTitle className="text-base">Change orders</CardTitle>
             <CardDescription className="mt-1">
-              Change-order packages from Estimating linked to this job. Amounts roll into Estimate
-              amount (lost packages excluded).
+              Won change-order packages linked to this job. Submitted or open packages stay in
+              Estimating until won. Amounts roll into Estimate amount.
               {packageRollup ? ` ${packageRollup}.` : ""}
               {legacyRollup ? ` Linked CO projects: ${legacyRollup}.` : ""}
             </CardDescription>
@@ -167,8 +167,8 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
         <CardContent className="space-y-6 p-0 sm:p-6 sm:pt-0">
           {packages.length === 0 ? (
             <p className="px-4 text-sm text-muted-foreground sm:px-0">
-              No change-order packages yet. Add one here or mark a Change order estimate as won and
-              link it to this project.
+              No won change orders yet. Add one here, or mark a Change order estimate as won in
+              Estimating to link it.
             </p>
           ) : (
             <>

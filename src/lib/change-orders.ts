@@ -1,8 +1,5 @@
 import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-format";
-import {
-  contractCountsTowardEstimate,
-  summarizeContracts,
-} from "@/lib/project-contracts";
+import { summarizeContracts } from "@/lib/project-contracts";
 import { estimateDisplayName } from "@/lib/estimating/metrics";
 import { getProjectActualHours } from "@/lib/utilization";
 import type { Estimate, EstimateFormValues, Project, ProjectFormValues, TimeEntry } from "@/types";
@@ -25,12 +22,17 @@ export function getChangeOrdersForParent(projects: Project[], parentId: string):
 export function getChangeOrderEstimatesForProject(
   estimates: Estimate[],
   projectId: string,
+  options?: { wonOnly?: boolean },
 ): Estimate[] {
+  const wonOnly = options?.wonOnly ?? true;
   return estimates
-    .filter(
-      (estimate) =>
-        estimate.project_id === projectId && estimate.estimate_type === "change_order",
-    )
+    .filter((estimate) => {
+      if (estimate.project_id !== projectId || estimate.estimate_type !== "change_order") {
+        return false;
+      }
+      if (!wonOnly) return true;
+      return changeOrderCountsTowardEstimate(estimate);
+    })
     .sort((a, b) => {
       const aDate = a.won_date ?? a.submitted_date ?? a.updated_at;
       const bDate = b.won_date ?? b.submitted_date ?? b.updated_at;
@@ -38,16 +40,20 @@ export function getChangeOrderEstimatesForProject(
     });
 }
 
+/** Only won change orders count toward project Estimate amount / section list. */
+export function changeOrderCountsTowardEstimate(estimate: Estimate): boolean {
+  return estimate.result === "won" || estimate.stage === "won";
+}
+
 export function summarizeChangeOrderEstimates(
   estimates: Estimate[],
   projectId: string,
 ): { count: number; activeCount: number; totalAmount: number } {
-  const packages = getChangeOrderEstimatesForProject(estimates, projectId);
-  const active = packages.filter(contractCountsTowardEstimate);
+  const packages = getChangeOrderEstimatesForProject(estimates, projectId, { wonOnly: true });
   return {
     count: packages.length,
-    activeCount: active.length,
-    totalAmount: active.reduce((sum, estimate) => sum + (estimate.amount ?? 0), 0),
+    activeCount: packages.length,
+    totalAmount: packages.reduce((sum, estimate) => sum + (estimate.amount ?? 0), 0),
   };
 }
 
