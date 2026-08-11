@@ -207,9 +207,9 @@ export function EstimateWonDialog({
           <DialogDescription>
             {isChangeOrderEstimate ? (
               <>
-                Add{" "}
+                Link{" "}
                 <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
-                as a change order
+                to a parent project as a won change order
                 {wonAmount != null ? ` (${formatProjectAmount(wonAmount)})` : ""}.
               </>
             ) : (
@@ -248,7 +248,7 @@ export function EstimateWonDialog({
             >
               <span className="font-medium">Change order</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Create CO under a parent
+                Link to a parent job
               </span>
             </button>
             <button
@@ -294,11 +294,11 @@ export function EstimateWonDialog({
               />
               {selectedParent ? (
                 <p className="text-xs text-muted-foreground">
-                  Creates a change order under {selectedParent.project_name}
+                  Links this package to {selectedParent.project_name}
                   {wonAmount != null
-                    ? ` with estimate amount ${formatProjectAmount(wonAmount)}`
+                    ? ` with amount ${formatProjectAmount(wonAmount)}`
                     : ""}
-                  . The amount rolls up on the parent project page.
+                  . It appears under Won change orders and rolls into Estimate amount.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -364,7 +364,7 @@ export function EstimateWonDialog({
           </Button>
           <Button type="button" onClick={handleConfirm}>
             {mode === "change_order"
-              ? "Create change order"
+              ? "Link change order"
               : mode === "new"
                 ? "Create project"
                 : "Update project"}
