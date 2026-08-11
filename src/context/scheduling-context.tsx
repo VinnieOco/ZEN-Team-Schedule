@@ -351,6 +351,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   /** Inclusive YYYY-MM-DD window currently held in allocations / timeEntries. */
   const loadedOperationalRangeRef = useRef<InclusiveDateRange | null>(null);
   const expandInFlightRef = useRef(false);
+  /** Serialize estimate upserts per id so create-then-won does not lose the project link. */
+  const estimateWriteChainRef = useRef(new Map<string, Promise<unknown>>());
+  const estimatesRef = useRef<Estimate[]>([]);
 
   const persisted = !useSupabase ? loadPersistedState() : null;
 
@@ -437,6 +440,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [estimates, setEstimates] = useState<Estimate[]>(
     useSupabase ? [] : (persisted?.estimates ?? []),
   );
+  estimatesRef.current = estimates;
   const [settings, setSettings] = useState<CompanySettings>(() =>
     normalizeCompanySettings(persisted?.settings ?? seedSettings),
   );
@@ -690,6 +694,28 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       }
     },
     [],
+  );
+
+  /** Keep create → edit → mark-won upserts ordered; always write the latest in-memory row. */
+  const persistEstimateOrdered = useCallback(
+    (estimateId: string, rollback: () => void) => {
+      if (!repoRef.current) return;
+      const previous = estimateWriteChainRef.current.get(estimateId) ?? Promise.resolve();
+      const next = previous
+        .catch(() => {
+          // Prior write failed; still attempt the latest snapshot.
+        })
+        .then(() => {
+          const latest = estimatesRef.current.find((e) => e.id === estimateId);
+          if (!latest || !repoRef.current) return undefined;
+          return persistAsync(
+            () => repoRef.current!.upsertEstimate(latest),
+            rollback,
+          );
+        });
+      estimateWriteChainRef.current.set(estimateId, next);
+    },
+    [persistAsync],
   );
 
   const persistTodoDiff = useCallback(
@@ -2353,16 +2379,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           ...mutate(existing),
           updated_at: new Date().toISOString(),
         };
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertEstimate(updated),
-            () => setEstimates(snapshot),
-          );
-        }
-        return prev.map((e) => (e.id === id ? updated : e));
+        const next = prev.map((e) => (e.id === id ? updated : e));
+        estimatesRef.current = next;
+        persistEstimateOrdered(id, () => setEstimates(snapshot));
+        return next;
       });
     },
-    [persistAsync],
+    [persistEstimateOrdered],
   );
 
   const addEstimate = useCallback(
@@ -2371,17 +2394,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       const estimate = estimateFromFormValues(values);
       setEstimates((prev) => {
         const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertEstimate(estimate),
-            () => setEstimates(snapshot),
-          );
-        }
-        return [estimate, ...prev];
+        const next = [estimate, ...prev];
+        estimatesRef.current = next;
+        persistEstimateOrdered(estimate.id, () => setEstimates(snapshot));
+        return next;
       });
       return estimate;
     },
-    [estimateFromFormValues, ensureClientInRegistry, persistAsync],
+    [estimateFromFormValues, ensureClientInRegistry, persistEstimateOrdered],
   );
 
   const updateEstimate = useCallback(
@@ -2467,7 +2487,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         | { mode: "change_order"; parentProjectId: string },
       wonDate: string,
     ): Project | null => {
-      const estimate = estimates.find((e) => e.id === estimateId);
+      const estimate = estimatesRef.current.find((e) => e.id === estimateId);
       if (!estimate) return null;
 
       const resolvedWonDate = wonDate.trim() || format(new Date(), "yyyy-MM-dd");
@@ -2557,7 +2577,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       return project;
     },
-    [addProject, estimates, mutateEstimate, projects, updateProject],
+    [addProject, mutateEstimate, projects, updateProject],
   );
 
   const reviseEstimate = useCallback(
@@ -2582,18 +2602,15 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       setEstimates((prev) => {
         const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertEstimate(revision),
-            () => setEstimates(snapshot),
-          );
-        }
-        return [revision, ...prev];
+        const next = [revision, ...prev];
+        estimatesRef.current = next;
+        persistEstimateOrdered(revision.id, () => setEstimates(snapshot));
+        return next;
       });
 
       return revision;
     },
-    [estimates, persistAsync],
+    [estimates, persistEstimateOrdered],
   );
 
   const setEstimateChecklistItem = useCallback(
