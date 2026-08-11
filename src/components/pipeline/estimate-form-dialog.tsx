@@ -213,7 +213,7 @@ export function EstimateFormDialog({
             {defaults?.estimate_type === "contract" && !isEdit
               ? "Add a contract package linked to this project. Amounts roll into Estimate amount."
               : defaults?.estimate_type === "change_order" && !isEdit
-                ? "Add a change-order package linked to this project. Mark it won to log the date and show it in Estimating."
+                ? "Add a change-order package linked to this project. It appears in Estimating while open; mark it won to roll the amount into Estimate amount."
                 : "Track an estimate package through pricing, submittal, and follow-up."}
           </DialogDescription>
         </DialogHeader>

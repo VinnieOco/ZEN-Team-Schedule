@@ -25,6 +25,7 @@ import {
   formatChangeOrderRollup,
   getChangeOrderEstimatesForProject,
   getChangeOrdersForParent,
+  getPendingChangeOrderEstimatesForProject,
   summarizeChangeOrderEstimates,
   summarizeChangeOrders,
 } from "@/lib/change-orders";
@@ -50,6 +51,121 @@ interface ChangeOrdersSectionProps {
   canEdit: boolean;
 }
 
+function PackageRows({
+  packages,
+  canEdit,
+  estimatorName,
+  onOpen,
+  onDelete,
+}: {
+  packages: Estimate[];
+  canEdit: boolean;
+  estimatorName: (estimate: Estimate) => string | undefined;
+  onOpen: (estimate: Estimate) => void;
+  onDelete: (estimate: Estimate) => void;
+}) {
+  return (
+    <>
+      <ul className="divide-y divide-slate-100 md:hidden">
+        {packages.map((estimate) => (
+          <li key={estimate.id} className="space-y-2 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => onOpen(estimate)}
+                className="min-w-0 text-left font-medium text-emerald-700 hover:underline"
+              >
+                {estimateDisplayName(estimate)}
+              </button>
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                  onClick={() => onDelete(estimate)}
+                  aria-label={`Delete ${estimateDisplayName(estimate)}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                variant="secondary"
+                className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+              >
+                {estimateStageLabel(estimate.stage)}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {estimateTypeLabel(estimate.estimate_type)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2 text-xs tabular-nums">
+              <span className="text-muted-foreground">
+                {estimatorName(estimate) ?? "Unassigned"}
+              </span>
+              <span className="font-medium">{formatProjectAmount(estimate.amount)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Package</TableHead>
+              <TableHead>Stage</TableHead>
+              <TableHead>Estimator</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              {canEdit ? <TableHead className="w-[1%] text-right"> </TableHead> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {packages.map((estimate) => (
+              <TableRow
+                key={estimate.id}
+                className="cursor-pointer"
+                onClick={() => onOpen(estimate)}
+              >
+                <TableCell className="font-medium text-emerald-700">
+                  {estimateDisplayName(estimate)}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="secondary"
+                    className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+                  >
+                    {estimateStageLabel(estimate.stage)}
+                  </Badge>
+                </TableCell>
+                <TableCell>{estimatorName(estimate) ?? "—"}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatProjectAmount(estimate.amount)}
+                </TableCell>
+                {canEdit ? (
+                  <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                      onClick={() => onDelete(estimate)}
+                      aria-label={`Delete ${estimateDisplayName(estimate)}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
+  );
+}
+
 export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionProps) {
   const {
     projects,
@@ -64,8 +180,13 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
   const [detail, setDetail] = useState<Estimate | null>(null);
   const [wonEstimateId, setWonEstimateId] = useState<string | null>(null);
 
-  const packages = useMemo(
-    () => getChangeOrderEstimatesForProject(estimates, project.id),
+  const pendingPackages = useMemo(
+    () => getPendingChangeOrderEstimatesForProject(estimates, project.id),
+    [estimates, project.id],
+  );
+
+  const wonPackages = useMemo(
+    () => getChangeOrderEstimatesForProject(estimates, project.id, { wonOnly: true }),
     [estimates, project.id],
   );
 
@@ -144,12 +265,10 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
       <Card>
         <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <CardTitle className="text-base">Change orders</CardTitle>
+            <CardTitle className="text-base">Pending change orders</CardTitle>
             <CardDescription className="mt-1">
-              Won change-order packages linked to this job. Submitted or open packages stay in
-              Estimating until won. Amounts roll into Estimate amount.
-              {packageRollup ? ` ${packageRollup}.` : ""}
-              {legacyRollup ? ` Linked CO projects: ${legacyRollup}.` : ""}
+              Open change-order packages for this job — the same records as Pipeline → Estimating.
+              Lost packages are hidden. Amounts do not roll into Estimate amount until won.
             </CardDescription>
           </div>
           {canEdit && (
@@ -164,116 +283,45 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
             </Button>
           )}
         </CardHeader>
-        <CardContent className="space-y-6 p-0 sm:p-6 sm:pt-0">
-          {packages.length === 0 ? (
-            <p className="px-4 text-sm text-muted-foreground sm:px-0">
-              No won change orders yet. Add one here, or mark a Change order estimate as won in
-              Estimating to link it.
+        <CardContent className="p-0 sm:p-6 sm:pt-0">
+          {pendingPackages.length === 0 ? (
+            <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0">
+              No open change orders. Add one here or in Estimating — both places stay in sync.
             </p>
           ) : (
-            <>
-              <ul className="divide-y divide-slate-100 md:hidden">
-                {packages.map((estimate) => (
-                  <li key={estimate.id} className="space-y-2 px-4 py-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDetail(estimate)}
-                        className="min-w-0 text-left font-medium text-emerald-700 hover:underline"
-                      >
-                        {estimateDisplayName(estimate)}
-                      </button>
-                      {canEdit ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                          onClick={() => handleDeletePackage(estimate)}
-                          aria-label={`Delete ${estimateDisplayName(estimate)}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge
-                        variant="secondary"
-                        className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
-                      >
-                        {estimateStageLabel(estimate.stage)}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {estimateTypeLabel(estimate.estimate_type)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between gap-2 text-xs tabular-nums">
-                      <span className="text-muted-foreground">
-                        {estimatorName(estimate) ?? "Unassigned"}
-                      </span>
-                      <span className="font-medium">
-                        {formatProjectAmount(estimate.amount)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Package</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Estimator</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      {canEdit ? <TableHead className="w-[1%] text-right"> </TableHead> : null}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {packages.map((estimate) => (
-                      <TableRow
-                        key={estimate.id}
-                        className="cursor-pointer"
-                        onClick={() => setDetail(estimate)}
-                      >
-                        <TableCell className="font-medium text-emerald-700">
-                          {estimateDisplayName(estimate)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
-                          >
-                            {estimateStageLabel(estimate.stage)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{estimatorName(estimate) ?? "—"}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatProjectAmount(estimate.amount)}
-                        </TableCell>
-                        {canEdit ? (
-                          <TableCell
-                            className="text-right"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                              onClick={() => handleDeletePackage(estimate)}
-                              aria-label={`Delete ${estimateDisplayName(estimate)}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        ) : null}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
+            <PackageRows
+              packages={pendingPackages}
+              canEdit={canEdit}
+              estimatorName={estimatorName}
+              onOpen={setDetail}
+              onDelete={handleDeletePackage}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="space-y-0">
+          <CardTitle className="text-base">Won change orders</CardTitle>
+          <CardDescription className="mt-1">
+            Won packages linked to this job. Amounts roll into Estimate amount.
+            {packageRollup ? ` ${packageRollup}.` : ""}
+            {legacyRollup ? ` Linked CO projects: ${legacyRollup}.` : ""}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 p-0 sm:p-6 sm:pt-0">
+          {wonPackages.length === 0 ? (
+            <p className="px-4 text-sm text-muted-foreground sm:px-0">
+              No won change orders yet. Mark a pending package as won to move it here.
+            </p>
+          ) : (
+            <PackageRows
+              packages={wonPackages}
+              canEdit={canEdit}
+              estimatorName={estimatorName}
+              onOpen={setDetail}
+              onDelete={handleDeletePackage}
+            />
           )}
 
           {legacyProjects.length > 0 ? (

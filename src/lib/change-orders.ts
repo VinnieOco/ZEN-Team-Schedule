@@ -40,9 +40,37 @@ export function getChangeOrderEstimatesForProject(
     });
 }
 
-/** Only won change orders count toward project Estimate amount / section list. */
+/** Only won change orders count toward project Estimate amount / won section. */
 export function changeOrderCountsTowardEstimate(estimate: Estimate): boolean {
   return estimate.result === "won" || estimate.stage === "won";
+}
+
+function isLostChangeOrder(estimate: Estimate): boolean {
+  return estimate.result === "lost" || estimate.stage === "lost";
+}
+
+/**
+ * Open change-order packages for a project (not won, not lost).
+ * Same records as Pipeline → Estimating while still open.
+ */
+export function getPendingChangeOrderEstimatesForProject(
+  estimates: Estimate[],
+  projectId: string,
+): Estimate[] {
+  return estimates
+    .filter((estimate) => {
+      if (estimate.project_id !== projectId || estimate.estimate_type !== "change_order") {
+        return false;
+      }
+      if (isLostChangeOrder(estimate)) return false;
+      if (changeOrderCountsTowardEstimate(estimate)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aDate = a.due_date ?? a.submitted_date ?? a.updated_at;
+      const bDate = b.due_date ?? b.submitted_date ?? b.updated_at;
+      return aDate.localeCompare(bDate);
+    });
 }
 
 export function summarizeChangeOrderEstimates(
