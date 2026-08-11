@@ -2314,6 +2314,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const estimateFromFormValues = useCallback(
     (values: EstimateFormValues, existing?: Estimate): Estimate => {
       const now = new Date().toISOString();
+      const result = estimateResultForStage(values.stage);
       return {
         id: existing?.id ?? generateId(),
         client_name: values.client_name.trim(),
@@ -2328,7 +2329,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         submitted_date: values.submitted_date || undefined,
         amount: values.amount,
         stage: values.stage,
-        result: estimateResultForStage(values.stage),
+        result,
+        // Form has no won_date field — keep it when the package stays won.
+        won_date: result === "won" ? existing?.won_date : undefined,
         checklist: existing?.checklist ?? [],
         notes: values.notes?.trim() || undefined,
         sort_order: existing?.sort_order ?? 0,
