@@ -209,7 +209,7 @@ export function EstimateWonDialog({
               <>
                 Link{" "}
                 <span className="font-medium text-slate-800">{estimateDisplayName(estimate)}</span>{" "}
-                to a parent project as a won change order
+                to a parent for Estimate amount, and keep a CO job for time entry
                 {wonAmount != null ? ` (${formatProjectAmount(wonAmount)})` : ""}.
               </>
             ) : (
@@ -248,7 +248,7 @@ export function EstimateWonDialog({
             >
               <span className="font-medium">Change order</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Link to a parent job
+                Link $ to parent; keep hours job
               </span>
             </button>
             <button
@@ -298,7 +298,7 @@ export function EstimateWonDialog({
                   {wonAmount != null
                     ? ` with amount ${formatProjectAmount(wonAmount)}`
                     : ""}
-                  . It appears under Won change orders and rolls into Estimate amount.
+                  . Creates an hours-only CO job under that parent for timesheets and scheduling.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">

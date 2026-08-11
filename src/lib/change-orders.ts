@@ -111,10 +111,31 @@ export function changeOrderEstimateRowLabel(estimate: Estimate): string {
 /** Marker stored on estimates created from legacy CO project rows. */
 export const LEGACY_CO_PROJECT_NOTE_PREFIX = "legacy_co_project_id:";
 
+/** Marker linking a CO package to its hours-only child project (timesheets / schedule). */
+export const HOURS_PROJECT_NOTE_PREFIX = "hours_project_id:";
+
 export function legacyCoProjectIdFromEstimateNotes(notes?: string): string | undefined {
   if (!notes?.includes(LEGACY_CO_PROJECT_NOTE_PREFIX)) return undefined;
   const match = notes.match(new RegExp(`${LEGACY_CO_PROJECT_NOTE_PREFIX}([^\\s]+)`));
   return match?.[1];
+}
+
+export function hoursProjectIdFromEstimateNotes(notes?: string): string | undefined {
+  if (!notes?.includes(HOURS_PROJECT_NOTE_PREFIX)) return undefined;
+  const match = notes.match(new RegExp(`${HOURS_PROJECT_NOTE_PREFIX}([^\\s]+)`));
+  return match?.[1];
+}
+
+export function withHoursProjectNote(
+  notes: string | undefined,
+  hoursProjectId: string,
+): string {
+  const without = (notes ?? "")
+    .replace(new RegExp(`${HOURS_PROJECT_NOTE_PREFIX}\\S+\\s*`, "g"), "")
+    .trim();
+  return without
+    ? `${without} ${HOURS_PROJECT_NOTE_PREFIX}${hoursProjectId}`
+    : `${HOURS_PROJECT_NOTE_PREFIX}${hoursProjectId}`;
 }
 
 export function findEstimateConvertedFromLegacyCo(
@@ -124,6 +145,23 @@ export function findEstimateConvertedFromLegacyCo(
   return estimates.find(
     (estimate) => legacyCoProjectIdFromEstimateNotes(estimate.notes) === coProjectId,
   );
+}
+
+/** Child CO project used for time/schedule for this package, if still present. */
+export function findHoursProjectForEstimate(
+  projects: Project[],
+  estimate: Estimate,
+): Project | undefined {
+  const hoursId = hoursProjectIdFromEstimateNotes(estimate.notes);
+  if (hoursId) {
+    const found = projects.find((p) => p.id === hoursId);
+    if (found) return found;
+  }
+  const legacyId = legacyCoProjectIdFromEstimateNotes(estimate.notes);
+  if (legacyId) {
+    return projects.find((p) => p.id === legacyId);
+  }
+  return undefined;
 }
 
 /** Legacy CO project rows under a parent that still need a won Estimating package. */
@@ -137,9 +175,20 @@ export function legacyChangeOrdersNeedingConversion(
   );
 }
 
+/** Won CO packages that have no usable hours child for timesheets. */
+export function wonChangeOrdersNeedingHoursProject(
+  projects: Project[],
+  estimates: Estimate[],
+  parentId: string,
+): Estimate[] {
+  return getChangeOrderEstimatesForProject(estimates, parentId, { wonOnly: true }).filter(
+    (estimate) => !findHoursProjectForEstimate(projects, estimate),
+  );
+}
+
 /**
  * Build a won change-order estimate package from an older CO project record.
- * Dollar amount moves to Estimating; the project row can then be merged/retired.
+ * Dollar amount moves to Estimating; the child project stays for hours/time entry.
  */
 export function buildWonEstimateFromLegacyChangeOrder(
   co: Project,
@@ -163,10 +212,36 @@ export function buildWonEstimateFromLegacyChangeOrder(
     won_date: co.contract_date ?? iso.slice(0, 10),
     submitted_date: co.contract_date ?? iso.slice(0, 10),
     checklist: [],
-    notes: `${LEGACY_CO_PROJECT_NOTE_PREFIX}${co.id}`,
+    notes: `${LEGACY_CO_PROJECT_NOTE_PREFIX}${co.id} ${HOURS_PROJECT_NOTE_PREFIX}${co.id}`,
     sort_order: 0,
     created_at: iso,
     updated_at: iso,
+  };
+}
+
+/** Hours-only child project defaults ($ stays on the Estimating package). */
+export function buildHoursOnlyChangeOrderDefaults(
+  parent: Project,
+  siblings: Project[],
+  title: string,
+): ProjectFormValues {
+  const defaults = buildChangeOrderFormDefaults(parent, siblings);
+  return {
+    project_name: title.trim() || nextChangeOrderName(parent, siblings),
+    client_name: defaults.client_name!,
+    department: defaults.department,
+    phase: defaults.phase ?? parent.phase,
+    lead_employee_id: defaults.lead_employee_id,
+    lead_estimator_id: defaults.lead_estimator_id,
+    address: defaults.address,
+    phone: defaults.phone,
+    email: defaults.email,
+    budgeted_design_hours: defaults.budgeted_design_hours ?? 0,
+    estimate_value: 0,
+    design_amount: 0,
+    parent_project_id: parent.id,
+    is_change_order: true,
+    active: true,
   };
 }
 

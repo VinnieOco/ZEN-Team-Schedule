@@ -64,9 +64,14 @@ import {
 } from "@/lib/clients";
 import { projectFromFormValues, projectToFormValues } from "@/lib/project-form";
 import {
+  buildHoursOnlyChangeOrderDefaults,
   buildWonEstimateFromLegacyChangeOrder,
+  findHoursProjectForEstimate,
+  getChangeOrdersForParent,
   isChangeOrder,
   legacyChangeOrdersNeedingConversion,
+  withHoursProjectNote,
+  wonChangeOrdersNeedingHoursProject,
 } from "@/lib/change-orders";
 import { estimateTypeAfterWon } from "@/lib/project-contracts";
 import {
@@ -203,8 +208,9 @@ interface SchedulingContextValue {
   /** Moves source project data into target, then deletes the source. */
   mergeProjects: (sourceId: string, targetId: string) => ProjectMergeActionResult;
   /**
-   * Converts older CO project rows under a parent into won Estimating packages,
-   * then merges each child into the parent (hours/time fold in; $ lives on packages).
+   * Ensures CO Estimating packages + hours-only child projects for a parent.
+   * Moves legacy CO $ onto packages (children kept at $0 for timesheets/schedule).
+   * Recreates missing hours jobs for already-converted packages.
    */
   migrateLegacyChangeOrdersForParent: (parentId: string) => number;
   addClient: (values: ClientFormValues) => Client | { ok: false; message: string };
@@ -1440,119 +1446,93 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
   const migrateLegacyChangeOrdersForParent = useCallback(
     (parentId: string): number => {
-      if (legacyCoMigrationDoneRef.current.has(parentId)) return 0;
-
       const parent = projects.find((p) => p.id === parentId);
       if (!parent || isChangeOrder(parent)) return 0;
 
-      const needing = legacyChangeOrdersNeedingConversion(projects, estimates, parentId);
-      if (needing.length === 0) return 0;
+      const needingPackages = legacyChangeOrdersNeedingConversion(
+        projects,
+        estimates,
+        parentId,
+      );
+      const needingHours = wonChangeOrdersNeedingHoursProject(
+        projects,
+        estimates,
+        parentId,
+      );
+      if (needingPackages.length === 0 && needingHours.length === 0) return 0;
 
-      legacyCoMigrationDoneRef.current.add(parentId);
+      // Avoid Strict Mode double-create for this parent until state settles.
+      const guardKey = `ensure:${parentId}:${needingPackages.map((p) => p.id).join(",")}:${needingHours.map((e) => e.id).join(",")}`;
+      if (legacyCoMigrationDoneRef.current.has(guardKey)) return 0;
+      legacyCoMigrationDoneRef.current.add(guardKey);
 
       const projectsSnapshot = projects;
-      const notesSnapshot = projectNotes;
-      const phasesSnapshot = projectPhases;
-      const milestonesSnapshot = projectMilestones;
-      const todosSnapshot = todos;
       const estimatesSnapshot = estimates;
-      const allocationsSnapshot = allocations;
-      const timeEntriesSnapshot = timeEntries;
-      const leadsSnapshot = leads;
 
-      const createdPackages = needing.map((co) =>
+      const createdPackages = needingPackages.map((co) =>
         buildWonEstimateFromLegacyChangeOrder(co, parent, generateId()),
       );
 
-      let working = {
-        projects: projects.map((p) =>
-          needing.some((co) => co.id === p.id)
-            ? { ...p, estimate_value: 0, design_amount: 0 }
-            : p,
-        ),
-        allocations,
-        timeEntries,
-        projectNotes,
-        estimates: [...createdPackages, ...estimates],
-        todos,
-        leads,
-        projectPhases,
-        projectMilestones,
-      };
+      let nextProjects = projects.map((p) =>
+        needingPackages.some((co) => co.id === p.id)
+          ? { ...p, estimate_value: 0, design_amount: 0 }
+          : p,
+      );
+      let nextEstimates = [...createdPackages, ...estimates];
+      const createdHoursProjects: Project[] = [];
 
-      const mergeOps: { sourceId: string; mergedTarget: Project }[] = [];
-      for (const co of needing) {
-        if (!working.projects.some((p) => p.id === co.id)) continue;
-        const next = applyProjectMergeState(working, co.id, parentId);
-        mergeOps.push({ sourceId: co.id, mergedTarget: next.mergedTarget });
-        working = {
-          projects: next.projects,
-          allocations: next.allocations,
-          timeEntries: next.timeEntries,
-          projectNotes: next.projectNotes,
-          estimates: next.estimates,
-          todos: next.todos,
-          leads: next.leads,
-          projectPhases: next.projectPhases,
-          projectMilestones: next.projectMilestones,
-        };
+      for (const pkg of needingHours) {
+        const siblings = getChangeOrdersForParent(nextProjects, parentId);
+        const hoursProject = projectFromFormValues(
+          buildHoursOnlyChangeOrderDefaults(
+            parent,
+            siblings,
+            pkg.title?.trim() || parent.project_name,
+          ),
+          { id: generateId(), active: true },
+        );
+        createdHoursProjects.push(hoursProject);
+        nextProjects = [...nextProjects, hoursProject];
+        nextEstimates = nextEstimates.map((estimate) =>
+          estimate.id === pkg.id
+            ? { ...estimate, notes: withHoursProjectNote(estimate.notes, hoursProject.id) }
+            : estimate,
+        );
       }
 
-      setProjects(working.projects);
-      setAllocations(working.allocations);
-      setTimeEntries(working.timeEntries);
-      setProjectNotes(working.projectNotes);
-      setEstimates(working.estimates);
-      setTodos(working.todos);
-      setLeads(working.leads);
-      setProjectPhases(working.projectPhases);
-      setProjectMilestones(working.projectMilestones);
-
-      for (const co of needing) {
-        removeProjectFromQueue("design", co.id);
-        removeProjectFromQueue("estimating", co.id);
-      }
-      setQueueRevision((n) => n + 1);
+      setProjects(nextProjects);
+      setEstimates(nextEstimates);
 
       if (repoRef.current) {
         void persistAsync(
           async () => {
+            for (const p of nextProjects.filter((row) =>
+              needingPackages.some((co) => co.id === row.id),
+            )) {
+              await repoRef.current!.upsertProject(p);
+            }
+            for (const hoursProject of createdHoursProjects) {
+              await repoRef.current!.upsertProject(hoursProject);
+            }
             for (const packageEstimate of createdPackages) {
               await repoRef.current!.upsertEstimate(packageEstimate);
             }
-            for (const { sourceId, mergedTarget } of mergeOps) {
-              await repoRef.current!.mergeProjects(sourceId, parentId, mergedTarget);
+            for (const pkg of needingHours) {
+              const updated = nextEstimates.find((e) => e.id === pkg.id);
+              if (updated) await repoRef.current!.upsertEstimate(updated);
             }
           },
           () => {
-            legacyCoMigrationDoneRef.current.delete(parentId);
+            legacyCoMigrationDoneRef.current.delete(guardKey);
             setProjects(projectsSnapshot);
-            setProjectNotes(notesSnapshot);
-            setProjectPhases(phasesSnapshot);
-            setProjectMilestones(milestonesSnapshot);
-            setTodos(todosSnapshot);
             setEstimates(estimatesSnapshot);
-            setAllocations(allocationsSnapshot);
-            setTimeEntries(timeEntriesSnapshot);
-            setLeads(leadsSnapshot);
           },
         );
       }
 
-      return mergeOps.length;
+      return needingPackages.length + createdHoursProjects.length;
     },
-    [
-      projects,
-      projectNotes,
-      projectPhases,
-      projectMilestones,
-      todos,
-      estimates,
-      allocations,
-      timeEntries,
-      leads,
-      persistAsync,
-    ],
+    [projects, estimates, persistAsync],
   );
 
   const updateClientContact = useCallback(
@@ -2593,6 +2573,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
 
       const resolvedWonDate = wonDate.trim() || format(new Date(), "yyyy-MM-dd");
       let project: Project | null = null;
+      let hoursProjectId: string | undefined;
 
       if (choice.mode === "existing") {
         const existing = projects.find((p) => p.id === choice.projectId);
@@ -2625,11 +2606,41 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           phase: "Construction",
           department: "Construction",
         };
+
+        if (estimate.estimate_type === "change_order" && !isChangeOrder(existing)) {
+          const linked = findHoursProjectForEstimate(projects, estimate);
+          if (linked) {
+            hoursProjectId = linked.id;
+          } else {
+            const hoursProject = addProject(
+              buildHoursOnlyChangeOrderDefaults(
+                existing,
+                getChangeOrdersForParent(projects, existing.id),
+                estimate.title?.trim() || existing.project_name,
+              ),
+            );
+            hoursProjectId = hoursProject.id;
+          }
+        }
       } else if (choice.mode === "change_order") {
-        // Link the package to the parent job — do not create a child CO project.
+        // Package $ links to the parent; a hours-only child stays available for timesheets.
         const parent = projects.find((p) => p.id === choice.parentProjectId);
         if (!parent || isChangeOrder(parent)) return null;
         project = parent;
+
+        const linked = findHoursProjectForEstimate(projects, estimate);
+        if (linked) {
+          hoursProjectId = linked.id;
+        } else {
+          const hoursProject = addProject(
+            buildHoursOnlyChangeOrderDefaults(
+              parent,
+              getChangeOrdersForParent(projects, parent.id),
+              estimate.title?.trim() || parent.project_name,
+            ),
+          );
+          hoursProjectId = hoursProject.id;
+        }
       } else {
         project = addProject({
           project_name: estimate.title?.trim() || estimate.client_name.trim(),
@@ -2655,6 +2666,10 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         won_date: resolvedWonDate,
         submitted_date:
           existing.submitted_date || format(new Date(), "yyyy-MM-dd"),
+        notes:
+          hoursProjectId != null
+            ? withHoursProjectNote(existing.notes, hoursProjectId)
+            : existing.notes,
       }));
 
       return project;
