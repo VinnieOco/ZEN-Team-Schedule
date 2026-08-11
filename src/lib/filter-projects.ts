@@ -140,10 +140,10 @@ export function filterProjects(
     .sort(compareProjectsByDepartment);
 }
 
-/** Gantt defaults — change orders are shown on the timeline by default. */
+/** Gantt defaults — hide change-order project rows (same as Projects list). */
 export function defaultGanttFilters(): ProjectFilters {
   return {
     ...defaultProjectFilters(),
-    showChangeOrders: true,
+    showChangeOrders: false,
   };
 }

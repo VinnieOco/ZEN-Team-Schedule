@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Plus, Trash2 } from "lucide-react";
 
 import { EstimateDetailDialog } from "@/components/pipeline/estimate-detail-dialog";
 import { EstimateFormDialog } from "@/components/pipeline/estimate-form-dialog";
@@ -49,6 +49,20 @@ import type { Estimate, Project } from "@/types";
 interface ChangeOrdersSectionProps {
   project: Project;
   canEdit: boolean;
+}
+
+const WON_PREVIEW_COUNT = 3;
+
+type WonRow =
+  | { kind: "package"; id: string; sortKey: string; estimate: Estimate }
+  | { kind: "project"; id: string; sortKey: string; project: Project };
+
+function wonSortKeyForPackage(estimate: Estimate): string {
+  return estimate.won_date ?? estimate.submitted_date ?? estimate.updated_at;
+}
+
+function wonSortKeyForProject(project: Project): string {
+  return project.contract_date ?? project.start_date ?? project.project_name;
 }
 
 function PackageRows({
@@ -179,6 +193,7 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
   const [editing, setEditing] = useState<Estimate | null>(null);
   const [detail, setDetail] = useState<Estimate | null>(null);
   const [wonEstimateId, setWonEstimateId] = useState<string | null>(null);
+  const [showAllWon, setShowAllWon] = useState(false);
 
   const pendingPackages = useMemo(
     () => getPendingChangeOrderEstimatesForProject(estimates, project.id),
@@ -210,8 +225,41 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
     [project, estimates],
   );
 
+  const wonRows = useMemo((): WonRow[] => {
+    const rows: WonRow[] = [
+      ...wonPackages.map((estimate) => ({
+        kind: "package" as const,
+        id: estimate.id,
+        sortKey: wonSortKeyForPackage(estimate),
+        estimate,
+      })),
+      ...legacyProjects.map((co) => ({
+        kind: "project" as const,
+        id: co.id,
+        sortKey: wonSortKeyForProject(co),
+        project: co,
+      })),
+    ];
+    return rows.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+  }, [wonPackages, legacyProjects]);
+
+  const visibleWonRows = showAllWon ? wonRows : wonRows.slice(0, WON_PREVIEW_COUNT);
+  const hiddenWonCount = Math.max(0, wonRows.length - WON_PREVIEW_COUNT);
   const packageRollup = formatChangeOrderPackageRollup(packageSummary);
   const legacyRollup = formatChangeOrderRollup(legacySummary);
+  const hasWonContent = wonRows.length > 0;
+  const wonDescriptionParts = [
+    "Change orders that count toward this job's Estimate amount.",
+  ];
+  if (packageRollup) wonDescriptionParts.push(packageRollup);
+  if (legacyRollup) {
+    wonDescriptionParts.push(
+      wonPackages.length > 0
+        ? `Also includes ${legacyRollup} from earlier CO project records.`
+        : legacyRollup,
+    );
+  }
+  const wonDescription = wonDescriptionParts.join(" ");
 
   const wonEstimate = useMemo(
     () => (wonEstimateId ? estimates.find((e) => e.id === wonEstimateId) ?? null : null),
@@ -303,43 +351,72 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
       <Card>
         <CardHeader className="space-y-0">
           <CardTitle className="text-base">Won change orders</CardTitle>
-          <CardDescription className="mt-1">
-            Won packages linked to this job. Amounts roll into Estimate amount.
-            {packageRollup ? ` ${packageRollup}.` : ""}
-            {legacyRollup ? ` Linked CO projects: ${legacyRollup}.` : ""}
-          </CardDescription>
+          <CardDescription className="mt-1">{wonDescription}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 p-0 sm:p-6 sm:pt-0">
-          {wonPackages.length === 0 ? (
+        <CardContent className="space-y-4 p-0 sm:p-6 sm:pt-0">
+          {!hasWonContent ? (
             <p className="px-4 text-sm text-muted-foreground sm:px-0">
               No won change orders yet. Mark a pending package as won to move it here.
             </p>
           ) : (
-            <PackageRows
-              packages={wonPackages}
-              canEdit={canEdit}
-              estimatorName={estimatorName}
-              onOpen={setDetail}
-              onDelete={handleDeletePackage}
-            />
-          )}
-
-          {legacyProjects.length > 0 ? (
-            <div className="space-y-3 border-t border-slate-100 px-4 pt-4 sm:px-0">
-              <div>
-                <h4 className="text-sm font-medium text-slate-900">Linked CO projects</h4>
-                <p className="text-xs text-muted-foreground">
-                  Older change orders tracked as separate projects under this job.
-                </p>
-              </div>
+            <>
               <ul className="divide-y divide-slate-100 md:hidden">
-                {legacyProjects.map((co) => {
+                {visibleWonRows.map((row) => {
+                  if (row.kind === "package") {
+                    const estimate = row.estimate;
+                    return (
+                      <li key={row.id} className="space-y-2 px-4 py-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDetail(estimate)}
+                            className="min-w-0 text-left font-medium text-emerald-700 hover:underline"
+                          >
+                            {estimateDisplayName(estimate)}
+                          </button>
+                          {canEdit ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                              onClick={() => handleDeletePackage(estimate)}
+                              aria-label={`Delete ${estimateDisplayName(estimate)}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge
+                            variant="secondary"
+                            className={cn("font-semibold", estimateStageBadgeClass(estimate.stage))}
+                          >
+                            {estimateStageLabel(estimate.stage)}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {estimateTypeLabel(estimate.estimate_type)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-2 text-xs tabular-nums">
+                          <span className="text-muted-foreground">
+                            {estimatorName(estimate) ?? "Unassigned"}
+                          </span>
+                          <span className="font-medium">
+                            {formatProjectAmount(estimate.amount)}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  }
+
+                  const co = row.project;
                   const actual = getProjectActualHours(timeEntries, co.id);
                   return (
                     <li
-                      key={co.id}
+                      key={row.id}
                       className={cn(
-                        "space-y-2 py-3",
+                        "space-y-2 px-4 py-3",
                         !co.active && "bg-slate-50/80 text-muted-foreground",
                       )}
                     >
@@ -383,55 +460,131 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                   );
                 })}
               </ul>
+
               <div className="hidden overflow-x-auto md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead className="text-right">Budgeted Hrs</TableHead>
-                      <TableHead className="text-right">Estimate Amount</TableHead>
+                      <TableHead>Details</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
                       {canEdit ? <TableHead className="w-[1%] text-right"> </TableHead> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {legacyProjects.map((co) => (
-                      <TableRow key={co.id}>
-                        <TableCell className="font-medium">
-                          <Link
-                            href={`/projects/${co.id}`}
-                            className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                    {visibleWonRows.map((row) => {
+                      if (row.kind === "package") {
+                        const estimate = row.estimate;
+                        return (
+                          <TableRow
+                            key={row.id}
+                            className="cursor-pointer"
+                            onClick={() => setDetail(estimate)}
                           >
-                            {co.project_name}
-                            <ExternalLink className="h-3 w-3 opacity-50" />
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatProjectHours(co.budgeted_design_hours)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatProjectAmount(getProjectEstimateValue(co))}
-                        </TableCell>
-                        {canEdit ? (
-                          <TableCell className="text-right">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                              onClick={() => handleDeleteLegacy(co)}
-                              aria-label={`Delete ${co.project_name}`}
+                            <TableCell className="font-medium text-emerald-700">
+                              {estimateDisplayName(estimate)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "font-semibold",
+                                    estimateStageBadgeClass(estimate.stage),
+                                  )}
+                                >
+                                  {estimateStageLabel(estimate.stage)}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {estimatorName(estimate) ?? "Unassigned"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatProjectAmount(estimate.amount)}
+                            </TableCell>
+                            {canEdit ? (
+                              <TableCell
+                                className="text-right"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                                  onClick={() => handleDeletePackage(estimate)}
+                                  aria-label={`Delete ${estimateDisplayName(estimate)}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            ) : null}
+                          </TableRow>
+                        );
+                      }
+
+                      const co = row.project;
+                      return (
+                        <TableRow key={row.id}>
+                          <TableCell className="font-medium">
+                            <Link
+                              href={`/projects/${co.id}`}
+                              className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                              {co.project_name}
+                              <ExternalLink className="h-3 w-3 opacity-50" />
+                            </Link>
                           </TableCell>
-                        ) : null}
-                      </TableRow>
-                    ))}
+                          <TableCell className="text-xs text-muted-foreground">
+                            Budget {formatProjectHours(co.budgeted_design_hours)}h
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatProjectAmount(getProjectEstimateValue(co))}
+                          </TableCell>
+                          {canEdit ? (
+                            <TableCell className="text-right">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                                onClick={() => handleDeleteLegacy(co)}
+                                aria-label={`Delete ${co.project_name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
-            </div>
-          ) : null}
+
+              {hiddenWonCount > 0 ? (
+                <div className="px-4 sm:px-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-full justify-center gap-1.5 text-muted-foreground hover:text-slate-900"
+                    onClick={() => setShowAllWon((open) => !open)}
+                    aria-expanded={showAllWon}
+                  >
+                    {showAllWon ? "Show fewer" : `Show ${hiddenWonCount} more`}
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        showAllWon && "rotate-180",
+                      )}
+                    />
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
 
