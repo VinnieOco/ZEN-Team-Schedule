@@ -353,6 +353,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const expandInFlightRef = useRef(false);
   /** Serialize estimate upserts per id so create-then-won does not lose the project link. */
   const estimateWriteChainRef = useRef(new Map<string, Promise<unknown>>());
+  /** Monotonic generation per estimate; skips stale rollbacks after newer local edits. */
+  const estimateWriteGenerationRef = useRef(new Map<string, number>());
   const estimatesRef = useRef<Estimate[]>([]);
 
   const persisted = !useSupabase ? loadPersistedState() : null;
@@ -696,10 +698,16 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  /** Keep create → edit → mark-won upserts ordered; always write the latest in-memory row. */
+  /**
+   * Keep create → edit → mark-won upserts ordered; always write the latest in-memory row.
+   * Do not roll back to a stale snapshot after a newer local edit (that was wiping won).
+   */
   const persistEstimateOrdered = useCallback(
-    (estimateId: string, rollback: () => void) => {
+    (estimateId: string) => {
       if (!repoRef.current) return;
+      const generation = (estimateWriteGenerationRef.current.get(estimateId) ?? 0) + 1;
+      estimateWriteGenerationRef.current.set(estimateId, generation);
+
       const previous = estimateWriteChainRef.current.get(estimateId) ?? Promise.resolve();
       const next = previous
         .catch(() => {
@@ -708,9 +716,19 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         .then(() => {
           const latest = estimatesRef.current.find((e) => e.id === estimateId);
           if (!latest || !repoRef.current) return undefined;
+          // Skip if a newer local edit superseded this queued write.
+          if (estimateWriteGenerationRef.current.get(estimateId) !== generation) {
+            return undefined;
+          }
           return persistAsync(
             () => repoRef.current!.upsertEstimate(latest),
-            rollback,
+            () => {
+              // Only surface the error — never restore an older estimates snapshot.
+              // Rolling back after create→won was re-applying follow_up/submitted over won.
+              if (estimateWriteGenerationRef.current.get(estimateId) !== generation) {
+                return;
+              }
+            },
           );
         });
       estimateWriteChainRef.current.set(estimateId, next);
@@ -2374,14 +2392,13 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setEstimates((prev) => {
         const existing = prev.find((e) => e.id === id);
         if (!existing) return prev;
-        const snapshot = prev;
         const updated: Estimate = {
           ...mutate(existing),
           updated_at: new Date().toISOString(),
         };
         const next = prev.map((e) => (e.id === id ? updated : e));
         estimatesRef.current = next;
-        persistEstimateOrdered(id, () => setEstimates(snapshot));
+        persistEstimateOrdered(id);
         return next;
       });
     },
@@ -2393,10 +2410,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       ensureClientInRegistry(values.client_name);
       const estimate = estimateFromFormValues(values);
       setEstimates((prev) => {
-        const snapshot = prev;
         const next = [estimate, ...prev];
         estimatesRef.current = next;
-        persistEstimateOrdered(estimate.id, () => setEstimates(snapshot));
+        persistEstimateOrdered(estimate.id);
         return next;
       });
       return estimate;
@@ -2601,10 +2617,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       };
 
       setEstimates((prev) => {
-        const snapshot = prev;
         const next = [revision, ...prev];
         estimatesRef.current = next;
-        persistEstimateOrdered(revision.id, () => setEstimates(snapshot));
+        persistEstimateOrdered(revision.id);
         return next;
       });
 

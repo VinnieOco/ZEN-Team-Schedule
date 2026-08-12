@@ -174,10 +174,13 @@ export function EstimateFormDialog({
 
     if (transitioningToWon && onRequestWon) {
       // Persist package details first; leave stage open until the won dialog confirms.
+      // Keep the current open stage when editing so a failed/cancelled won doesn't jump stages.
       const openStage =
         estimate && estimate.stage !== "won" && estimate.stage !== "lost"
           ? estimate.stage
-          : "follow_up";
+          : payload.submitted_date
+            ? "submitted"
+            : "pricing";
       const pending: EstimateFormValues = { ...payload, stage: openStage };
       let estimateId: string;
       if (estimate) {

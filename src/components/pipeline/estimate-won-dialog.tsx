@@ -157,7 +157,10 @@ export function EstimateWonDialog({
   };
 
   const handleConfirm = () => {
-    if (!estimate) return;
+    if (!estimate) {
+      setError("This estimate is still saving. Close and mark it won again in a moment.");
+      return;
+    }
     if (!wonDate.trim()) {
       setError("Enter the date this estimate was won.");
       return;
