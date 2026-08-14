@@ -5,10 +5,11 @@ import {
   formatWipMoney,
   formatWipPercent,
   groupWipRowsByDepartment,
+  resolveWipInputsForMonth,
   wipScheduleJobs,
 } from "@/lib/pipeline/wip-schedule";
 import type { PipelineJob } from "@/lib/pipeline/types";
-import type { Project } from "@/types";
+import type { Project, ProjectWipSnapshot } from "@/types";
 
 function project(partial: Partial<Project> & Pick<Project, "id" | "project_name">): Project {
   return {
@@ -33,8 +34,6 @@ describe("wip schedule formulas", () => {
         wip_prior_fy_revenue: 850_116,
         wip_prior_fy_cost: 521_437,
       }),
-      [],
-      [],
     );
 
     expect(row.contractPrice).toBe(2_165_812);
@@ -60,15 +59,11 @@ describe("wip schedule formulas", () => {
 
   it("groups rows by department with preferred Design/Construction/Landscape/Interior order", () => {
     const rows = [
-      computeWipScheduleRow(project({ id: "a", project_name: "A", department: "Interior" }), [], []),
-      computeWipScheduleRow(project({ id: "b", project_name: "B", department: "Landscape" }), [], []),
-      computeWipScheduleRow(
-        project({ id: "c", project_name: "C", department: "Construction" }),
-        [],
-        [],
-      ),
-      computeWipScheduleRow(project({ id: "d", project_name: "D", department: "Design" }), [], []),
-      computeWipScheduleRow(project({ id: "e", project_name: "E", department: "Other" }), [], []),
+      computeWipScheduleRow(project({ id: "a", project_name: "A", department: "Interior" })),
+      computeWipScheduleRow(project({ id: "b", project_name: "B", department: "Landscape" })),
+      computeWipScheduleRow(project({ id: "c", project_name: "C", department: "Construction" })),
+      computeWipScheduleRow(project({ id: "d", project_name: "D", department: "Design" })),
+      computeWipScheduleRow(project({ id: "e", project_name: "E", department: "Other" })),
     ];
 
     const sections = groupWipRowsByDepartment(rows);
@@ -89,8 +84,37 @@ describe("wip schedule formulas", () => {
       { projectId: "c1", stage: "construction", active: true },
       { projectId: "e1", stage: "estimating", active: true },
       { projectId: "d2", stage: "design", active: false },
+      { projectId: "x1", stage: "closeout", active: false },
     ] as PipelineJob[];
 
     expect(wipScheduleJobs(jobs).map((j) => j.projectId)).toEqual(["d1", "c1"]);
+    expect(wipScheduleJobs(jobs, { includeInactive: true }).map((j) => j.projectId)).toEqual([
+      "d1",
+      "c1",
+      "d2",
+      "x1",
+    ]);
+  });
+
+  it("resolves month snapshots without leaking later months into earlier ones", () => {
+    const snapshots: ProjectWipSnapshot[] = [
+      {
+        id: "s-july",
+        project_id: "p1",
+        as_of_month: "2026-07",
+        wip_cost_to_date: 100,
+      },
+      {
+        id: "s-aug",
+        project_id: "p1",
+        as_of_month: "2026-08",
+        wip_cost_to_date: 250,
+      },
+    ];
+
+    expect(resolveWipInputsForMonth("p1", "2026-08", snapshots).inputs.wip_cost_to_date).toBe(250);
+    expect(resolveWipInputsForMonth("p1", "2026-07", snapshots).inputs.wip_cost_to_date).toBe(100);
+    expect(resolveWipInputsForMonth("p1", "2026-09", snapshots).inputs.wip_cost_to_date).toBe(250);
+    expect(resolveWipInputsForMonth("p1", "2026-06", snapshots).source).toBe("empty");
   });
 });

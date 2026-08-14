@@ -18,6 +18,7 @@ import type {
   TimeEntry,
   Todo,
   TodoNoteSourceType,
+  ProjectWipSnapshot,
 } from "@/types";
 
 export type { InclusiveDateRange };
@@ -39,6 +40,8 @@ export interface SchedulingRepository {
   syncProjectPhases(projectId: string, phases: ScheduledProjectPhase[]): Promise<void>;
   listProjectMilestones(): Promise<ProjectMilestone[]>;
   syncProjectMilestones(projectId: string, milestones: ProjectMilestone[]): Promise<void>;
+  listProjectWipSnapshots(): Promise<ProjectWipSnapshot[]>;
+  upsertProjectWipSnapshot(snapshot: ProjectWipSnapshot): Promise<ProjectWipSnapshot>;
   listClients(): Promise<Client[]>;
   upsertClient(client: Client): Promise<Client>;
   updateClient(client: Client): Promise<Client>;

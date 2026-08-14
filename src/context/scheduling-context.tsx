@@ -39,6 +39,7 @@ import { removeProjectFromQueue } from "@/lib/queue/queue-membership";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import type { ProjectWipInputFields } from "@/lib/pipeline/wip-schedule";
+import { resolveWipInputsForMonth } from "@/lib/pipeline/wip-schedule";
 import type { SchedulingRepository } from "@/lib/repository";
 import {
   appendDepartment,
@@ -99,6 +100,7 @@ import type {
   ClientFormValues,
   ProjectNote,
   ProjectMilestone,
+  ProjectWipSnapshot,
   ScheduledProjectPhase,
   EmployeeFormValues,
   ProjectFormValues,
@@ -145,6 +147,7 @@ interface PersistedState {
   timeEntries: TimeEntry[];
   projectPhases?: ScheduledProjectPhase[];
   projectMilestones?: ProjectMilestone[];
+  projectWipSnapshots?: ProjectWipSnapshot[];
   todos?: Todo[];
   leads?: Lead[];
   leadNotes?: LeadNote[];
@@ -169,6 +172,7 @@ interface SchedulingContextValue {
   timeEntries: TimeEntry[];
   projectPhases: ScheduledProjectPhase[];
   projectMilestones: ProjectMilestone[];
+  projectWipSnapshots: ProjectWipSnapshot[];
   todos: Todo[];
   leads: Lead[];
   leadNotes: LeadNote[];
@@ -196,8 +200,12 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => Promise<boolean>;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
-  /** Patch WIP schedule entry fields on a project. */
-  updateProjectWipFields: (id: string, patch: Partial<ProjectWipInputFields>) => void;
+  /** Patch WIP schedule entry fields for a project + As-of month (YYYY-MM). */
+  updateProjectWipFields: (
+    id: string,
+    asOfMonth: string,
+    patch: Partial<ProjectWipInputFields>,
+  ) => void;
   /** Deletes a change-order project only. Returns an error message when blocked. */
   deleteChangeOrder: (id: string) => { ok: true } | { ok: false; message: string };
   /** Moves source project data into target, then deletes the source. */
@@ -402,6 +410,9 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>(
     useSupabase ? [] : (persisted?.projectMilestones ?? []),
   );
+  const [projectWipSnapshots, setProjectWipSnapshots] = useState<ProjectWipSnapshot[]>(
+    useSupabase ? [] : (persisted?.projectWipSnapshots ?? []),
+  );
   const [todos, setTodos] = useState<Todo[]>(useSupabase ? [] : (persisted?.todos ?? []));
   const [leads, setLeads] = useState<Lead[]>(useSupabase ? [] : (persisted?.leads ?? []));
   const [leadNotes, setLeadNotes] = useState<LeadNote[]>(() => {
@@ -525,6 +536,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         setProjectMilestones(milestonesData);
       } catch {
         setProjectMilestones([]);
+      }
+
+      try {
+        const wipSnapshotsData = await repo.listProjectWipSnapshots();
+        setProjectWipSnapshots(wipSnapshotsData);
+      } catch {
+        // Table may be missing until migration 20260814150000 is applied.
+        setProjectWipSnapshots([]);
       }
 
       try {
@@ -654,6 +673,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       timeEntries,
       projectPhases,
       projectMilestones,
+      projectWipSnapshots,
       todos,
       leads,
       leadNotes,
@@ -674,6 +694,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     timeEntries,
     projectPhases,
     projectMilestones,
+    projectWipSnapshots,
     todos,
     leads,
     leadNotes,
@@ -1298,29 +1319,57 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   );
 
   const updateProjectWipFields = useCallback(
-    (id: string, patch: Partial<ProjectWipInputFields>) => {
-      setProjects((prev) => {
-        const snapshot = prev;
-        const existing = prev.find((p) => p.id === id);
-        if (!existing) return prev;
-        const merged: Project = { ...existing, ...patch };
-        const next = prev.map((p) => (p.id === id ? merged : p));
+    (id: string, asOfMonth: string, patch: Partial<ProjectWipInputFields>) => {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(asOfMonth)) return;
+
+      setProjectWipSnapshots((prev) => {
+        const snapshotList = prev;
+        const legacyProject = projects.find((p) => p.id === id);
+        const { inputs, exactSnapshot } = resolveWipInputsForMonth(
+          id,
+          asOfMonth,
+          prev,
+          legacyProject,
+        );
+        const merged: ProjectWipSnapshot = {
+          id: exactSnapshot?.id ?? crypto.randomUUID(),
+          project_id: id,
+          as_of_month: asOfMonth,
+          ...inputs,
+          ...patch,
+        };
+
+        const next = exactSnapshot
+          ? prev.map((s) => (s.id === exactSnapshot.id ? merged : s))
+          : [...prev.filter((s) => !(s.project_id === id && s.as_of_month === asOfMonth)), merged];
+
         if (repoRef.current) {
           void persistAsync(
-            () => repoRef.current!.updateProject(merged),
-            () => setProjects(snapshot),
+            () => repoRef.current!.upsertProjectWipSnapshot(merged),
+            () => setProjectWipSnapshots(snapshotList),
           ).then((saved) => {
-            if (saved) {
-              setProjects((current) =>
-                current.map((p) => (p.id === id ? saved : p)),
+            if (!saved) return;
+            setProjectWipSnapshots((current) => {
+              const withoutDupes = current.filter(
+                (s) =>
+                  !(
+                    s.project_id === saved.project_id &&
+                    s.as_of_month === saved.as_of_month &&
+                    s.id !== saved.id
+                  ),
               );
-            }
+              const idx = withoutDupes.findIndex((s) => s.id === saved.id);
+              if (idx >= 0) {
+                return withoutDupes.map((s) => (s.id === saved.id ? saved : s));
+              }
+              return [...withoutDupes, saved];
+            });
           });
         }
         return next;
       });
     },
-    [persistAsync],
+    [persistAsync, projects],
   );
 
   const deleteChangeOrder = useCallback(
@@ -1346,6 +1395,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setProjectNotes((prev) => prev.filter((n) => n.project_id !== id));
       setProjectPhases((prev) => prev.filter((p) => p.project_id !== id));
       setProjectMilestones((prev) => prev.filter((m) => m.project_id !== id));
+      setProjectWipSnapshots((prev) => prev.filter((s) => s.project_id !== id));
       setTodos((prev) => prev.filter((t) => t.source_project_id !== id));
       setEstimates((prev) =>
         prev.map((e) => (e.project_id === id ? { ...e, project_id: undefined } : e)),
@@ -1384,6 +1434,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectNotes,
       projectPhases,
       projectMilestones,
+      projectWipSnapshots,
       todos,
       estimates,
       allocations,
@@ -1432,6 +1483,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       setLeads(next.leads);
       setProjectPhases(next.projectPhases);
       setProjectMilestones(next.projectMilestones);
+      setProjectWipSnapshots((prev) => prev.filter((s) => s.project_id !== sourceId));
 
       removeProjectFromQueue("design", sourceId);
       removeProjectFromQueue("estimating", sourceId);
@@ -1466,6 +1518,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       projectNotes,
       projectPhases,
       projectMilestones,
+      projectWipSnapshots,
       todos,
       estimates,
       allocations,
@@ -2933,6 +2986,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       timeEntries,
       projectPhases,
       projectMilestones,
+      projectWipSnapshots,
       todos,
       leads,
       leadNotes,
@@ -3028,6 +3082,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       timeEntries,
       projectPhases,
       projectMilestones,
+      projectWipSnapshots,
       todos,
       leads,
       leadNotes,

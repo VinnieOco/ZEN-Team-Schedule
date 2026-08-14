@@ -315,7 +315,7 @@ export function PipelineOverviewTab() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { projects, timeEntries, leads, estimates, settings, getEmployeeById, isLoading } =
+  const { projects, timeEntries, leads, estimates, settings, getEmployeeById, isLoading, projectWipSnapshots } =
     useScheduling();
 
   const jobs = useMemo(
@@ -326,8 +326,8 @@ export function PipelineOverviewTab() {
   const leadKpis = useMemo(() => buildLeadKpis(leads, new Date(), settings), [leads, settings]);
   const estimateKpis = useMemo(() => buildEstimateKpis(estimates), [estimates]);
   const money = useMemo(
-    () => buildOverviewMoney(leads, estimates, jobs, projects, settings),
-    [leads, estimates, jobs, projects, settings],
+    () => buildOverviewMoney(leads, estimates, jobs, projects, settings, projectWipSnapshots),
+    [leads, estimates, jobs, projects, settings, projectWipSnapshots],
   );
   const stageBars = useMemo(
     () => buildOverviewStageBars(leads, estimates, jobs, settings),

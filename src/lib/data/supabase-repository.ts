@@ -42,6 +42,10 @@ import {
   syncProjectMilestones as syncMilestones,
 } from "@/lib/data/project-milestones-repository";
 import {
+  listProjectWipSnapshots as fetchProjectWipSnapshots,
+  upsertProjectWipSnapshot as upsertWipSnapshot,
+} from "@/lib/data/project-wip-snapshots-repository";
+import {
   listAllRows,
   type InclusiveDateRange,
 } from "@/lib/data/list-all-rows";
@@ -56,6 +60,7 @@ import type {
   ClientNote,
   ProjectNote,
   ProjectMilestone,
+  ProjectWipSnapshot,
   ScheduledProjectPhase,
   TimeEntry,
   Todo,
@@ -168,6 +173,14 @@ export function createSupabaseRepository(
 
     async syncProjectMilestones(projectId: string, milestones: ProjectMilestone[]) {
       return syncMilestones(supabase, projectId, milestones);
+    },
+
+    async listProjectWipSnapshots() {
+      return fetchProjectWipSnapshots(supabase);
+    },
+
+    async upsertProjectWipSnapshot(snapshot: ProjectWipSnapshot) {
+      return upsertWipSnapshot(supabase, snapshot);
     },
 
     async listClients() {

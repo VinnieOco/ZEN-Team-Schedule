@@ -15,7 +15,7 @@ import {
   sumWipScheduleRows,
   wipScheduleJobs,
 } from "@/lib/pipeline/wip-schedule";
-import type { CompanySettings, Estimate, Lead, Project } from "@/types";
+import type { CompanySettings, Estimate, Lead, Project, ProjectWipSnapshot } from "@/types";
 
 export type OverviewStageBarId =
   | "leads"
@@ -174,12 +174,21 @@ export function buildOverviewMoney(
   jobs: PipelineJob[],
   projects: Project[],
   settings?: CompanySettings,
+  snapshots: ProjectWipSnapshot[] = [],
+  asOfMonth?: string,
 ): OverviewMoney {
   const pipelineValue =
     leads.filter((l) => isOpenLead(l, settings)).reduce((sum, l) => sum + (l.expected_value ?? 0), 0) +
     estimates.filter(isOpenEstimate).reduce((sum, e) => sum + (e.amount ?? 0), 0);
 
-  const wipRows = buildConstructionWipRows(wipScheduleJobs(jobs), projects, estimates);
+  const month = asOfMonth ?? format(new Date(), "yyyy-MM");
+  const wipRows = buildConstructionWipRows(
+    wipScheduleJobs(jobs),
+    projects,
+    estimates,
+    snapshots,
+    month,
+  );
   const backlogValue = sumWipScheduleRows(wipRows).remainingRevenue;
 
   return { pipelineValue, backlogValue };

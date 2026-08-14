@@ -87,6 +87,21 @@ export interface Project {
   is_change_order?: boolean;
 }
 
+/** Entered WIP schedule values for one project + As-of month (YYYY-MM). */
+export interface ProjectWipSnapshot {
+  id: string;
+  project_id: string;
+  /** Calendar month key, e.g. "2026-08". */
+  as_of_month: string;
+  wip_contract_price?: number;
+  wip_cost_to_date?: number;
+  wip_estimated_cost_to_complete?: number;
+  wip_billings_to_date?: number;
+  wip_provision_for_loss?: number;
+  wip_prior_fy_revenue?: number;
+  wip_prior_fy_cost?: number;
+}
+
 /** Scheduled phase row for Gantt planning (one project has many). */
 export interface ScheduledProjectPhase {
   id: string;

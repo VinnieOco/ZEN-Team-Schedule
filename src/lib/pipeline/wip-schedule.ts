@@ -1,11 +1,11 @@
 import { isParentProject } from "@/lib/change-orders";
 import { UNASSIGNED_DEPARTMENT, getProjectDepartmentKey } from "@/lib/departments";
 import type { PipelineJob } from "@/lib/pipeline/types";
-import type { Estimate, Project } from "@/types";
+import type { Estimate, Project, ProjectWipSnapshot } from "@/types";
 
-/** Entered WIP fields (stored on the project). */
+/** Entered WIP fields for one As-of month. */
 export type ProjectWipInputFields = Pick<
-  Project,
+  ProjectWipSnapshot,
   | "wip_contract_price"
   | "wip_cost_to_date"
   | "wip_estimated_cost_to_complete"
@@ -33,11 +33,90 @@ export const WIP_DEPARTMENT_ORDER = [
   "Interior",
 ] as const;
 
-/** Active design + construction jobs included on the WIP schedule. */
-export function wipScheduleJobs(jobs: PipelineJob[]): PipelineJob[] {
-  return jobs.filter(
-    (job) => job.active && (job.stage === "design" || job.stage === "construction"),
-  );
+/** Stages that can appear on the WIP schedule. */
+const WIP_ACTIVE_STAGES = new Set(["design", "construction"]);
+const WIP_INACTIVE_STAGES = new Set(["design", "construction", "closeout"]);
+
+/**
+ * Jobs for the WIP schedule.
+ * Active: design + construction.
+ * Inactive (optional): design, construction, or closeout so year totals can include finished work.
+ */
+export function wipScheduleJobs(
+  jobs: PipelineJob[],
+  options?: { includeInactive?: boolean },
+): PipelineJob[] {
+  const includeInactive = options?.includeInactive ?? false;
+  return jobs.filter((job) => {
+    if (job.active) return WIP_ACTIVE_STAGES.has(job.stage);
+    return includeInactive && WIP_INACTIVE_STAGES.has(job.stage);
+  });
+}
+
+export function emptyWipInputFields(): ProjectWipInputFields {
+  return {
+    wip_contract_price: undefined,
+    wip_cost_to_date: undefined,
+    wip_estimated_cost_to_complete: undefined,
+    wip_billings_to_date: undefined,
+    wip_provision_for_loss: undefined,
+    wip_prior_fy_revenue: undefined,
+    wip_prior_fy_cost: undefined,
+  };
+}
+
+export function wipInputsFromSnapshot(
+  snapshot: Pick<ProjectWipSnapshot, keyof ProjectWipInputFields> | Project | null | undefined,
+): ProjectWipInputFields {
+  if (!snapshot) return emptyWipInputFields();
+  return {
+    wip_contract_price: snapshot.wip_contract_price,
+    wip_cost_to_date: snapshot.wip_cost_to_date,
+    wip_estimated_cost_to_complete: snapshot.wip_estimated_cost_to_complete,
+    wip_billings_to_date: snapshot.wip_billings_to_date,
+    wip_provision_for_loss: snapshot.wip_provision_for_loss,
+    wip_prior_fy_revenue: snapshot.wip_prior_fy_revenue,
+    wip_prior_fy_cost: snapshot.wip_prior_fy_cost,
+  };
+}
+
+/**
+ * Resolve entered WIP values for a project + As-of month.
+ * Prefers an exact month snapshot, else the latest prior month, else legacy
+ * project-level fields (pre-migration).
+ */
+export function resolveWipInputsForMonth(
+  projectId: string,
+  asOfMonth: string,
+  snapshots: ProjectWipSnapshot[],
+  legacyProject?: Project | null,
+): {
+  inputs: ProjectWipInputFields;
+  exactSnapshot: ProjectWipSnapshot | null;
+  source: "exact" | "prior" | "legacy" | "empty";
+} {
+  const forProject = snapshots.filter((s) => s.project_id === projectId);
+  const exact = forProject.find((s) => s.as_of_month === asOfMonth) ?? null;
+  if (exact) {
+    return { inputs: wipInputsFromSnapshot(exact), exactSnapshot: exact, source: "exact" };
+  }
+
+  const prior = forProject
+    .filter((s) => s.as_of_month < asOfMonth)
+    .sort((a, b) => b.as_of_month.localeCompare(a.as_of_month))[0];
+  if (prior) {
+    return { inputs: wipInputsFromSnapshot(prior), exactSnapshot: null, source: "prior" };
+  }
+
+  if (legacyProject) {
+    const legacy = wipInputsFromSnapshot(legacyProject);
+    const hasLegacy = WIP_INPUT_KEYS.some((key) => legacy[key] != null);
+    if (hasLegacy) {
+      return { inputs: legacy, exactSnapshot: null, source: "legacy" };
+    }
+  }
+
+  return { inputs: emptyWipInputFields(), exactSnapshot: null, source: "empty" };
 }
 
 export interface WipScheduleRow {
@@ -45,6 +124,7 @@ export interface WipScheduleRow {
   jobName: string;
   clientName: string;
   department: string;
+  active: boolean;
   /** C: Contract price including change orders (entered). */
   contractPrice: number;
   /** D: Estimated cost to complete (entered). */
@@ -101,6 +181,7 @@ export interface WipScheduleTotals extends Omit<
   | "jobName"
   | "clientName"
   | "department"
+  | "active"
   | "percentComplete"
   | "estimatedGrossProfitPercent"
   | "grossProfitPercentToDate"
@@ -121,22 +202,22 @@ function pct(numerator: number, denominator: number): number | null {
 
 /**
  * Excel-style WIP formulas matching the ZEN WIP Schedule spreadsheet.
- * Contract price and other amber cells are entered on the project and carry
- * across As-of months (the month picker is a reporting label only).
+ * Entered amber cells are stored per As-of month.
  */
 export function computeWipScheduleRow(
   project: Project,
+  inputs: ProjectWipInputFields = wipInputsFromSnapshot(project),
   _allProjects: Project[] = [],
   _estimates: Estimate[] = [],
 ): WipScheduleRow {
-  const contractPrice = n(project.wip_contract_price);
+  const contractPrice = n(inputs.wip_contract_price);
 
-  const estimatedCostToComplete = n(project.wip_estimated_cost_to_complete);
-  const costToDate = n(project.wip_cost_to_date);
-  const billingsToDate = n(project.wip_billings_to_date);
-  const provisionForLoss = n(project.wip_provision_for_loss);
-  const priorFyRevenue = n(project.wip_prior_fy_revenue);
-  const priorFyCost = n(project.wip_prior_fy_cost);
+  const estimatedCostToComplete = n(inputs.wip_estimated_cost_to_complete);
+  const costToDate = n(inputs.wip_cost_to_date);
+  const billingsToDate = n(inputs.wip_billings_to_date);
+  const provisionForLoss = n(inputs.wip_provision_for_loss);
+  const priorFyRevenue = n(inputs.wip_prior_fy_revenue);
+  const priorFyCost = n(inputs.wip_prior_fy_cost);
 
   const estimatedTotalCost = estimatedCostToComplete + costToDate;
   const percentComplete = pct(costToDate, estimatedTotalCost);
@@ -167,6 +248,7 @@ export function computeWipScheduleRow(
     jobName: project.project_name,
     clientName: project.client_name,
     department: departmentKey === UNASSIGNED_DEPARTMENT ? "Unassigned" : departmentKey,
+    active: project.active,
     contractPrice,
     estimatedCostToComplete,
     costToDate,
@@ -198,14 +280,20 @@ export function buildConstructionWipRows(
   jobs: PipelineJob[],
   projects: Project[],
   estimates: Estimate[],
+  snapshots: ProjectWipSnapshot[] = [],
+  asOfMonth?: string,
 ): WipScheduleRow[] {
   const byId = new Map(projects.map((p) => [p.id, p]));
   const rows: WipScheduleRow[] = [];
+  const month = asOfMonth ?? "";
 
   for (const job of jobs) {
     const project = byId.get(job.projectId);
     if (!project || !isParentProject(project)) continue;
-    rows.push(computeWipScheduleRow(project, projects, estimates));
+    const { inputs } = month
+      ? resolveWipInputsForMonth(project.id, month, snapshots, project)
+      : { inputs: wipInputsFromSnapshot(project) };
+    rows.push(computeWipScheduleRow(project, inputs, projects, estimates));
   }
 
   return rows.sort((a, b) => a.jobName.localeCompare(b.jobName));

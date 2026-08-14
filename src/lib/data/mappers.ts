@@ -20,6 +20,7 @@ import type {
   ProjectNote,
   ProjectMilestone,
   ProjectMilestoneKind,
+  ProjectWipSnapshot,
   ScheduledProjectPhase,
   TimeEntry,
   Todo,
@@ -889,5 +890,52 @@ export function projectMilestoneToRow(milestone: ProjectMilestone) {
     pipeline_tag: milestone.pipeline_tag ?? null,
     completed_at: milestone.completed_at ?? null,
     assigned_employee_id: milestone.assigned_employee_id ?? null,
+  };
+}
+
+type ProjectWipSnapshotRow = {
+  id: string;
+  project_id: string;
+  as_of_month: string;
+  wip_contract_price: number | null;
+  wip_cost_to_date: number | null;
+  wip_estimated_cost_to_complete: number | null;
+  wip_billings_to_date: number | null;
+  wip_provision_for_loss: number | null;
+  wip_prior_fy_revenue: number | null;
+  wip_prior_fy_cost: number | null;
+};
+
+function optionalNumber(value: number | null | undefined): number | undefined {
+  return value != null ? Number(value) : undefined;
+}
+
+export function mapProjectWipSnapshot(row: ProjectWipSnapshotRow): ProjectWipSnapshot {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    as_of_month: row.as_of_month,
+    wip_contract_price: optionalNumber(row.wip_contract_price),
+    wip_cost_to_date: optionalNumber(row.wip_cost_to_date),
+    wip_estimated_cost_to_complete: optionalNumber(row.wip_estimated_cost_to_complete),
+    wip_billings_to_date: optionalNumber(row.wip_billings_to_date),
+    wip_provision_for_loss: optionalNumber(row.wip_provision_for_loss),
+    wip_prior_fy_revenue: optionalNumber(row.wip_prior_fy_revenue),
+    wip_prior_fy_cost: optionalNumber(row.wip_prior_fy_cost),
+  };
+}
+
+export function projectWipSnapshotToRow(snapshot: ProjectWipSnapshot) {
+  return {
+    id: snapshot.id,
+    project_id: snapshot.project_id,
+    as_of_month: snapshot.as_of_month,
+    wip_contract_price: snapshot.wip_contract_price ?? null,
+    wip_cost_to_date: snapshot.wip_cost_to_date ?? null,
+    wip_estimated_cost_to_complete: snapshot.wip_estimated_cost_to_complete ?? null,
+    wip_billings_to_date: snapshot.wip_billings_to_date ?? null,
+    wip_provision_for_loss: snapshot.wip_provision_for_loss ?? null,
+    wip_prior_fy_revenue: snapshot.wip_prior_fy_revenue ?? null,
+    wip_prior_fy_cost: snapshot.wip_prior_fy_cost ?? null,
   };
 }
