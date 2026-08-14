@@ -44,11 +44,9 @@ describe("wip schedule formulas", () => {
     expect(row.costsAndEarningsOverBillings).toBeGreaterThanOrEqual(0);
     expect(row.billingsOverCostsAndEarnings).toBeGreaterThanOrEqual(0);
     expect(row.priorFyGrossEarnings).toBe(850_116 - 521_437);
-    expect(row.remainingRevenue).toBeCloseTo(
-      2_165_812 - 2_165_812 * (1_279_080 / 1_299_487),
-      0,
-    );
+    expect(row.remainingRevenue).toBe(2_165_812 - 2_084_987);
     expect(row.backlogCostToComplete).toBe(20_407);
+    expect(row.backlogEstimatedGrossProfit).toBe(2_165_812 - 2_084_987 - 20_407);
   });
 
   it("formats negatives in parentheses", () => {

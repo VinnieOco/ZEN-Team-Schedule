@@ -167,7 +167,7 @@ export interface WipScheduleRow {
   thisFyCost: number;
   /** W = U - V */
   thisFyGrossEarnings: number;
-  /** X = C - J */
+  /** X = C - L (contract price minus billings to date) */
   remainingRevenue: number;
   /** Y = D */
   backlogCostToComplete: number;
@@ -237,7 +237,7 @@ export function computeWipScheduleRow(
   const thisFyCost = costToDate - priorFyCost;
   const thisFyGrossEarnings = thisFyRevenue - thisFyCost;
 
-  const remainingRevenue = contractPrice - revenueEarnedToDate;
+  const remainingRevenue = contractPrice - billingsToDate;
   const backlogCostToComplete = estimatedCostToComplete;
   const backlogEstimatedGrossProfit = remainingRevenue - backlogCostToComplete;
 
