@@ -59,6 +59,7 @@ type ProjectRow = {
   wip_provision_for_loss: number | null;
   wip_prior_fy_revenue: number | null;
   wip_prior_fy_cost: number | null;
+  wip_contract_price: number | null;
   start_date: string | null;
   contract_date: string | null;
   target_completion_date: string | null;
@@ -196,6 +197,8 @@ export function mapProject(row: ProjectRow): Project {
       row.wip_prior_fy_revenue != null ? Number(row.wip_prior_fy_revenue) : undefined,
     wip_prior_fy_cost:
       row.wip_prior_fy_cost != null ? Number(row.wip_prior_fy_cost) : undefined,
+    wip_contract_price:
+      row.wip_contract_price != null ? Number(row.wip_contract_price) : undefined,
     start_date: row.start_date ?? undefined,
     contract_date: row.contract_date ?? undefined,
     target_completion_date: row.target_completion_date ?? undefined,
@@ -699,6 +702,7 @@ export function projectToRow(project: Project) {
     wip_provision_for_loss: project.wip_provision_for_loss ?? null,
     wip_prior_fy_revenue: project.wip_prior_fy_revenue ?? null,
     wip_prior_fy_cost: project.wip_prior_fy_cost ?? null,
+    wip_contract_price: project.wip_contract_price ?? null,
     start_date: project.start_date ?? null,
     contract_date: project.contract_date ?? null,
     target_completion_date: project.target_completion_date ?? null,

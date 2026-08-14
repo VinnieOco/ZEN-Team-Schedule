@@ -189,7 +189,8 @@ function MoneyDonut({ pipeline, backlog }: { pipeline: number; backlog: number }
           </span>
         </li>
         <li className="text-xs text-muted-foreground">
-          Backlog is contracted design + construction. Pipeline is open leads + estimates.
+          Backlog is remaining revenue from the WIP schedule. Pipeline is open leads +
+          estimates.
         </li>
       </ul>
     </div>
@@ -325,8 +326,8 @@ export function PipelineOverviewTab() {
   const leadKpis = useMemo(() => buildLeadKpis(leads, new Date(), settings), [leads, settings]);
   const estimateKpis = useMemo(() => buildEstimateKpis(estimates), [estimates]);
   const money = useMemo(
-    () => buildOverviewMoney(leads, estimates, jobs, settings),
-    [leads, estimates, jobs, settings],
+    () => buildOverviewMoney(leads, estimates, jobs, projects, settings),
+    [leads, estimates, jobs, projects, settings],
   );
   const stageBars = useMemo(
     () => buildOverviewStageBars(leads, estimates, jobs, settings),
@@ -398,7 +399,7 @@ export function PipelineOverviewTab() {
         <Panel title="Activity" sub="Last 8 weeks" className="lg:col-span-2">
           <ActivityChart weeks={weeklyActivity} />
         </Panel>
-        <Panel title="Backlog vs Pipeline" sub="Contracted vs uncontracted $">
+        <Panel title="Backlog vs Pipeline" sub="WIP remaining revenue vs open $">
           <MoneyDonut pipeline={money.pipelineValue} backlog={money.backlogValue} />
         </Panel>
       </div>

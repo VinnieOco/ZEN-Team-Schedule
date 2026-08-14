@@ -5,7 +5,9 @@ import {
   formatWipMoney,
   formatWipPercent,
   groupWipRowsByDepartment,
+  wipScheduleJobs,
 } from "@/lib/pipeline/wip-schedule";
+import type { PipelineJob } from "@/lib/pipeline/types";
 import type { Project } from "@/types";
 
 function project(partial: Partial<Project> & Pick<Project, "id" | "project_name">): Project {
@@ -24,7 +26,7 @@ describe("wip schedule formulas", () => {
       project({
         id: "p1",
         project_name: "97 Brierbrook",
-        estimate_value: 2_165_812,
+        wip_contract_price: 2_165_812,
         wip_estimated_cost_to_complete: 20_407,
         wip_cost_to_date: 1_279_080,
         wip_billings_to_date: 2_084_987,
@@ -56,7 +58,7 @@ describe("wip schedule formulas", () => {
     expect(formatWipPercent(null)).toBe("—");
   });
 
-  it("groups rows by department with preferred Construction/Landscape/Interior order", () => {
+  it("groups rows by department with preferred Design/Construction/Landscape/Interior order", () => {
     const rows = [
       computeWipScheduleRow(project({ id: "a", project_name: "A", department: "Interior" }), [], []),
       computeWipScheduleRow(project({ id: "b", project_name: "B", department: "Landscape" }), [], []),
@@ -65,11 +67,13 @@ describe("wip schedule formulas", () => {
         [],
         [],
       ),
-      computeWipScheduleRow(project({ id: "d", project_name: "D", department: "Other" }), [], []),
+      computeWipScheduleRow(project({ id: "d", project_name: "D", department: "Design" }), [], []),
+      computeWipScheduleRow(project({ id: "e", project_name: "E", department: "Other" }), [], []),
     ];
 
     const sections = groupWipRowsByDepartment(rows);
     expect(sections.map((s) => s.department)).toEqual([
+      "Design",
       "Construction",
       "Landscape",
       "Interior",
@@ -77,5 +81,16 @@ describe("wip schedule formulas", () => {
     ]);
     expect(sections[0].rows).toHaveLength(1);
     expect(sections[0].totals.contractPrice).toBe(0);
+  });
+
+  it("includes active design and construction jobs for the WIP schedule", () => {
+    const jobs = [
+      { projectId: "d1", stage: "design", active: true },
+      { projectId: "c1", stage: "construction", active: true },
+      { projectId: "e1", stage: "estimating", active: true },
+      { projectId: "d2", stage: "design", active: false },
+    ] as PipelineJob[];
+
+    expect(wipScheduleJobs(jobs).map((j) => j.projectId)).toEqual(["d1", "c1"]);
   });
 });

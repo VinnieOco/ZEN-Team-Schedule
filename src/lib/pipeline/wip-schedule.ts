@@ -1,4 +1,4 @@
-import { getProjectBudgetRollup, isParentProject } from "@/lib/change-orders";
+import { isParentProject } from "@/lib/change-orders";
 import { UNASSIGNED_DEPARTMENT, getProjectDepartmentKey } from "@/lib/departments";
 import type { PipelineJob } from "@/lib/pipeline/types";
 import type { Estimate, Project } from "@/types";
@@ -6,6 +6,7 @@ import type { Estimate, Project } from "@/types";
 /** Entered WIP fields (stored on the project). */
 export type ProjectWipInputFields = Pick<
   Project,
+  | "wip_contract_price"
   | "wip_cost_to_date"
   | "wip_estimated_cost_to_complete"
   | "wip_billings_to_date"
@@ -15,6 +16,7 @@ export type ProjectWipInputFields = Pick<
 >;
 
 export const WIP_INPUT_KEYS: (keyof ProjectWipInputFields)[] = [
+  "wip_contract_price",
   "wip_cost_to_date",
   "wip_estimated_cost_to_complete",
   "wip_billings_to_date",
@@ -24,14 +26,26 @@ export const WIP_INPUT_KEYS: (keyof ProjectWipInputFields)[] = [
 ];
 
 /** Preferred section order matching the accounting WIP schedule. */
-export const WIP_DEPARTMENT_ORDER = ["Construction", "Landscape", "Interior"] as const;
+export const WIP_DEPARTMENT_ORDER = [
+  "Design",
+  "Construction",
+  "Landscape",
+  "Interior",
+] as const;
+
+/** Active design + construction jobs included on the WIP schedule. */
+export function wipScheduleJobs(jobs: PipelineJob[]): PipelineJob[] {
+  return jobs.filter(
+    (job) => job.active && (job.stage === "design" || job.stage === "construction"),
+  );
+}
 
 export interface WipScheduleRow {
   projectId: string;
   jobName: string;
   clientName: string;
   department: string;
-  /** C: Contract price including change orders. */
+  /** C: Contract price including change orders (entered). */
   contractPrice: number;
   /** D: Estimated cost to complete (entered). */
   estimatedCostToComplete: number;
@@ -107,17 +121,15 @@ function pct(numerator: number, denominator: number): number | null {
 
 /**
  * Excel-style WIP formulas matching the ZEN WIP Schedule spreadsheet.
- * Contract price comes from linked contracts + change orders (or project estimate).
+ * Contract price and other amber cells are entered on the project and carry
+ * across As-of months (the month picker is a reporting label only).
  */
 export function computeWipScheduleRow(
   project: Project,
-  allProjects: Project[],
-  estimates: Estimate[],
+  _allProjects: Project[] = [],
+  _estimates: Estimate[] = [],
 ): WipScheduleRow {
-  const rollup = getProjectBudgetRollup(allProjects, project, estimates);
-  const contractPrice = isParentProject(project)
-    ? rollup.totalEstimateAmount
-    : n(project.estimate_value);
+  const contractPrice = n(project.wip_contract_price);
 
   const estimatedCostToComplete = n(project.wip_estimated_cost_to_complete);
   const costToDate = n(project.wip_cost_to_date);
@@ -220,7 +232,7 @@ function compareWipDepartments(a: string, b: string): number {
 
 /**
  * Group WIP rows by project department with section totals.
- * Preferred order: Construction → Landscape → Interior → others A–Z → Unassigned.
+ * Preferred order: Design → Construction → Landscape → Interior → others A–Z → Unassigned.
  */
 export function groupWipRowsByDepartment(rows: WipScheduleRow[]): WipDepartmentSection[] {
   const byDept = new Map<string, WipScheduleRow[]>();

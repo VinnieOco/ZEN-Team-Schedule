@@ -12,7 +12,6 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { ConstructionWipSchedule } from "@/components/pipeline/construction-wip-schedule";
 import { PipelineDueBuckets } from "@/components/pipeline/pipeline-due-buckets";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import { PipelinePeriodNavigator } from "@/components/pipeline/pipeline-period-navigator";
@@ -28,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScheduling } from "@/context/scheduling-context";
-import { usePermissions } from "@/hooks/use-permissions";
 import { usePipelineListFocus } from "@/hooks/use-pipeline-list-focus";
 import { estimateDisplayName } from "@/lib/estimating/metrics";
 import { latestMilestoneDateForTag } from "@/lib/gantt/milestones";
@@ -141,8 +139,6 @@ export function PipelineConstructionTab() {
     getProjectById,
     isLoading,
   } = useScheduling();
-  const { permissions } = usePermissions();
-  const canViewWip = permissions.viewWipSchedule;
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [focus, setFocus] = usePipelineListFocus();
   const [period, setPeriod] = useState<PipelinePeriod>(() => createDefaultPipelinePeriod());
@@ -418,14 +414,9 @@ export function PipelineConstructionTab() {
         </div>
         <p className="text-xs text-muted-foreground lg:pb-2">
           {priorityCount} job{priorityCount === 1 ? "" : "s"}
-          {canViewWip ? " on WIP" : ""}
           {focus !== "all" ? ` · focus: ${pipelineFocusLabel(focus)}` : ""}
         </p>
       </div>
-
-      {canViewWip ? (
-        <ConstructionWipSchedule jobs={constructionJobsList} canEdit={canViewWip} />
-      ) : null}
 
       <div className="grid min-w-0 gap-3 lg:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">

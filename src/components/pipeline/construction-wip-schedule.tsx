@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { endOfMonth, format, parse } from "date-fns";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -213,7 +213,11 @@ function DataRow({
         </Link>
         <p className="truncate text-[10px] text-muted-foreground">{row.clientName}</p>
       </TableCell>
-      <MoneyCell value={row.contractPrice} muted />
+      <EditableMoneyCell
+        value={row.contractPrice}
+        canEdit={canEdit}
+        onCommit={(v) => onPatch("wip_contract_price", v)}
+      />
       <EditableMoneyCell
         value={row.estimatedCostToComplete}
         canEdit={canEdit}
@@ -270,7 +274,7 @@ const HEAD =
 
 export function ConstructionWipSchedule({ jobs, canEdit }: ConstructionWipScheduleProps) {
   const { projects, estimates, updateProjectWipFields } = useScheduling();
-  const [asOf, setAsOf] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [asOfMonth, setAsOfMonth] = useState(() => format(new Date(), "yyyy-MM"));
 
   const rows = useMemo(
     () => buildConstructionWipRows(jobs, projects, estimates),
@@ -281,9 +285,10 @@ export function ConstructionWipSchedule({ jobs, canEdit }: ConstructionWipSchedu
 
   const asOfLabel = (() => {
     try {
-      return format(new Date(`${asOf}T12:00:00`), "M/d/yy");
+      const monthStart = parse(`${asOfMonth}-01`, "yyyy-MM-dd", new Date());
+      return format(endOfMonth(monthStart), "M/d/yy");
     } catch {
-      return asOf;
+      return asOfMonth;
     }
   })();
 
@@ -293,19 +298,19 @@ export function ConstructionWipSchedule({ jobs, canEdit }: ConstructionWipSchedu
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-900">Work in Progress Schedule</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Grouped by department. Amber cells are entered; gray cells are calculated like the
-            Excel WIP (contract $ from Contracts + change orders).
+            Grouped by department. Amber cells are entered and carry across As-of months;
+            gray cells are calculated. As of sets the reporting month only.
           </p>
         </div>
-        <div className="w-full space-y-1 sm:w-40">
+        <div className="w-full space-y-1 sm:w-44">
           <Label htmlFor="wip-as-of" className="text-xs">
             As of
           </Label>
           <Input
             id="wip-as-of"
-            type="date"
-            value={asOf}
-            onChange={(e) => setAsOf(e.target.value)}
+            type="month"
+            value={asOfMonth}
+            onChange={(e) => setAsOfMonth(e.target.value)}
             className="h-8"
           />
         </div>
@@ -313,7 +318,7 @@ export function ConstructionWipSchedule({ jobs, canEdit }: ConstructionWipSchedu
 
       {rows.length === 0 ? (
         <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-          No construction projects yet. Mark an estimate as won or set a project to Construction.
+          No design or construction projects yet.
         </p>
       ) : (
         <div className="overflow-x-auto">

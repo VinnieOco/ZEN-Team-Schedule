@@ -10,7 +10,12 @@ import {
 import { isEstimateDueOverdue, isOpenEstimate } from "@/lib/estimating/metrics";
 import { isOpenLead } from "@/lib/pipeline/leads";
 import type { PipelineJob } from "@/lib/pipeline/types";
-import type { CompanySettings, Estimate, Lead } from "@/types";
+import {
+  buildConstructionWipRows,
+  sumWipScheduleRows,
+  wipScheduleJobs,
+} from "@/lib/pipeline/wip-schedule";
+import type { CompanySettings, Estimate, Lead, Project } from "@/types";
 
 export type OverviewStageBarId =
   | "leads"
@@ -159,7 +164,7 @@ export function buildOverviewStageBars(
 export interface OverviewMoney {
   /** Uncontracted work: open leads + open estimate packages. */
   pipelineValue: number;
-  /** Contracted work: active design + construction jobs. */
+  /** Remaining revenue from WIP schedule (grand total). */
   backlogValue: number;
 }
 
@@ -167,15 +172,15 @@ export function buildOverviewMoney(
   leads: Lead[],
   estimates: Estimate[],
   jobs: PipelineJob[],
+  projects: Project[],
   settings?: CompanySettings,
 ): OverviewMoney {
   const pipelineValue =
     leads.filter((l) => isOpenLead(l, settings)).reduce((sum, l) => sum + (l.expected_value ?? 0), 0) +
     estimates.filter(isOpenEstimate).reduce((sum, e) => sum + (e.amount ?? 0), 0);
 
-  const backlogValue = jobs
-    .filter((j) => j.active && (j.stage === "design" || j.stage === "construction"))
-    .reduce((sum, j) => sum + (j.value ?? 0), 0);
+  const wipRows = buildConstructionWipRows(wipScheduleJobs(jobs), projects, estimates);
+  const backlogValue = sumWipScheduleRows(wipRows).remainingRevenue;
 
   return { pipelineValue, backlogValue };
 }

@@ -69,6 +69,8 @@ export interface Project {
   wip_prior_fy_revenue?: number;
   /** WIP Schedule: cost recognized in prior fiscal years. */
   wip_prior_fy_cost?: number;
+  /** WIP Schedule: entered contract price including change orders. */
+  wip_contract_price?: number;
   start_date?: string;
   contract_date?: string;
   /** Design completion target (DB: target_completion_date). */
