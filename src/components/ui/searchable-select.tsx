@@ -94,35 +94,65 @@ type PanelLayout = {
   top: number;
   left: number;
   width: number;
+  maxHeight: number;
   position: "fixed" | "absolute";
 };
 
-/** Search input + max-h-60 list — used to flip panel above trigger when needed */
+/** Search input + list — used to flip panel above trigger when needed */
 const PANEL_ESTIMATED_MAX_HEIGHT = 280;
 const PANEL_GAP = 4;
+const PANEL_INSET = 8;
 const PANEL_Z_INDEX = 200;
 
-function openPanelBelow(triggerRect: DOMRect, containerBottom: number, containerTop: number): boolean {
-  const spaceBelow = containerBottom - triggerRect.bottom - PANEL_GAP;
-  const spaceAbove = triggerRect.top - containerTop - PANEL_GAP;
-  return spaceBelow >= PANEL_ESTIMATED_MAX_HEIGHT || spaceBelow >= spaceAbove;
+function visualViewportBox(): { left: number; top: number; width: number; height: number } {
+  const vv = typeof window !== "undefined" ? window.visualViewport : null;
+  if (vv) {
+    return { left: vv.offsetLeft, top: vv.offsetTop, width: vv.width, height: vv.height };
+  }
+  return {
+    left: 0,
+    top: 0,
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
 }
 
-function fixedPanelTop(triggerRect: DOMRect): number {
-  if (openPanelBelow(triggerRect, window.innerHeight, 0)) {
-    return triggerRect.bottom + PANEL_GAP;
-  }
-  return Math.max(PANEL_GAP, triggerRect.top - PANEL_ESTIMATED_MAX_HEIGHT - PANEL_GAP);
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
-function dialogPanelTop(triggerRect: DOMRect, dialogRect: DOMRect): number {
-  if (openPanelBelow(triggerRect, dialogRect.bottom, dialogRect.top)) {
-    return triggerRect.bottom - dialogRect.top + PANEL_GAP;
-  }
-  return Math.max(
-    PANEL_GAP,
-    triggerRect.top - dialogRect.top - PANEL_ESTIMATED_MAX_HEIGHT - PANEL_GAP,
+function layoutInBox(
+  triggerRect: DOMRect,
+  box: { left: number; top: number; width: number; height: number },
+  minPanelWidth: number,
+  relativeTo?: { left: number; top: number },
+): Omit<PanelLayout, "position"> {
+  const originLeft = relativeTo?.left ?? 0;
+  const originTop = relativeTo?.top ?? 0;
+  const inset = PANEL_INSET;
+  const maxWidth = Math.max(120, box.width - inset * 2);
+  const width = Math.min(Math.max(triggerRect.width, minPanelWidth), maxWidth);
+  const left = clamp(
+    triggerRect.left,
+    box.left + inset,
+    box.left + box.width - inset - width,
   );
+
+  const spaceBelow = box.top + box.height - triggerRect.bottom - PANEL_GAP - inset;
+  const spaceAbove = triggerRect.top - box.top - PANEL_GAP - inset;
+  const openBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
+  const available = Math.max(120, openBelow ? spaceBelow : spaceAbove);
+  const maxHeight = Math.min(PANEL_ESTIMATED_MAX_HEIGHT, available);
+  const top = openBelow
+    ? triggerRect.bottom + PANEL_GAP
+    : triggerRect.top - maxHeight - PANEL_GAP;
+
+  return {
+    top: clamp(top, box.top + inset, box.top + box.height - inset - Math.min(maxHeight, 120)) - originTop,
+    left: left - originLeft,
+    width,
+    maxHeight,
+  };
 }
 
 export function SearchableSelect({
@@ -175,9 +205,10 @@ export function SearchableSelect({
       setPortalTarget(dialog);
       setPanelLayout({
         position: "absolute",
-        top: dialogPanelTop(triggerRect, dialogRect),
-        left: triggerRect.left - dialogRect.left,
-        width: Math.max(triggerRect.width, minPanelWidth),
+        ...layoutInBox(triggerRect, dialogRect, minPanelWidth, {
+          left: dialogRect.left,
+          top: dialogRect.top,
+        }),
       });
       return;
     }
@@ -185,9 +216,7 @@ export function SearchableSelect({
     setPortalTarget(document.body);
     setPanelLayout({
       position: "fixed",
-      top: fixedPanelTop(triggerRect),
-      left: triggerRect.left,
-      width: Math.max(triggerRect.width, minPanelWidth),
+      ...layoutInBox(triggerRect, visualViewportBox(), minPanelWidth),
     });
   }, [minPanelWidth]);
 
@@ -214,11 +243,14 @@ export function SearchableSelect({
 
     document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("resize", onReposition);
-    window.addEventListener("scroll", onReposition, true);
+    // visualViewport tracks keyboard open/close without chasing rubber-band page scroll.
+    window.visualViewport?.addEventListener("resize", onReposition);
+    window.visualViewport?.addEventListener("scroll", onReposition);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("resize", onReposition);
-      window.removeEventListener("scroll", onReposition, true);
+      window.visualViewport?.removeEventListener("resize", onReposition);
+      window.visualViewport?.removeEventListener("scroll", onReposition);
     };
   }, [open, updatePanelPosition]);
 
@@ -256,9 +288,10 @@ export function SearchableSelect({
               top: panelLayout.top,
               left: panelLayout.left,
               width: panelLayout.width,
+              maxHeight: panelLayout.maxHeight,
               zIndex: PANEL_Z_INDEX,
             }}
-            className="pointer-events-auto rounded-md border bg-white shadow-lg"
+            className="pointer-events-auto overflow-hidden rounded-md border bg-white shadow-lg"
             onPointerDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -270,7 +303,14 @@ export function SearchableSelect({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className={cn("pl-8", size === "sm" ? "h-8 text-xs" : "h-9 text-sm")}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  enterKeyHint="search"
+                  className={cn(
+                    "pl-8 text-base",
+                    size === "sm" ? "h-10 sm:h-8 sm:text-xs" : "h-10 sm:h-9 sm:text-sm",
+                  )}
                   onKeyDown={(e) => {
                     e.stopPropagation();
                     if (e.key === "Escape") {
@@ -283,7 +323,8 @@ export function SearchableSelect({
             <ul
               id={listId}
               role="listbox"
-              className="max-h-60 overflow-y-auto p-1"
+              className="overflow-y-auto overscroll-y-contain p-1"
+              style={{ maxHeight: Math.max(80, panelLayout.maxHeight - 56) }}
             >
               {filtered.length === 0 ? (
                 <li className="px-2 py-2 text-sm text-muted-foreground">{emptyMessage}</li>

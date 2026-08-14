@@ -437,7 +437,7 @@ export function CrewMobileTimesheet() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-4 pb-24">
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-4 overflow-x-hidden overscroll-x-none pb-24">
       <div className="rounded-lg border bg-white px-4 py-3 shadow-sm">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Week of {formatWeekRange(selectedWeekStart, timesheetSettings)}
@@ -499,7 +499,7 @@ export function CrewMobileTimesheet() {
         </p>
       )}
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch]">
         {weekDays.map((day) => {
           const dateKey = formatDateKey(day);
           const total = dayTotalHours(rows, dateKey);
