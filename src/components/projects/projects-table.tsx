@@ -1,347 +1,99 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Building2, ExternalLink, FolderOpen, Pencil, Plus } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { FolderOpen, Plus } from "lucide-react";
 
-import { ClientCrmLink } from "@/components/crm/client-crm-link";
+import { ProjectDetailPane } from "@/components/projects/project-detail-pane";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectListPane } from "@/components/projects/project-list-pane";
+import { ProjectMergeDialog } from "@/components/projects/project-merge-dialog";
 import { ProjectsFilters } from "@/components/projects/projects-filters";
 import { ProjectsTableSkeleton } from "@/components/projects/projects-table-skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
+import { getParentProject, isChangeOrder } from "@/lib/change-orders";
 import {
-  buildProjectDepartmentGroups,
   defaultProjectFilters,
   filterProjects,
   type ProjectFilters,
 } from "@/lib/filter-projects";
 import {
-  getChangeOrdersForParent,
-  getProjectBudgetRollup,
-  getProjectHoursRollup,
-  hasChangeOrderRollup,
-  hasEstimateRollup,
-  isChangeOrder,
-  isParentProject,
-} from "@/lib/change-orders";
-import {
-  formatProjectAmount,
-  formatProjectHours,
-  getProjectDesignAmount,
-  getProjectEstimateValue,
-} from "@/lib/project-format";
-import { getProjectActualHours } from "@/lib/utilization";
+  buildProjectClientHierarchy,
+  flattenHierarchyProjectIds,
+} from "@/lib/projects/list-hierarchy";
 import { cn } from "@/lib/utils";
-import { getEmployeeFullName } from "@/lib/week";
-import type { Employee, Estimate, Project, TimeEntry } from "@/types";
-
-interface ProjectListRow {
-  project: Project;
-  budgetedHours: number;
-  actual: number;
-  remaining: number;
-  designAmount: number | undefined;
-  estimateAmount: number | undefined;
-  leadName: string | null;
-  leadEstimatorName: string | null;
-  changeOrderCount: number | null;
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function buildProjectListRow(
-  project: Project,
-  allProjects: Project[],
-  timeEntries: TimeEntry[],
-  getEmployeeById: (id: string) => Employee | undefined,
-  estimates: Estimate[] = [],
-): ProjectListRow {
-  const budgetRollup = getProjectBudgetRollup(allProjects, project, estimates);
-  const hoursRollup = getProjectHoursRollup(allProjects, project, timeEntries);
-  const showHoursRollup = isParentProject(project) && hasChangeOrderRollup(budgetRollup);
-  const showEstimateRollup = isParentProject(project) && hasEstimateRollup(budgetRollup);
-  const actual = showHoursRollup
-    ? hoursRollup.totalActualHours
-    : getProjectActualHours(timeEntries, project.id);
-  const budgetedHours = showHoursRollup
-    ? budgetRollup.totalBudgetHours
-    : project.budgeted_design_hours;
-  const lead = project.lead_employee_id ? getEmployeeById(project.lead_employee_id) : null;
-  const leadEstimator = project.lead_estimator_id
-    ? getEmployeeById(project.lead_estimator_id)
-    : null;
-
-  return {
-    project,
-    budgetedHours,
-    actual,
-    remaining: budgetedHours - actual,
-    designAmount: showHoursRollup
-      ? budgetRollup.totalDesignAmount
-      : getProjectDesignAmount(project),
-    estimateAmount: showEstimateRollup
-      ? budgetRollup.totalEstimateAmount
-      : getProjectEstimateValue(project),
-    leadName: lead ? getEmployeeFullName(lead) : null,
-    leadEstimatorName: leadEstimator ? getEmployeeFullName(leadEstimator) : null,
-    changeOrderCount: isParentProject(project)
-      ? getChangeOrdersForParent(allProjects, project.id).length
-      : null,
-  };
-}
-
-function ProjectMobileCard({
-  row,
-  canEdit,
-  onEdit,
-}: {
-  row: ProjectListRow;
-  canEdit: boolean;
-  onEdit: () => void;
-}) {
-  const {
-    project,
-    budgetedHours,
-    actual,
-    remaining,
-    designAmount,
-    estimateAmount,
-    leadName,
-    changeOrderCount,
-  } = row;
-
-  return (
-    <li
-      className={cn(
-        "space-y-2 px-3 py-3",
-        !project.active && "bg-slate-50/80 text-muted-foreground",
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/projects/${project.id}`}
-            className={cn(
-              "inline-flex max-w-full flex-wrap items-center gap-1.5 font-medium hover:underline",
-              project.active
-                ? "text-emerald-700 hover:text-emerald-900"
-                : "text-slate-600 hover:text-slate-800",
-            )}
-          >
-            <span className="break-words">{project.project_name}</span>
-            {isChangeOrder(project) && (
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">
-                CO
-              </span>
-            )}
-            {!project.active && (
-              <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
-                Inactive
-              </span>
-            )}
-            <ExternalLink className="h-3 w-3 shrink-0 opacity-50" />
-          </Link>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            <ClientCrmLink clientName={project.client_name} />
-          </div>
-        </div>
-        {canEdit && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            aria-label={`Edit ${project.project_name}`}
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-        <span>{project.phase}</span>
-        {leadName ? (
-          <>
-            <span aria-hidden>·</span>
-            <span className="truncate">{leadName}</span>
-          </>
-        ) : null}
-        {changeOrderCount != null && changeOrderCount > 0 ? (
-          <>
-            <span aria-hidden>·</span>
-            <span>
-              {changeOrderCount} CO{changeOrderCount === 1 ? "" : "s"}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs tabular-nums">
-        <span>Budget {formatProjectHours(budgetedHours)}h</span>
-        <span className="text-right">Actual {formatProjectHours(actual)}h</span>
-        <span className={cn(remaining < 0 && "font-medium text-red-600")}>
-          Left {formatProjectHours(remaining)}h
-        </span>
-        <span className="text-right">{formatProjectAmount(designAmount)}</span>
-        {estimateAmount != null && estimateAmount > 0 ? (
-          <span className="col-span-2 text-muted-foreground">
-            Est. {formatProjectAmount(estimateAmount)}
-          </span>
-        ) : null}
-      </div>
-
-      {(project.target_completion_date || project.estimating_completion_date) && (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-          {project.target_completion_date ? (
-            <span>
-              Design {format(parseISO(project.target_completion_date), "MMM d, yyyy")}
-            </span>
-          ) : null}
-          {project.estimating_completion_date ? (
-            <span>
-              Est. {format(parseISO(project.estimating_completion_date), "MMM d, yyyy")}
-            </span>
-          ) : null}
-        </div>
-      )}
-    </li>
-  );
-}
-
-function ProjectDesktopRow({
-  row,
-  canEdit,
-  onEdit,
-}: {
-  row: ProjectListRow;
-  canEdit: boolean;
-  onEdit: () => void;
-}) {
-  const {
-    project,
-    budgetedHours,
-    actual,
-    remaining,
-    designAmount,
-    estimateAmount,
-    leadName,
-    leadEstimatorName,
-    changeOrderCount,
-  } = row;
-
-  return (
-    <TableRow className={cn(!project.active && "bg-slate-50/80 text-muted-foreground")}>
-      <TableCell className="font-medium">
-        <Link
-          href={`/projects/${project.id}`}
-          className={cn(
-            "inline-flex items-center gap-1 hover:underline",
-            project.active
-              ? "text-emerald-700 hover:text-emerald-900"
-              : "text-slate-600 hover:text-slate-800",
-          )}
-        >
-          {project.project_name}
-          {isChangeOrder(project) && (
-            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">
-              CO
-            </span>
-          )}
-          {!project.active && (
-            <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
-              Inactive
-            </span>
-          )}
-          <ExternalLink className="h-3 w-3 opacity-50" />
-        </Link>
-      </TableCell>
-      <TableCell>
-        <ClientCrmLink clientName={project.client_name} />
-      </TableCell>
-      <TableCell>{project.phase}</TableCell>
-      <TableCell>{leadName ?? "—"}</TableCell>
-      <TableCell>{leadEstimatorName ?? "—"}</TableCell>
-      <TableCell className="text-right">{formatProjectHours(budgetedHours)}</TableCell>
-      <TableCell className="text-right">{formatProjectHours(actual)}</TableCell>
-      <TableCell className={cn("text-right", remaining < 0 && "font-medium text-red-600")}>
-        {formatProjectHours(remaining)}
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        {formatProjectAmount(designAmount)}
-      </TableCell>
-      <TableCell className="text-right tabular-nums">
-        {formatProjectAmount(estimateAmount)}
-      </TableCell>
-      <TableCell className="text-right tabular-nums text-muted-foreground">
-        {changeOrderCount != null && changeOrderCount > 0 ? changeOrderCount : "—"}
-      </TableCell>
-      <TableCell>
-        {project.target_completion_date
-          ? format(parseISO(project.target_completion_date), "MMM d, yyyy")
-          : "—"}
-      </TableCell>
-      <TableCell>
-        {project.estimating_completion_date
-          ? format(parseISO(project.estimating_completion_date), "MMM d, yyyy")
-          : "—"}
-      </TableCell>
-      {canEdit && (
-        <TableCell>
-          <Button variant="ghost" size="icon" onClick={onEdit}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-        </TableCell>
-      )}
-    </TableRow>
-  );
-}
+import type { Project } from "@/types";
 
 export function ProjectsTable() {
-  const { projects, estimates, timeEntries, getEmployeeById, isLoading } = useScheduling();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const {
+    projects,
+    estimates,
+    employees,
+    timeEntries,
+    getEmployeeById,
+    isLoading,
+    deleteChangeOrder,
+  } = useScheduling();
   const { permissions } = usePermissions();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [filters, setFilters] = useState<ProjectFilters>(defaultProjectFilters);
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
+
+  const selectedId = searchParams.get("project");
+
+  const setSelectedId = useCallback(
+    (projectId: string | null) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (projectId) next.set("project", projectId);
+      else next.delete("project");
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   const visibleProjects = useMemo(
     () => filterProjects(projects, filters, getEmployeeById),
     [projects, filters, getEmployeeById],
   );
 
-  const departmentGroups = useMemo(
-    () => buildProjectDepartmentGroups(visibleProjects),
+  const hierarchy = useMemo(
+    () => buildProjectClientHierarchy(visibleProjects),
     [visibleProjects],
   );
 
-  const rowsByProjectId = useMemo(() => {
-    const map = new Map<string, ProjectListRow>();
-    for (const project of visibleProjects) {
-      map.set(
-        project.id,
-        buildProjectListRow(project, projects, timeEntries, getEmployeeById, estimates),
-      );
+  const selectableIds = useMemo(
+    () => flattenHierarchyProjectIds(hierarchy),
+    [hierarchy],
+  );
+
+  const selectedProject = useMemo(
+    () => (selectedId ? (projects.find((p) => p.id === selectedId) ?? null) : null),
+    [projects, selectedId],
+  );
+
+  // Drop stale or filtered-out selection from the URL.
+  useEffect(() => {
+    if (!selectedId) return;
+    if (selectableIds.includes(selectedId)) return;
+    setSelectedId(null);
+    setMobileShowDetail(false);
+  }, [selectedId, selectableIds, setSelectedId]);
+
+  // Keep mobile detail open when URL has a valid selection (e.g. refresh).
+  useEffect(() => {
+    if (selectedId && selectableIds.includes(selectedId)) {
+      setMobileShowDetail(true);
     }
-    return map;
-  }, [visibleProjects, projects, timeEntries, getEmployeeById, estimates]);
+  }, [selectedId, selectableIds]);
 
   const totalCount = useMemo(
     () =>
@@ -367,9 +119,43 @@ export function ProjectsTable() {
     setDialogOpen(true);
   };
 
+  const handleSelect = (projectId: string) => {
+    setSelectedId(projectId);
+    setMobileShowDetail(true);
+  };
+
+  const handleBackToList = () => {
+    setMobileShowDetail(false);
+  };
+
+  const handleDeleteChangeOrder = () => {
+    if (!selectedProject || !isChangeOrder(selectedProject)) return;
+    if (
+      !window.confirm(
+        `Delete change order “${selectedProject.project_name}”? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const parent = getParentProject(projects, selectedProject);
+    const result = deleteChangeOrder(selectedProject.id);
+    if (!result.ok) {
+      window.alert(result.message);
+      return;
+    }
+    if (parent) {
+      setSelectedId(parent.id);
+    } else {
+      setSelectedId(null);
+      setMobileShowDetail(false);
+    }
+  };
+
   if (isLoading) {
     return <ProjectsTableSkeleton />;
   }
+
+  const detailVisibleOnMobile = Boolean(selectedId && mobileShowDetail && selectedProject);
 
   return (
     <div className="space-y-4">
@@ -399,100 +185,80 @@ export function ProjectsTable() {
           onAction={() => setFilters(defaultProjectFilters())}
         />
       ) : (
-        <div className="space-y-4">
-          {departmentGroups.map((group) => (
-            <div
-              key={group.departmentKey}
-              className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm"
-            >
-              <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
-                      {initials(group.departmentLabel)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <h3 className="flex items-center gap-1.5 truncate text-sm font-semibold text-slate-900">
-                      <Building2 className="hidden h-3.5 w-3.5 shrink-0 text-muted-foreground sm:inline" />
-                      {group.departmentLabel}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {group.projects.length} project
-                      {group.projects.length === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                </div>
-                <span className="shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
-                  {group.projects.length}
-                </span>
-              </div>
+        <div
+          className={cn(
+            "grid h-[calc(100dvh-18rem)] min-h-[20rem] gap-4 overflow-hidden lg:h-[calc(100dvh-14rem)]",
+            "lg:grid-cols-[minmax(0,38%)_minmax(0,62%)]",
+          )}
+        >
+          <div
+            className={cn(
+              "h-full min-h-0 overflow-hidden",
+              detailVisibleOnMobile ? "hidden lg:block" : "block",
+            )}
+          >
+            <ProjectListPane
+              groups={hierarchy}
+              selectedId={
+                selectedId && selectableIds.includes(selectedId) ? selectedId : null
+              }
+              onSelect={handleSelect}
+              selectableIds={selectableIds}
+            />
+          </div>
 
-              <ul className="divide-y divide-slate-100 md:hidden">
-                {group.projects.map((project) => {
-                  const row = rowsByProjectId.get(project.id);
-                  if (!row) return null;
-                  return (
-                    <ProjectMobileCard
-                      key={project.id}
-                      row={row}
-                      canEdit={permissions.editProjects}
-                      onEdit={() => openEdit(project)}
-                    />
-                  );
-                })}
-              </ul>
-
-              <div className="scroll-x-contained hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Project Name</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Phase</TableHead>
-                      <TableHead>Lead Designer</TableHead>
-                      <TableHead>Lead Estimator</TableHead>
-                      <TableHead className="text-right">Budgeted Hrs</TableHead>
-                      <TableHead className="text-right">Actual Hrs</TableHead>
-                      <TableHead className="text-right">Remaining Hrs</TableHead>
-                      <TableHead className="text-right">Design Amount</TableHead>
-                      <TableHead className="text-right">Estimate Amount</TableHead>
-                      <TableHead className="text-right">COs</TableHead>
-                      <TableHead>Design Completion</TableHead>
-                      <TableHead>Est. Completion</TableHead>
-                      {permissions.editProjects && <TableHead />}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group.projects.map((project) => {
-                      const row = rowsByProjectId.get(project.id);
-                      if (!row) return null;
-                      return (
-                        <ProjectDesktopRow
-                          key={project.id}
-                          row={row}
-                          canEdit={permissions.editProjects}
-                          onEdit={() => openEdit(project)}
-                        />
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ))}
+          <div
+            className={cn(
+              "h-full min-h-0 overflow-hidden",
+              detailVisibleOnMobile ? "block" : "hidden lg:block",
+            )}
+          >
+            <ProjectDetailPane
+              project={
+                selectedProject && selectableIds.includes(selectedProject.id)
+                  ? selectedProject
+                  : null
+              }
+              projects={projects}
+              estimates={estimates}
+              timeEntries={timeEntries}
+              employees={employees}
+              getEmployeeById={getEmployeeById}
+              canEdit={permissions.editProjects}
+              onEdit={() => selectedProject && openEdit(selectedProject)}
+              onDeleteChangeOrder={handleDeleteChangeOrder}
+              onMerge={
+                permissions.editProjects && selectedProject
+                  ? () => setMergeDialogOpen(true)
+                  : undefined
+              }
+              onSelectProject={handleSelect}
+              onBack={handleBackToList}
+              showBack={detailVisibleOnMobile}
+            />
+          </div>
         </div>
       )}
 
       <p className="text-xs text-muted-foreground">
-        Actual hours reflect all time logged on this project. Remaining is budgeted minus actual.
-        Parent project rows include change order totals when COs exist.
+        Select a project to review overview details. Open the full page for schedule and deeper
+        work. Parent totals include change orders when COs exist.
       </p>
+
       {permissions.editProjects && (
         <ProjectFormDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           project={editingProject}
+        />
+      )}
+
+      {permissions.editProjects && selectedProject && (
+        <ProjectMergeDialog
+          open={mergeDialogOpen}
+          onOpenChange={setMergeDialogOpen}
+          source={selectedProject}
+          onMerged={(targetId) => setSelectedId(targetId)}
         />
       )}
     </div>

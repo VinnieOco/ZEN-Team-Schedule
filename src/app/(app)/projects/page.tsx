@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+
 import { AppPage } from "@/components/layout/app-page";
 import { ProjectsTable } from "@/components/projects/projects-table";
+import { ProjectsTableSkeleton } from "@/components/projects/projects-table-skeleton";
 
 export default function ProjectsPage() {
   return (
@@ -10,7 +13,9 @@ export default function ProjectsPage() {
           Manage design projects and track budgeted vs scheduled hours.
         </p>
       </div>
-      <ProjectsTable />
+      <Suspense fallback={<ProjectsTableSkeleton />}>
+        <ProjectsTable />
+      </Suspense>
     </AppPage>
   );
 }
