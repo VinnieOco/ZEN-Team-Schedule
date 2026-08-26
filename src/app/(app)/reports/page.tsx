@@ -8,6 +8,7 @@ import { ReportsPeriodNavigator } from "@/components/reports/reports-period-navi
 import { ReportsSummaryCards } from "@/components/reports/reports-summary-cards";
 import { ScheduledVsActualReport } from "@/components/reports/scheduled-vs-actual-report";
 import { TeamUtilizationReport } from "@/components/reports/team-utilization-report";
+import { WipScheduleReport } from "@/components/reports/wip-schedule-report";
 import { useReportsExportContext } from "@/components/reports/use-reports-export-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { periodLabel, type ReportsPeriod } from "@/lib/reports-export";
@@ -24,7 +25,7 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="mt-0.5 text-sm font-medium text-slate-700">{periodRangeLabel}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Team utilization, scheduled vs actual, and project budgets.
+            Team utilization, scheduled vs actual, project budgets, and WIP schedule download.
           </p>
         </div>
         <ReportsPeriodNavigator
@@ -38,6 +39,7 @@ export default function ReportsPage() {
       <ScheduledVsActualReport period={period} />
       <TeamUtilizationReport period={period} />
       <ProjectBudgetReport />
+      {permissions.viewWipSchedule ? <WipScheduleReport /> : null}
     </AppPage>
   );
 }
