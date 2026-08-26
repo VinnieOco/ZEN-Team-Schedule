@@ -69,6 +69,17 @@ export function isOpenEstimate(estimate: Estimate): boolean {
   return estimate.result === "pending" && OPEN_ESTIMATE_STAGES.includes(estimate.stage);
 }
 
+/**
+ * Still racing the submit-by due date (not yet submitted / follow-up).
+ * Due urgency and overdue counts only apply while awaiting submission.
+ */
+export function isEstimateAwaitingSubmission(estimate: Estimate): boolean {
+  if (!isOpenEstimate(estimate)) return false;
+  if (estimate.submitted_date?.trim()) return false;
+  if (estimate.stage === "submitted" || estimate.stage === "follow_up") return false;
+  return true;
+}
+
 function parseDate(value?: string): Date | null {
   if (!value?.trim()) return null;
   try {
@@ -105,6 +116,7 @@ export function buildEstimateKpis(
   // When milestone dates are supplied, "due this period" totals the tagged
   // estimating milestone dates instead of estimate due dates.
   const dueThisWeek = open.filter((estimate) => {
+    if (!isEstimateAwaitingSubmission(estimate)) return false;
     const source = milestoneDates
       ? estimate.project_id
         ? milestoneDates.get(estimate.project_id)
@@ -260,7 +272,9 @@ export function buildUpcomingEstimateDue(
 ): Estimate[] {
   const today = startOfDay(now);
   return estimates
-    .filter((estimate) => isOpenEstimate(estimate) && parseDate(estimate.due_date))
+    .filter(
+      (estimate) => isEstimateAwaitingSubmission(estimate) && parseDate(estimate.due_date),
+    )
     .sort((a, b) => {
       const aDue = parseDate(a.due_date)!;
       const bDue = parseDate(b.due_date)!;
@@ -272,9 +286,9 @@ export function buildUpcomingEstimateDue(
     .slice(0, limit);
 }
 
-/** Overdue while still open — drives the red due dates and at-risk styling. */
+/** Overdue while still awaiting submission — drives red due dates and at-risk styling. */
 export function isEstimateDueOverdue(estimate: Estimate, now = new Date()): boolean {
-  if (!isOpenEstimate(estimate)) return false;
+  if (!isEstimateAwaitingSubmission(estimate)) return false;
   const due = parseDate(estimate.due_date);
   return due ? due < startOfDay(now) : false;
 }
@@ -297,7 +311,11 @@ export function matchesEstimateListFocus(
     estimate.due_date;
   const due = parsePipelineDueDate(dueRaw);
   const dueMatch = matchesDueFocus(due, focus, now, options?.periodRange);
-  if (dueMatch != null) return dueMatch;
+  if (dueMatch != null) {
+    // Submit-by due focuses only apply until the package is submitted.
+    if (!isEstimateAwaitingSubmission(estimate)) return false;
+    return dueMatch;
+  }
 
   return true;
 }
@@ -346,7 +364,7 @@ export function buildEstimateDueBuckets(
     overdue: 0,
   };
 
-  for (const estimate of estimates.filter(isOpenEstimate)) {
+  for (const estimate of estimates.filter(isEstimateAwaitingSubmission)) {
     const due = parseDate(estimate.due_date);
     if (!due) continue;
     if (due < today) {
@@ -390,8 +408,10 @@ export function estimateTypeBadgeClass(type: EstimateType): string {
 
 /** Left edge accent on priority-queue rows (urgency + stage). */
 export function estimateRowAccentClass(estimate: Estimate, now = new Date()): string {
-  const days = estimateDaysLeft(estimate, now);
-  if (days != null && days < 0) return "bg-rose-500";
+  if (isEstimateDueOverdue(estimate, now)) return "bg-rose-500";
+  const days = isEstimateAwaitingSubmission(estimate)
+    ? estimateDaysLeft(estimate, now)
+    : null;
   if (days != null && days <= 2) return "bg-amber-500";
   switch (estimate.stage) {
     case "pricing":

@@ -89,6 +89,7 @@ import {
   estimateStageLabel,
   estimateTypeBadgeClass,
   estimateTypeLabel,
+  isEstimateAwaitingSubmission,
   isEstimateDueOverdue,
   isOpenEstimate,
   matchesEstimateListFocus,
@@ -207,6 +208,7 @@ function SortableEstimatePriorityRow({
     disabled: !canEdit,
   });
   const days = estimateDaysLeft(estimate);
+  const awaitingSubmission = isEstimateAwaitingSubmission(estimate);
   const revision = estimateRevisionLabel(estimate);
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -300,8 +302,15 @@ function SortableEstimatePriorityRow({
                 Due {formatShortDate(estimate.due_date)}
                 {milestoneDate ? ` · MS ${formatShortDate(milestoneDate)}` : ""}
               </span>
-              <span className={cn("tabular-nums", daysLeftClass(days))}>
-                {days == null ? "—" : `${days}d left`}
+              <span
+                className={cn(
+                  "tabular-nums",
+                  awaitingSubmission ? daysLeftClass(days) : "text-muted-foreground",
+                )}
+              >
+                {days == null || !awaitingSubmission
+                  ? "—"
+                  : `${days}d left`}
               </span>
             </div>
           </div>
