@@ -45,7 +45,6 @@ export function ProjectsTable() {
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [filters, setFilters] = useState<ProjectFilters>(defaultProjectFilters);
-  const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   const selectedId = searchParams.get("project");
 
@@ -85,15 +84,7 @@ export function ProjectsTable() {
     if (!selectedId) return;
     if (selectableIds.includes(selectedId)) return;
     setSelectedId(null);
-    setMobileShowDetail(false);
   }, [selectedId, selectableIds, setSelectedId]);
-
-  // Keep mobile detail open when URL has a valid selection (e.g. refresh).
-  useEffect(() => {
-    if (selectedId && selectableIds.includes(selectedId)) {
-      setMobileShowDetail(true);
-    }
-  }, [selectedId, selectableIds]);
 
   const totalCount = useMemo(
     () =>
@@ -119,13 +110,16 @@ export function ProjectsTable() {
     setDialogOpen(true);
   };
 
-  const handleSelect = (projectId: string) => {
-    setSelectedId(projectId);
-    setMobileShowDetail(true);
-  };
+  const isDesktopSplit = () =>
+    typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
 
-  const handleBackToList = () => {
-    setMobileShowDetail(false);
+  const handleSelect = (projectId: string) => {
+    // Mobile: open the full project page. Desktop: select in the detail panel.
+    if (!isDesktopSplit()) {
+      router.push(`/projects/${projectId}`);
+      return;
+    }
+    setSelectedId(projectId);
   };
 
   const handleDeleteChangeOrder = () => {
@@ -147,15 +141,12 @@ export function ProjectsTable() {
       setSelectedId(parent.id);
     } else {
       setSelectedId(null);
-      setMobileShowDetail(false);
     }
   };
 
   if (isLoading) {
     return <ProjectsTableSkeleton />;
   }
-
-  const detailVisibleOnMobile = Boolean(selectedId && mobileShowDetail && selectedProject);
 
   return (
     <div className="space-y-4">
@@ -191,12 +182,7 @@ export function ProjectsTable() {
             "lg:grid-cols-[minmax(0,38%)_minmax(0,62%)]",
           )}
         >
-          <div
-            className={cn(
-              "h-full min-h-0 overflow-hidden",
-              detailVisibleOnMobile ? "hidden lg:block" : "block",
-            )}
-          >
+          <div className="h-full min-h-0 overflow-hidden">
             <ProjectListPane
               groups={hierarchy}
               selectedId={
@@ -207,12 +193,7 @@ export function ProjectsTable() {
             />
           </div>
 
-          <div
-            className={cn(
-              "h-full min-h-0 overflow-hidden",
-              detailVisibleOnMobile ? "block" : "hidden lg:block",
-            )}
-          >
+          <div className="hidden h-full min-h-0 overflow-hidden lg:block">
             <ProjectDetailPane
               project={
                 selectedProject && selectableIds.includes(selectedProject.id)
@@ -233,16 +214,14 @@ export function ProjectsTable() {
                   : undefined
               }
               onSelectProject={handleSelect}
-              onBack={handleBackToList}
-              showBack={detailVisibleOnMobile}
             />
           </div>
         </div>
       )}
 
       <p className="text-xs text-muted-foreground">
-        Select a project to review overview details. Open the full page for schedule and deeper
-        work. Parent totals include change orders when COs exist.
+        On desktop, select a project to review overview details here. On mobile, tapping a job
+        opens the full project page. Parent totals include change orders when COs exist.
       </p>
 
       {permissions.editProjects && (
