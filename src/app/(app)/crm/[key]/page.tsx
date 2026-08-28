@@ -3,37 +3,28 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, GitMerge, Pencil } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { AppPage } from "@/components/layout/app-page";
-import { ClientContactSection } from "@/components/crm/client-contact-section";
-import { ClientLeadNotesSection } from "@/components/crm/client-lead-notes-section";
-import { ClientMergeDialog } from "@/components/crm/client-merge-dialog";
-import { ClientNotesSection } from "@/components/crm/client-notes-section";
-import { ClientProjectsTable } from "@/components/crm/client-projects-table";
-import { ClientRenameDialog } from "@/components/crm/client-rename-dialog";
+import { ClientDetailPane } from "@/components/crm/client-detail-pane";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { findClientByRouteKey } from "@/lib/clients";
-import { formatProjectAmount } from "@/lib/project-format";
 
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const routeKey = params.key as string;
-  const { projects, clients, clientNotes, leads, isLoading } = useScheduling();
+  const { projects, clients, clientNotes, leads, estimates, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [showInactive, setShowInactive] = useState(true);
   const [renameOpen, setRenameOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
 
   const client = useMemo(
-    () => findClientByRouteKey(projects, routeKey, clients, leads),
-    [projects, routeKey, clients, leads],
+    () => findClientByRouteKey(projects, routeKey, clients, leads, estimates),
+    [projects, routeKey, clients, leads, estimates],
   );
 
   if (isLoading) {
@@ -55,122 +46,33 @@ export default function ClientDetailPage() {
     );
   }
 
-  const activeProjectCount = client.projects.filter((p) => p.active).length;
-  const noteCount = clientNotes.filter((note) => note.client_key === client.key).length;
-
   const navigateToClient = (nextRouteKey: string) => {
     router.replace(`/crm/${nextRouteKey}`);
   };
 
   return (
-    <AppPage className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/crm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            CRM
-          </Link>
-        </Button>
-      </div>
+    <AppPage className="space-y-4">
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/crm">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          CRM
+        </Link>
+      </Button>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-900">{client.displayName}</h1>
-        {permissions.editProjects && (
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setRenameOpen(true)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Rename
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
-              <GitMerge className="mr-2 h-4 w-4" />
-              Merge
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <ClientRenameDialog
-        open={renameOpen}
-        onOpenChange={setRenameOpen}
-        clientKey={client.key}
-        displayName={client.displayName}
-        projectCount={client.projects.length}
-        noteCount={noteCount}
-        onRenamed={navigateToClient}
-      />
-
-      <ClientMergeDialog
-        open={mergeOpen}
-        onOpenChange={setMergeOpen}
-        clientKey={client.key}
-        displayName={client.displayName}
-        projectCount={client.projects.length}
-        noteCount={noteCount}
-        onMerged={navigateToClient}
-      />
-
-      <ClientContactSection
-        clientKey={client.key}
-        displayName={client.displayName}
-        projectCount={client.projects.length}
-        address={client.address}
-        phone={client.phone}
-        email={client.email}
-        contactVaries={client.contactVaries}
-        canEdit={permissions.editProjects}
-      />
-
-      <ClientNotesSection clientKey={client.key} />
-
-      <ClientLeadNotesSection clientKey={client.key} />
-
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="show-inactive-client-projects"
-              checked={showInactive}
-              onCheckedChange={setShowInactive}
-            />
-            <Label htmlFor="show-inactive-client-projects" className="text-sm font-normal">
-              Show inactive projects
-            </Label>
-          </div>
-        </div>
-        <ClientProjectsTable projects={client.projects} showInactive={showInactive} />
-      </div>
-
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{activeProjectCount}</p>
-            {client.projects.length > activeProjectCount && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {client.projects.length} total including inactive
-              </p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total project value
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {client.totalProjectAmount > 0
-                ? formatProjectAmount(client.totalProjectAmount)
-                : "—"}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-[min(70vh,720px)]">
+        <ClientDetailPane
+          client={client}
+          canEdit={permissions.editProjects}
+          onRenamed={navigateToClient}
+          onMerged={navigateToClient}
+          renameOpen={renameOpen}
+          onRenameOpenChange={setRenameOpen}
+          mergeOpen={mergeOpen}
+          onMergeOpenChange={setMergeOpen}
+          showInactive={showInactive}
+          onShowInactiveChange={setShowInactive}
+          showOpenFullPage={false}
+        />
       </div>
     </AppPage>
   );

@@ -1,6 +1,5 @@
-import { isParentProject } from "@/lib/change-orders";
-import type { Client, ClientNote, Lead, Project } from "@/types";
-import { getProjectDesignAmount } from "@/lib/project-format";
+import { isParentProject, getParentProject, getProjectBudgetRollup } from "@/lib/change-orders";
+import type { Client, ClientNote, Estimate, Lead, Project } from "@/types";
 
 export interface ClientSummary {
   /** Normalized name used for grouping and route lookup */
@@ -19,6 +18,44 @@ export interface ClientSummary {
 
 export function normalizeClientName(name: string): string {
   return name.trim().toLowerCase();
+}
+
+export interface GroupProjectsByClientOptions {
+  showInactive?: boolean;
+  /** Full project list for change-order rollups (defaults to `projects`). */
+  allProjects?: Project[];
+  estimates?: Estimate[];
+}
+
+/**
+ * Sum parent job values for a client using the same rollup logic as the project
+ * detail page: contracts + CO estimates when present, otherwise design amounts
+ * (including CO design fees). Change orders nested under a parent are not
+ * double-counted.
+ */
+export function getClientTotalProjectValue(
+  clientProjects: Project[],
+  allProjects: Project[],
+  estimates: Estimate[] = [],
+): number {
+  const clientProjectIds = new Set(clientProjects.map((project) => project.id));
+  let total = 0;
+
+  for (const project of clientProjects) {
+    if (!isParentProject(project)) {
+      const parent = getParentProject(allProjects, project);
+      if (parent && clientProjectIds.has(parent.id)) continue;
+    }
+
+    const rollup = getProjectBudgetRollup(allProjects, project, estimates);
+    const value =
+      rollup.totalEstimateAmount > 0
+        ? rollup.totalEstimateAmount
+        : rollup.totalDesignAmount;
+    total += value;
+  }
+
+  return total;
 }
 
 export function clientRouteKey(displayName: string): string {
@@ -96,7 +133,7 @@ export function hydrateClientsFromProjects(
 export function buildClientSummaries(
   projects: Project[],
   registry: Client[] = [],
-  options?: { showInactive?: boolean },
+  options?: GroupProjectsByClientOptions,
 ): ClientSummary[] {
   const summaries = groupProjectsByClient(projects, options);
   const byKey = new Map(summaries.map((summary) => [summary.key, summary]));
@@ -155,9 +192,11 @@ export function clientComboboxOptions(
 
 export function groupProjectsByClient(
   projects: Project[],
-  options?: { showInactive?: boolean },
+  options?: GroupProjectsByClientOptions,
 ): ClientSummary[] {
   const showInactive = options?.showInactive ?? false;
+  const allProjects = options?.allProjects ?? projects;
+  const estimates = options?.estimates ?? [];
   const eligible = showInactive ? projects : projects.filter((p) => p.active);
 
   const byKey = new Map<string, Project[]>();
@@ -186,10 +225,7 @@ export function groupProjectsByClient(
       projects: sorted,
       activeProjectCount: sorted.filter((p) => p.active && isParentProject(p)).length,
       totalBudgetedHours: sorted.reduce((sum, p) => sum + p.budgeted_design_hours, 0),
-      totalProjectAmount: sorted.reduce(
-        (sum, p) => sum + (getProjectDesignAmount(p) ?? 0),
-        0,
-      ),
+      totalProjectAmount: getClientTotalProjectValue(sorted, allProjects, estimates),
       ...contact,
     });
   }
@@ -289,6 +325,7 @@ export function findClientByRouteKey(
   routeKey: string,
   registry: Client[] = [],
   leads: Lead[] = [],
+  estimates: Estimate[] = [],
 ): ClientSummary | undefined {
   const name = clientNameFromRouteKey(routeKey);
   const key = normalizeClientName(name);
@@ -298,7 +335,11 @@ export function findClientByRouteKey(
     (p) => normalizeClientName(p.client_name ?? "") === key,
   );
   if (clientProjects.length > 0) {
-    const summary = groupProjectsByClient(clientProjects, { showInactive: true })[0];
+    const summary = groupProjectsByClient(clientProjects, {
+      showInactive: true,
+      allProjects: projects,
+      estimates,
+    })[0];
     const registryClient = registry.find((c) => normalizeClientName(c.name) === key);
     if (
       summary &&

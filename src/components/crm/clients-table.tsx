@@ -1,53 +1,65 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { ExternalLink, Plus, Search, Users, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Plus, Search, Users, X } from "lucide-react";
 
+import { ClientDetailPane } from "@/components/crm/client-detail-pane";
 import { ClientFormDialog } from "@/components/crm/client-form-dialog";
-
+import { ClientListPane } from "@/components/crm/client-list-pane";
+import { ClientsTableSkeleton } from "@/components/crm/clients-table-skeleton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { buildClientSummaries, clientRouteKey } from "@/lib/clients";
+import {
+  buildClientSummaries,
+  clientRouteKey,
+  findClientByRouteKey,
+} from "@/lib/clients";
 import {
   clientFiltersActive,
   defaultClientFilters,
   filterClients,
   type ClientFilters,
 } from "@/lib/filter-clients";
-import { formatProjectAmount, formatProjectHours } from "@/lib/project-format";
-function ClientsTableSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="h-24 animate-pulse rounded-lg border bg-slate-100" />
-      <div className="h-64 animate-pulse rounded-lg border bg-slate-100" />
-    </div>
-  );
-}
+import { cn } from "@/lib/utils";
 
 export function ClientsTable() {
-  const { projects, clients, isLoading } = useScheduling();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { projects, clients, leads, estimates, isLoading } = useScheduling();
   const { permissions } = usePermissions();
   const [filters, setFilters] = useState<ClientFilters>(defaultClientFilters);
   const [addClientOpen, setAddClientOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [showInactiveProjects, setShowInactiveProjects] = useState(true);
+
+  const selectedRouteKey = searchParams.get("client");
+
+  const setSelectedRouteKey = useCallback(
+    (routeKey: string | null) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (routeKey) next.set("client", routeKey);
+      else next.delete("client");
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   const allClients = useMemo(
     () =>
-      buildClientSummaries(projects, clients, { showInactive: filters.showInactive }),
-    [projects, clients, filters.showInactive],
+      buildClientSummaries(projects, clients, {
+        showInactive: filters.showInactive,
+        estimates,
+      }),
+    [projects, clients, filters.showInactive, estimates],
   );
 
   const visibleClients = useMemo(
@@ -55,8 +67,46 @@ export function ClientsTable() {
     [allClients, filters],
   );
 
+  const visibleKeys = useMemo(() => visibleClients.map((c) => c.key), [visibleClients]);
+
+  const selectedClient = useMemo(() => {
+    if (!selectedRouteKey) return null;
+    const client = findClientByRouteKey(
+      projects,
+      selectedRouteKey,
+      clients,
+      leads,
+      estimates,
+    );
+    if (!client) return null;
+    if (!visibleKeys.includes(client.key)) return null;
+    return client;
+  }, [selectedRouteKey, projects, clients, leads, estimates, visibleKeys]);
+
+  useEffect(() => {
+    if (!selectedRouteKey) return;
+    if (selectedClient) return;
+    setSelectedRouteKey(null);
+  }, [selectedRouteKey, selectedClient, setSelectedRouteKey]);
+
   const totalCount = allClients.length;
   const hasActiveFilters = clientFiltersActive(filters);
+
+  const isDesktopSplit = () =>
+    typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+
+  const handleSelect = (client: { key: string; displayName: string }) => {
+    const routeKey = clientRouteKey(client.displayName);
+    if (!isDesktopSplit()) {
+      router.push(`/crm/${routeKey}`);
+      return;
+    }
+    setSelectedRouteKey(routeKey);
+  };
+
+  const handleClientNavigated = (nextRouteKey: string) => {
+    setSelectedRouteKey(nextRouteKey);
+  };
 
   if (isLoading) {
     return <ClientsTableSkeleton />;
@@ -138,76 +188,40 @@ export function ClientsTable() {
           }
         />
       ) : (
-        <div className="scroll-x-contained rounded-lg border bg-white shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead className="text-right">Projects</TableHead>
-                <TableHead className="text-right">Budgeted Hrs</TableHead>
-                <TableHead className="text-right">Total Value</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleClients.map((client) => {
-                const contactParts = [client.phone, client.email].filter(Boolean);
-                const href = `/crm/${clientRouteKey(client.displayName)}`;
+        <div
+          className={cn(
+            "grid h-[calc(100dvh-18rem)] min-h-[20rem] gap-4 overflow-hidden lg:h-[calc(100dvh-14rem)]",
+            "lg:grid-cols-[minmax(0,38%)_minmax(0,62%)]",
+          )}
+        >
+          <div className="h-full min-h-0 overflow-hidden">
+            <ClientListPane
+              clients={visibleClients}
+              selectedKey={selectedClient?.key ?? null}
+              onSelect={handleSelect}
+            />
+          </div>
 
-                return (
-                  <TableRow key={client.key}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={href}
-                        className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 hover:underline"
-                      >
-                        {client.displayName}
-                        <ExternalLink className="h-3 w-3 opacity-50" />
-                      </Link>
-                      {client.contactVaries && (
-                        <p className="mt-0.5 text-xs text-amber-700">Contact varies by project</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-[220px] text-sm text-muted-foreground">
-                      {client.address && (
-                        <p className="truncate" title={client.address}>
-                          {client.address}
-                        </p>
-                      )}
-                      {contactParts.length > 0 ? (
-                        <p className="truncate">{contactParts.join(" · ")}</p>
-                      ) : (
-                        !client.address && "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {client.activeProjectCount}
-                      {client.projects.length !== client.activeProjectCount && (
-                        <span className="text-muted-foreground">
-                          {" "}
-                          / {client.projects.length}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatProjectHours(client.totalBudgetedHours)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {client.totalProjectAmount > 0
-                        ? formatProjectAmount(client.totalProjectAmount)
-                        : "—"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="hidden h-full min-h-0 overflow-hidden lg:block">
+            <ClientDetailPane
+              client={selectedClient}
+              canEdit={permissions.editProjects}
+              onRenamed={handleClientNavigated}
+              onMerged={handleClientNavigated}
+              renameOpen={renameOpen}
+              onRenameOpenChange={setRenameOpen}
+              mergeOpen={mergeOpen}
+              onMergeOpenChange={setMergeOpen}
+              showInactive={showInactiveProjects}
+              onShowInactiveChange={setShowInactiveProjects}
+            />
+          </div>
         </div>
       )}
 
       <p className="text-xs text-muted-foreground">
-        Clients are shared with Projects. Add clients here or from the Add Project dialog; contact
-        info and notes stay linked by name.
+        On desktop, select a client to review details here. On mobile, tapping a client opens the
+        full client page. Contact info and notes stay linked by name across CRM and Projects.
       </p>
 
       <ClientFormDialog open={addClientOpen} onOpenChange={setAddClientOpen} />

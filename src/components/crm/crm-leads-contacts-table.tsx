@@ -1,42 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Mail, MapPin, Phone, Search, UserRound, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Search, UserRound, X } from "lucide-react";
 
-import { ClientCrmLink } from "@/components/crm/client-crm-link";
-import { LeadContactDialog } from "@/components/pipeline/lead-contact-dialog";
-import { Badge } from "@/components/ui/badge";
+import { CrmLeadsContactsSkeleton } from "@/components/crm/crm-leads-contacts-skeleton";
+import { LeadContactDetailPane } from "@/components/crm/lead-contact-detail-pane";
+import { LeadContactListPane } from "@/components/crm/lead-contact-list-pane";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
-import { googleMapsUrl } from "@/lib/maps";
 import {
   leadDisplayName,
-  leadSourceBadgeClass,
   leadSourceLabel,
-  leadStatusBadgeClass,
   leadStatusLabel,
 } from "@/lib/pipeline/leads";
 import { cn } from "@/lib/utils";
 import type { Lead } from "@/types";
-
-function CrmLeadsContactsSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="h-16 animate-pulse rounded-lg border bg-slate-100" />
-      <div className="h-64 animate-pulse rounded-lg border bg-slate-100" />
-    </div>
-  );
-}
 
 function hasContactInfo(lead: Lead): boolean {
   return Boolean(
@@ -48,9 +29,28 @@ function hasContactInfo(lead: Lead): boolean {
 }
 
 export function CrmLeadsContactsTable() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { leads, settings, isLoading } = useScheduling();
   const [search, setSearch] = useState("");
-  const [detailLead, setDetailLead] = useState<Lead | null>(null);
+
+  const selectedId = searchParams.get("lead");
+
+  const setSelectedId = useCallback(
+    (leadId: string | null) => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (leadId) {
+        next.set("tab", "leads");
+        next.set("lead", leadId);
+      } else {
+        next.delete("lead");
+      }
+      const qs = next.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   const contacts = useMemo(() => {
     return [...leads]
@@ -83,6 +83,33 @@ export function CrmLeadsContactsTable() {
     });
   }, [contacts, search, settings]);
 
+  const visibleIds = useMemo(() => visible.map((lead) => lead.id), [visible]);
+
+  const selectedLead = useMemo(() => {
+    if (!selectedId) return null;
+    const lead = leads.find((item) => item.id === selectedId);
+    if (!lead || !hasContactInfo(lead)) return null;
+    if (!visibleIds.includes(lead.id)) return null;
+    return lead;
+  }, [selectedId, leads, visibleIds]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    if (selectedLead) return;
+    setSelectedId(null);
+  }, [selectedId, selectedLead, setSelectedId]);
+
+  const isDesktopSplit = () =>
+    typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+
+  const handleSelect = (lead: Lead) => {
+    if (!isDesktopSplit()) {
+      router.push(`/crm/leads/${lead.id}`);
+      return;
+    }
+    setSelectedId(lead.id);
+  };
+
   if (isLoading) {
     return <CrmLeadsContactsSkeleton />;
   }
@@ -109,7 +136,7 @@ export function CrmLeadsContactsTable() {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
           <p className="text-xs text-muted-foreground">
-            Lead contacts saved from Pipeline. Click a row to view details and notes.
+            Lead contacts saved from Pipeline.
           </p>
           <p className="text-xs text-muted-foreground">
             Showing {visible.length} of {contacts.length} contact
@@ -127,129 +154,34 @@ export function CrmLeadsContactsTable() {
               ? "Add contact name, phone, or email on a lead in Pipeline to see it here."
               : "Try a different search."
           }
+          actionLabel={search.trim() ? "Clear search" : undefined}
+          onAction={search.trim() ? () => setSearch("") : undefined}
         />
       ) : (
-        <div className="scroll-x-contained overflow-hidden rounded-lg border bg-white shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Contact</TableHead>
-                <TableHead>Client / Lead</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((lead) => {
-                const phone = lead.contact_phone?.trim();
-                const email = lead.contact_email?.trim();
-                const mapsUrl = googleMapsUrl(lead.address);
-                return (
-                  <TableRow
-                    key={lead.id}
-                    className="cursor-pointer"
-                    onClick={() => setDetailLead(lead)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                          <UserRound className="h-4 w-4" />
-                        </span>
-                        <span className="font-medium text-slate-900">
-                          {lead.contact_name?.trim() || "—"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <ClientCrmLink clientName={lead.client_name} className="font-medium" />
-                      {lead.title?.trim() && lead.title.trim() !== lead.client_name ? (
-                        <p className="mt-0.5 text-xs text-muted-foreground">{lead.title}</p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {phone ? (
-                        <a
-                          href={`tel:${phone}`}
-                          className="inline-flex items-center gap-1.5 text-sm text-slate-800 hover:text-emerald-700 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                          {phone}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {email ? (
-                        <a
-                          href={`mailto:${email}`}
-                          className="inline-flex max-w-[220px] items-center gap-1.5 truncate text-sm text-slate-800 hover:text-emerald-700 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{email}</span>
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {mapsUrl ? (
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex max-w-[240px] items-center gap-1.5 text-sm text-slate-800 hover:text-emerald-700 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                          title={lead.address?.trim()}
-                        >
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate">{lead.address?.trim()}</span>
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
-                          leadSourceBadgeClass(lead.source),
-                        )}
-                      >
-                        {leadSourceLabel(lead.source, settings)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "font-medium",
-                          leadStatusBadgeClass(lead.status, settings),
-                        )}
-                      >
-                        {leadStatusLabel(lead.status, settings)}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div
+          className={cn(
+            "grid h-[calc(100dvh-18rem)] min-h-[20rem] gap-4 overflow-hidden lg:h-[calc(100dvh-14rem)]",
+            "lg:grid-cols-[minmax(0,38%)_minmax(0,62%)]",
+          )}
+        >
+          <div className="h-full min-h-0 overflow-hidden">
+            <LeadContactListPane
+              leads={visible}
+              selectedId={selectedLead?.id ?? null}
+              onSelect={handleSelect}
+            />
+          </div>
+
+          <div className="hidden h-full min-h-0 overflow-hidden lg:block">
+            <LeadContactDetailPane lead={selectedLead} />
+          </div>
         </div>
       )}
 
-      <LeadContactDialog
-        lead={detailLead}
-        open={Boolean(detailLead)}
-        onOpenChange={(open) => {
-          if (!open) setDetailLead(null);
-        }}
-      />
+      <p className="text-xs text-muted-foreground">
+        On desktop, select a contact to review details here. On mobile, tapping a contact opens the
+        full lead page.
+      </p>
     </div>
   );
 }

@@ -31,8 +31,13 @@ export function CrmPageClient() {
   const setTab = useCallback(
     (tab: string) => {
       const next = new URLSearchParams(searchParams.toString());
-      if (tab === "clients") next.delete("tab");
-      else next.set("tab", tab);
+      if (tab === "clients") {
+        next.delete("tab");
+        next.delete("lead");
+      } else {
+        next.set("tab", tab);
+        next.delete("client");
+      }
       const qs = next.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },

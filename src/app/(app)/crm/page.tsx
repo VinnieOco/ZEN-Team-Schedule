@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { CrmPageClient } from "@/components/crm/crm-page-client";
+import { ClientsTableSkeleton } from "@/components/crm/clients-table-skeleton";
 import { AppPage } from "@/components/layout/app-page";
 
 export default function CrmPage() {
@@ -12,7 +13,7 @@ export default function CrmPage() {
           Clients and lead contact information linked to your pipeline.
         </p>
       </div>
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading CRM…</p>}>
+      <Suspense fallback={<ClientsTableSkeleton />}>
         <CrmPageClient />
       </Suspense>
     </AppPage>
