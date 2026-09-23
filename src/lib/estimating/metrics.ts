@@ -21,7 +21,9 @@ import {
   parsePipelineDueDate,
   type PipelineListFocus,
 } from "@/lib/pipeline/focus";
-import { getColumnOrder } from "@/lib/queue/column-order";
+import { getEstimatePriorityOrder } from "@/lib/estimating/estimate-priority-order";
+
+export { estimatePriorityStageKey } from "@/lib/estimating/estimate-priority-order";
 
 export const ESTIMATE_TYPES: { value: EstimateType; label: string }[] = [
   { value: "budget", label: "Budget" },
@@ -471,11 +473,6 @@ export function compareEstimatesForQueue(a: Estimate, b: Estimate): number {
   return b.created_at.localeCompare(a.created_at);
 }
 
-/** Column-order key for an estimator's priority list on the Estimating main table. */
-export function estimatePriorityStageKey(estimatorId: string): string {
-  return `priority:${estimatorId}`;
-}
-
 /** Apply saved drag order for an estimator's priority queue. */
 export function sortEstimatePriorityItems(
   estimates: Estimate[],
@@ -483,7 +480,7 @@ export function sortEstimatePriorityItems(
 ): Estimate[] {
   if (estimates.length <= 1) return estimates;
 
-  const savedOrder = getColumnOrder("estimating", estimatePriorityStageKey(estimatorId));
+  const savedOrder = getEstimatePriorityOrder(estimatorId);
   if (!savedOrder?.length) {
     return [...estimates].sort(compareEstimatesForQueue);
   }

@@ -66,11 +66,11 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { useScheduling } from "@/context/scheduling-context";
+import { useEstimatePriorityOrder } from "@/hooks/use-estimate-priority-order";
 import { useIsNarrowViewport } from "@/hooks/use-is-narrow-viewport";
 import { useOptimisticUrlView } from "@/hooks/use-optimistic-url-tab";
 import { usePermissions } from "@/hooks/use-permissions";
 import { usePipelineListFocus } from "@/hooks/use-pipeline-list-focus";
-import { useQueueColumnOrder } from "@/hooks/use-queue-column-order";
 import {
   ESTIMATE_STAGES,
   ESTIMATE_TYPES,
@@ -82,7 +82,6 @@ import {
   daysLeftClass,
   estimateDaysLeft,
   estimateDisplayName,
-  estimatePriorityStageKey,
   estimateRevisionLabel,
   estimateRowAccentClass,
   estimateStageBadgeClass,
@@ -494,7 +493,7 @@ export function PipelineEstimatingTab() {
   const canEdit = permissions.editQueue || permissions.editProjects;
   const isNarrow = useIsNarrowViewport();
   const priorityLayout = isNarrow ? "card" : "table";
-  const { revision: orderRevision, updateColumnOrder } = useQueueColumnOrder();
+  const { revision: orderRevision, updateEstimatePriorityOrder } = useEstimatePriorityOrder();
 
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState(OPEN_ONLY);
@@ -692,9 +691,8 @@ export function PipelineEstimatingTab() {
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
     if (oldIndex === -1 || newIndex === -1) return;
-    updateColumnOrder(
-      "estimating",
-      estimatePriorityStageKey(estimatorId),
+    updateEstimatePriorityOrder(
+      estimatorId,
       arrayMoveIds(ids, oldIndex, newIndex),
     );
   };
