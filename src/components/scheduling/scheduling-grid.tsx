@@ -22,6 +22,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-employee-rows";
+import type { FilteredRowsPeriod } from "@/components/scheduling/use-filtered-employee-rows";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -45,13 +46,18 @@ import { cn } from "@/lib/utils";
 
 interface SchedulingGridProps {
   onAddAllocation?: () => void;
+  /** Day columns period. Defaults to one week. */
+  period?: Extract<FilteredRowsPeriod, "week" | "three_weeks">;
 }
 
-export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
+export function SchedulingGrid({
+  onAddAllocation,
+  period = "week",
+}: SchedulingGridProps = {}) {
   const { allocations, filters, moveAllocation, settings } = useScheduling();
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
-  const { rows, weekDays, weekAllocations, clearFilters } = useFilteredEmployeeRows({
-    period: "week",
+  const { rows, periodDays, periodAllocations, clearFilters } = useFilteredEmployeeRows({
+    period,
     applyOnlyWithAllocations: true,
   });
 
@@ -109,19 +115,19 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
 
   const dayTotals = useMemo(
     () =>
-      weekDays.map((day) => {
+      periodDays.map((day) => {
         const dateKey = formatDateKey(day);
         return {
           dateKey,
-          ...getDayScheduleTotals(visibleEmployeeIds, weekAllocations, dateKey),
+          ...getDayScheduleTotals(visibleEmployeeIds, periodAllocations, dateKey),
         };
       }),
-    [weekDays, weekAllocations, visibleEmployeeIds],
+    [periodDays, periodAllocations, visibleEmployeeIds],
   );
 
-  const weekTotals = useMemo(
-    () => getPeriodScheduleTotals(visibleEmployeeIds, weekAllocations),
-    [visibleEmployeeIds, weekAllocations],
+  const periodTotals = useMemo(
+    () => getPeriodScheduleTotals(visibleEmployeeIds, periodAllocations),
+    [visibleEmployeeIds, periodAllocations],
   );
 
   if (rows.length === 0) {
@@ -148,17 +154,26 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
             Drag cards by the grip handle to move work between days or team members.{" "}
           </span>
         )}
-        <span className="lg:hidden">Swipe horizontally to view the full week →</span>
+        <span className="lg:hidden">
+          Swipe horizontally to view the full {period === "three_weeks" ? "3 weeks" : "week"} →
+        </span>
       </p>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="schedule-scroll schedule-scroll-fade relative max-w-full overflow-x-auto rounded-lg border bg-white shadow-sm print:overflow-visible print:border-slate-300 print:shadow-none">
-          <table className="schedule-grid-table w-full min-w-[600px] text-sm sm:min-w-[880px] lg:min-w-[960px] print:min-w-0 print:text-xs">
+          <table
+            className={cn(
+              "schedule-grid-table w-full text-sm print:min-w-0 print:text-xs",
+              period === "three_weeks"
+                ? "min-w-[1200px] sm:min-w-[1600px] lg:min-w-[1800px]"
+                : "min-w-[600px] sm:min-w-[880px] lg:min-w-[960px]",
+            )}
+          >
             <thead>
               <tr className="bg-slate-50 print:bg-white">
                 <th className="schedule-grid-sticky-header min-w-[160px] max-w-[200px] border-r px-3 py-3 text-left text-xs font-medium text-muted-foreground sm:min-w-[220px] sm:px-4 sm:text-sm print:static print:shadow-none">
                   Team Member
                 </th>
-                {weekDays.map((day) => (
+                {periodDays.map((day) => (
                   <th
                     key={day.toISOString()}
                     className="min-w-[112px] border-r px-1.5 py-3 text-center text-xs font-medium last:border-r-0 sm:min-w-[148px] sm:px-2 sm:text-sm"
@@ -177,7 +192,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
             <tbody>
               {rows.map(({ employee, stats }) => {
                 const dayAllocs = (dateKey: string) =>
-                  weekAllocations.filter(
+                  periodAllocations.filter(
                     (a) => a.employee_id === employee.id && a.allocation_date === dateKey,
                   );
 
@@ -215,7 +230,7 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
                         </div>
                       </div>
                     </td>
-                    {weekDays.map((day) => {
+                    {periodDays.map((day) => {
                       const dateKey = formatDateKey(day);
                       const dayHours = getEmployeeDayHours(allocations, employee.id, day);
 
@@ -270,11 +285,11 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
                 ))}
                 <td className="bg-slate-100 px-3 py-2.5 text-center text-xs print:bg-slate-50">
                   <p className="font-semibold text-slate-800">
-                    {weekTotals.employeeCount}{" "}
-                    {weekTotals.employeeCount === 1 ? "employee" : "employees"}
+                    {periodTotals.employeeCount}{" "}
+                    {periodTotals.employeeCount === 1 ? "employee" : "employees"}
                   </p>
                   <p className="mt-0.5 tabular-nums text-muted-foreground">
-                    {formatProjectHours(weekTotals.totalHours)}h scheduled
+                    {formatProjectHours(periodTotals.totalHours)}h scheduled
                   </p>
                 </td>
               </tr>
@@ -291,11 +306,15 @@ export function SchedulingGrid({ onAddAllocation }: SchedulingGridProps = {}) {
         </DragOverlay>
       </DndContext>
 
-      {weekAllocations.length === 0 && (
+      {periodAllocations.length === 0 && (
         <div className="mt-4 flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between print:hidden">
           <div className="flex items-start gap-2">
             <CalendarOff className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>No allocations scheduled for this week yet. Tap a cell or add your first assignment.</p>
+            <p>
+              No allocations scheduled for this{" "}
+              {period === "three_weeks" ? "period" : "week"} yet. Tap a cell or add your first
+              assignment.
+            </p>
           </div>
           {canEditSchedule && onAddAllocation && (
             <Button type="button" size="sm" variant="outline" className="shrink-0 border-amber-300 bg-white" onClick={onAddAllocation}>

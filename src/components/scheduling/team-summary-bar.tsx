@@ -7,7 +7,11 @@ import { useFilteredEmployeeRows } from "@/components/scheduling/use-filtered-em
 import { useScheduling } from "@/context/scheduling-context";
 import { filterEmployeesByDepartment } from "@/lib/departments";
 import { schedulingViewSettings } from "@/lib/scheduling-view";
-import { getTeamMonthSummary, getTeamSummary } from "@/lib/utilization";
+import {
+  getTeamMonthSummary,
+  getTeamSummary,
+  getTeamThreeWeekSummary,
+} from "@/lib/utilization";
 import { getMonthStart } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
@@ -15,10 +19,15 @@ interface TeamSummaryBarProps {
   calendarView?: ScheduleCalendarView;
 }
 
-export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
+export function TeamSummaryBar({ calendarView = "three_weeks" }: TeamSummaryBarProps) {
   const { allocations, employees, selectedWeekStart, settings, filters } = useScheduling();
   const viewSettings = schedulingViewSettings(settings, filters);
-  const period = calendarView === "month" ? "month" : "week";
+  const period =
+    calendarView === "month"
+      ? "month"
+      : calendarView === "three_weeks"
+        ? "three_weeks"
+        : "week";
   const { rows } = useFilteredEmployeeRows({ period });
   const overCount = rows.filter((r) => r.stats.status === "over").length;
 
@@ -34,7 +43,21 @@ export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
           getMonthStart(selectedWeekStart),
           viewSettings,
         )
-      : getTeamSummary(allocations, scopedEmployees, selectedWeekStart, viewSettings);
+      : calendarView === "three_weeks"
+        ? getTeamThreeWeekSummary(
+            allocations,
+            scopedEmployees,
+            selectedWeekStart,
+            viewSettings,
+          )
+        : getTeamSummary(allocations, scopedEmployees, selectedWeekStart, viewSettings);
+
+  const capacityLabel =
+    calendarView === "month"
+      ? "monthly"
+      : calendarView === "three_weeks"
+        ? "3-week"
+        : "weekly";
 
   const items = [
     {
@@ -69,8 +92,7 @@ export function TeamSummaryBar({ calendarView = "week" }: TeamSummaryBarProps) {
       {overCount > 0 && (
         <p className="flex items-center gap-1.5 text-xs font-medium text-red-700">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          {overCount} {overCount === 1 ? "person" : "people"} over{" "}
-          {calendarView === "month" ? "monthly" : "weekly"} capacity
+          {overCount} {overCount === 1 ? "person" : "people"} over {capacityLabel} capacity
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm sm:grid-cols-4">

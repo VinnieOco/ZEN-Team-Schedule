@@ -6,17 +6,25 @@ import { useScheduling } from "@/context/scheduling-context";
 import { schedulingViewSettings } from "@/lib/scheduling-view";
 import {
   filterAllocationsForMonth,
+  filterAllocationsForThreeWeeks,
   filterAllocationsForWeek,
   getEmployeeMonthStats,
+  getEmployeeThreeWeekStats,
   getEmployeeWeekStats,
 } from "@/lib/utilization";
 import type { EmployeeWeekStats } from "@/types";
 import type { EmployeeMonthStats } from "@/lib/utilization";
 import { employeeMatchesDepartmentFilter } from "@/lib/departments";
-import { getEmployeeFullName, getMonthDays, getMonthStart, getWeekDays } from "@/lib/week";
+import {
+  getEmployeeFullName,
+  getMonthDays,
+  getMonthStart,
+  getThreeWeekDays,
+  getWeekDays,
+} from "@/lib/week";
 import type { Allocation, Employee } from "@/types";
 
-export type FilteredRowsPeriod = "week" | "month";
+export type FilteredRowsPeriod = "week" | "three_weeks" | "month";
 
 export interface EmployeeWeekRow {
   employee: Employee;
@@ -52,12 +60,24 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
   const viewSettings = schedulingViewSettings(settings, filters);
   const monthStart = getMonthStart(selectedWeekStart);
   const weekDays = getWeekDays(selectedWeekStart, viewSettings);
+  const threeWeekDays = getThreeWeekDays(selectedWeekStart, viewSettings);
   const monthDays = getMonthDays(monthStart, viewSettings);
-  const periodDays = period === "month" ? monthDays : weekDays;
+  const periodDays =
+    period === "month" ? monthDays : period === "three_weeks" ? threeWeekDays : weekDays;
 
   const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, viewSettings);
+  const threeWeekAllocations = filterAllocationsForThreeWeeks(
+    allocations,
+    selectedWeekStart,
+    viewSettings,
+  );
   const monthAllocations = filterAllocationsForMonth(allocations, monthStart, viewSettings);
-  const periodAllocations = period === "month" ? monthAllocations : weekAllocations;
+  const periodAllocations =
+    period === "month"
+      ? monthAllocations
+      : period === "three_weeks"
+        ? threeWeekAllocations
+        : weekAllocations;
 
   const rows: EmployeeWeekRow[] = useMemo(() => {
     const mapped = employees
@@ -82,7 +102,19 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
         stats:
           period === "month"
             ? getEmployeeMonthStats(employee, allocations, monthStart, viewSettings)
-            : getEmployeeWeekStats(employee, allocations, selectedWeekStart, viewSettings),
+            : period === "three_weeks"
+              ? getEmployeeThreeWeekStats(
+                  employee,
+                  allocations,
+                  selectedWeekStart,
+                  viewSettings,
+                )
+              : getEmployeeWeekStats(
+                  employee,
+                  allocations,
+                  selectedWeekStart,
+                  viewSettings,
+                ),
       }));
 
     if (sortByUtilization) {
@@ -105,9 +137,11 @@ export function useFilteredEmployeeRows(options: UseFilteredEmployeeRowsOptions 
   return {
     rows,
     weekDays,
+    threeWeekDays,
     monthDays,
     periodDays,
     weekAllocations,
+    threeWeekAllocations,
     monthAllocations,
     periodAllocations,
     allocations,

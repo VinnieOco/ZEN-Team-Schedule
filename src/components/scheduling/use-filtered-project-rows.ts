@@ -8,13 +8,20 @@ import { getProjectDesignAmount, getProjectEstimateValue } from "@/lib/project-f
 import { projectMatchesDepartmentFilter } from "@/lib/departments";
 import {
   filterAllocationsForMonth,
+  filterAllocationsForThreeWeeks,
   filterAllocationsForWeek,
 } from "@/lib/utilization";
-import { getEmployeeFullName, getMonthDays, getMonthStart, getWeekDays } from "@/lib/week";
+import {
+  getEmployeeFullName,
+  getMonthDays,
+  getMonthStart,
+  getThreeWeekDays,
+  getWeekDays,
+} from "@/lib/week";
 import type { Project } from "@/types";
 
 interface UseFilteredProjectRowsOptions {
-  period?: "week" | "month";
+  period?: "week" | "three_weeks" | "month";
   /** When true, apply filters.onlyWithAllocations for By Project tab. */
   applyOnlyWithAllocations?: boolean;
 }
@@ -29,12 +36,24 @@ export function useFilteredProjectRows({
   const viewSettings = schedulingViewSettings(settings, filters);
   const monthStart = getMonthStart(selectedWeekStart);
   const weekDays = getWeekDays(selectedWeekStart, viewSettings);
+  const threeWeekDays = getThreeWeekDays(selectedWeekStart, viewSettings);
   const monthDays = getMonthDays(monthStart, viewSettings);
-  const periodDays = period === "month" ? monthDays : weekDays;
+  const periodDays =
+    period === "month" ? monthDays : period === "three_weeks" ? threeWeekDays : weekDays;
 
   const weekAllocations = filterAllocationsForWeek(allocations, selectedWeekStart, viewSettings);
+  const threeWeekAllocations = filterAllocationsForThreeWeeks(
+    allocations,
+    selectedWeekStart,
+    viewSettings,
+  );
   const monthAllocations = filterAllocationsForMonth(allocations, monthStart, viewSettings);
-  const periodAllocations = period === "month" ? monthAllocations : weekAllocations;
+  const periodAllocations =
+    period === "month"
+      ? monthAllocations
+      : period === "three_weeks"
+        ? threeWeekAllocations
+        : weekAllocations;
 
   const rows: Project[] = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
@@ -79,6 +98,7 @@ export function useFilteredProjectRows({
     rows,
     periodDays,
     weekDays,
+    threeWeekDays,
     monthDays,
     periodAllocations,
     clearFilters,

@@ -29,7 +29,7 @@ export function SchedulingPageClient() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [defaultEmployeeId, setDefaultEmployeeId] = useState<string>();
   const [showFilters, setShowFilters] = useState(true);
-  const [calendarView, setCalendarView] = useState<ScheduleCalendarView>("week");
+  const [calendarView, setCalendarView] = useState<ScheduleCalendarView>("three_weeks");
 
   return (
     <div className="app-page min-w-0 max-w-full space-y-4 overflow-x-hidden p-4 md:space-y-6 md:p-6">
@@ -77,7 +77,10 @@ export function SchedulingPageClient() {
           ) : calendarView === "month" ? (
             <SchedulingMonthGrid />
           ) : (
-            <SchedulingGrid onAddAllocation={() => setAddDialogOpen(true)} />
+            <SchedulingGrid
+              period={calendarView === "three_weeks" ? "three_weeks" : "week"}
+              onAddAllocation={() => setAddDialogOpen(true)}
+            />
           )}
         </TabsContent>
         <TabsContent value="workload" className="mt-4 min-w-0 space-y-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { addWeeks, subWeeks } from "date-fns";
 import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
 
 import { PageToolbar } from "@/components/layout/page-toolbar";
@@ -7,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { useScheduling } from "@/context/scheduling-context";
 import { departmentFilterLabel } from "@/lib/departments";
 import { schedulingViewSettings } from "@/lib/scheduling-view";
-import { formatMonthRange, formatWeekRange } from "@/lib/week";
+import { formatMonthRange, formatThreeWeekRange, formatWeekRange } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
-export type ScheduleCalendarView = "week" | "month";
+export type ScheduleCalendarView = "week" | "three_weeks" | "month";
 
 interface SchedulingHeaderProps {
   calendarView: ScheduleCalendarView;
@@ -43,10 +44,13 @@ export function SchedulingHeader({
   } = useScheduling();
 
   const isMonth = calendarView === "month";
+  const isThreeWeeks = calendarView === "three_weeks";
   const viewSettings = schedulingViewSettings(settings, filters);
   const periodLabel = isMonth
     ? formatMonthRange(selectedWeekStart)
-    : formatWeekRange(selectedWeekStart, viewSettings);
+    : isThreeWeeks
+      ? formatThreeWeekRange(selectedWeekStart, viewSettings)
+      : formatWeekRange(selectedWeekStart, viewSettings);
   const departmentSuffix = filters.department
     ? ` · ${departmentFilterLabel(filters.department)}`
     : "";
@@ -61,11 +65,13 @@ export function SchedulingHeader({
 
   const handlePrevious = () => {
     if (isMonth) goToPreviousMonth();
+    else if (isThreeWeeks) setWeek(subWeeks(selectedWeekStart, 3));
     else goToPreviousWeek();
   };
 
   const handleNext = () => {
     if (isMonth) goToNextMonth();
+    else if (isThreeWeeks) setWeek(addWeeks(selectedWeekStart, 3));
     else goToNextWeek();
   };
 
@@ -112,6 +118,14 @@ export function SchedulingHeader({
             onClick={() => switchView("week")}
           >
             Week
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(calendarView === "three_weeks" && "bg-slate-100")}
+            onClick={() => switchView("three_weeks")}
+          >
+            3 Weeks
           </Button>
           <Button
             variant="outline"

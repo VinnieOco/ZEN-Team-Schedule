@@ -458,7 +458,7 @@ export interface SchedulingFilters {
   projectId: string | null;
   categoryId: string | null;
   showHours: boolean;
-  /** Show Saturday and Sunday columns in week/month schedule grids. */
+  /** Show Saturday and Sunday columns in schedule grids. */
   showWeekend: boolean;
   /** Hide members/projects with no allocations in the visible period (Schedule / By Project). */
   onlyWithAllocations: boolean;

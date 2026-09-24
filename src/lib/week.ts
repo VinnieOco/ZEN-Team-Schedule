@@ -1,5 +1,6 @@
 import {
   addDays,
+  addWeeks,
   eachDayOfInterval,
   endOfMonth,
   format,
@@ -39,6 +40,18 @@ export function getWeekDays(
   return days;
 }
 
+/** Three consecutive weeks starting at `weekStart` (respects weekend setting). */
+export function getThreeWeekDays(
+  weekStart: Date,
+  settings: CompanySettings,
+): Date[] {
+  const days: Date[] = [];
+  for (let week = 0; week < 3; week++) {
+    days.push(...getWeekDays(addWeeks(weekStart, week), settings));
+  }
+  return days;
+}
+
 /** Timesheets always show Sat/Sun, independent of the schedule weekend toggle. */
 export function getTimesheetSettings(settings: CompanySettings): CompanySettings {
   return { ...settings, include_weekends: true };
@@ -50,6 +63,13 @@ export function formatDateKey(date: Date): string {
 
 export function formatWeekRange(weekStart: Date, settings: CompanySettings): string {
   const days = getWeekDays(weekStart, settings);
+  const start = days[0];
+  const end = days[days.length - 1];
+  return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
+}
+
+export function formatThreeWeekRange(weekStart: Date, settings: CompanySettings): string {
+  const days = getThreeWeekDays(weekStart, settings);
   const start = days[0];
   const end = days[days.length - 1];
   return `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`;
@@ -97,6 +117,16 @@ export function formatTimesheetDayHeader(date: Date): string {
 export function isDateInWeek(dateStr: string, weekStart: Date, settings: CompanySettings): boolean {
   const date = parseISO(dateStr);
   const days = getWeekDays(weekStart, settings);
+  return days.some((d) => isSameDay(d, date));
+}
+
+export function isDateInThreeWeek(
+  dateStr: string,
+  weekStart: Date,
+  settings: CompanySettings,
+): boolean {
+  const date = parseISO(dateStr);
+  const days = getThreeWeekDays(weekStart, settings);
   return days.some((d) => isSameDay(d, date));
 }
 

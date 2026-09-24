@@ -5,6 +5,7 @@ import {
   getMonthDays,
   getWeekDays,
   isDateInMonth,
+  isDateInThreeWeek,
   isDateInWeek,
 } from "@/lib/week";
 import type {
@@ -56,6 +57,14 @@ export function filterAllocationsForWeek(
   settings: CompanySettings,
 ): Allocation[] {
   return allocations.filter((a) => isDateInWeek(a.allocation_date, weekStart, settings));
+}
+
+export function filterAllocationsForThreeWeeks(
+  allocations: Allocation[],
+  weekStart: Date,
+  settings: CompanySettings,
+): Allocation[] {
+  return allocations.filter((a) => isDateInThreeWeek(a.allocation_date, weekStart, settings));
 }
 
 export function filterAllocationsForMonth(
@@ -253,6 +262,43 @@ export function getEmployeeWeekStats(
   };
 }
 
+/** Stats for a 3-week window; capacity is 3× weekly capacity. */
+export function getEmployeeThreeWeekStats(
+  employee: Employee,
+  allocations: Allocation[],
+  weekStart: Date,
+  settings: CompanySettings,
+): EmployeeWeekStats {
+  const periodAllocations = filterAllocationsForThreeWeeks(
+    allocations,
+    weekStart,
+    settings,
+  ).filter((a) => a.employee_id === employee.id);
+
+  const scheduledHours = periodAllocations.reduce((sum, a) => sum + a.hours, 0);
+  const billableHours = periodAllocations
+    .filter((a) => a.is_billable)
+    .reduce((sum, a) => sum + a.hours, 0);
+  const nonBillableHours = scheduledHours - billableHours;
+  const weeklyCapacity = employee.weekly_capacity_hours * 3;
+  const utilizationPercent =
+    weeklyCapacity > 0 ? Math.round((scheduledHours / weeklyCapacity) * 100) : 0;
+
+  return {
+    employeeId: employee.id,
+    scheduledHours,
+    weeklyCapacity,
+    utilizationPercent,
+    billableHours,
+    nonBillableHours,
+    billablePercent:
+      weeklyCapacity > 0 ? Math.round((billableHours / weeklyCapacity) * 100) : 0,
+    nonBillablePercent:
+      weeklyCapacity > 0 ? Math.round((nonBillableHours / weeklyCapacity) * 100) : 0,
+    status: getUtilizationStatus(utilizationPercent),
+  };
+}
+
 /** Team summary: billable/non-billable as % of total team weekly capacity */
 export function getTeamSummary(
   allocations: Allocation[],
@@ -266,6 +312,42 @@ export function getTeamSummary(
 
   const totalScheduled = weekAllocations.reduce((sum, a) => sum + a.hours, 0);
   const billableScheduled = weekAllocations
+    .filter((a) => a.is_billable)
+    .reduce((sum, a) => sum + a.hours, 0);
+  const nonBillableScheduled = totalScheduled - billableScheduled;
+
+  const totalUtilizationPercent =
+    totalCapacity > 0 ? Math.round((totalScheduled / totalCapacity) * 100) : 0;
+  const billablePercent =
+    totalCapacity > 0 ? Math.round((billableScheduled / totalCapacity) * 100) : 0;
+  const nonBillablePercent =
+    totalCapacity > 0 ? Math.round((nonBillableScheduled / totalCapacity) * 100) : 0;
+  const availablePercent = Math.max(0, 100 - totalUtilizationPercent);
+
+  return {
+    totalUtilizationPercent,
+    billablePercent,
+    nonBillablePercent,
+    availablePercent,
+  };
+}
+
+/** Team summary for a 3-week window (capacity = 3× weekly). */
+export function getTeamThreeWeekSummary(
+  allocations: Allocation[],
+  employees: Employee[],
+  weekStart: Date,
+  settings: CompanySettings,
+): TeamSummaryStats {
+  const activeEmployees = employees.filter((e) => e.active);
+  const totalCapacity = activeEmployees.reduce(
+    (sum, e) => sum + e.weekly_capacity_hours * 3,
+    0,
+  );
+  const periodAllocations = filterAllocationsForThreeWeeks(allocations, weekStart, settings);
+
+  const totalScheduled = periodAllocations.reduce((sum, a) => sum + a.hours, 0);
+  const billableScheduled = periodAllocations
     .filter((a) => a.is_billable)
     .reduce((sum, a) => sum + a.hours, 0);
   const nonBillableScheduled = totalScheduled - billableScheduled;

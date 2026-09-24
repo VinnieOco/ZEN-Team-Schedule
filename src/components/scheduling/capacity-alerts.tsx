@@ -13,15 +13,20 @@ interface CapacityAlertsProps {
 
 export function CapacityAlerts({ calendarView }: CapacityAlertsProps) {
   const { allocations } = useScheduling();
-  const period = calendarView === "month" ? "month" : "week";
-  const { rows, weekDays } = useFilteredEmployeeRows({ period });
+  const period =
+    calendarView === "month"
+      ? "month"
+      : calendarView === "three_weeks"
+        ? "three_weeks"
+        : "week";
+  const { rows, periodDays } = useFilteredEmployeeRows({ period });
 
   const overallocated = rows.filter((r) => r.stats.status === "over");
 
   let dayOverflowCount = 0;
-  if (calendarView === "week") {
+  if (calendarView !== "month") {
     for (const { employee } of rows) {
-      for (const day of weekDays) {
+      for (const day of periodDays) {
         const hours = getEmployeeDayHours(allocations, employee.id, day);
         if (hours > employee.daily_capacity_hours) dayOverflowCount += 1;
       }
@@ -38,13 +43,20 @@ export function CapacityAlerts({ calendarView }: CapacityAlertsProps) {
     .join(", ");
   const moreOver = overallocated.length > 2 ? ` +${overallocated.length - 2}` : "";
 
+  const capacityLabel =
+    calendarView === "month"
+      ? "monthly"
+      : calendarView === "three_weeks"
+        ? "3-week"
+        : "weekly";
+
   const parts: string[] = [];
   if (overallocated.length > 0) {
     parts.push(
-      `${overallocated.length} over weekly cap${overallocated.length === 1 ? "" : "s"} (${names}${moreOver})`,
+      `${overallocated.length} over ${capacityLabel} cap${overallocated.length === 1 ? "" : "s"} (${names}${moreOver})`,
     );
   }
-  if (dayOverflowCount > 0 && calendarView === "week") {
+  if (dayOverflowCount > 0 && calendarView !== "month") {
     parts.push(
       `${dayOverflowCount} day${dayOverflowCount === 1 ? "" : "s"} over daily cap`,
     );
