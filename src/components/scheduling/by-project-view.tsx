@@ -16,9 +16,10 @@ import type { Allocation } from "@/types";
 
 interface ByProjectViewProps {
   calendarView: ScheduleCalendarView;
+  onAllocationSaved?: (allocationDate: string) => void;
 }
 
-export function ByProjectView({ calendarView }: ByProjectViewProps) {
+export function ByProjectView({ calendarView, onAllocationSaved }: ByProjectViewProps) {
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
   const period =
     calendarView === "month"
@@ -220,6 +221,7 @@ export function ByProjectView({ calendarView }: ByProjectViewProps) {
         allocation={editingAllocation}
         defaultProjectId={defaultProjectId}
         defaultDate={defaultDate}
+        onSaved={onAllocationSaved}
       />
     </>
   );

@@ -23,7 +23,6 @@ import { useScheduling } from "@/context/scheduling-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { formatProjectHours } from "@/lib/project-format";
 import {
-  filterAllocationsForMonth,
   getDayScheduleTotals,
   getEmployeeDayHours,
   getPeriodScheduleTotals,
@@ -35,17 +34,20 @@ import {
   formatMonthDayHeader,
   getEmployeeFullName,
   getEmployeeInitials,
-  getMonthStart,
 } from "@/lib/week";
 import type { Allocation } from "@/types";
 import type { EmployeeMonthStats } from "@/lib/utilization";
 import { departmentFilterLabel } from "@/lib/departments";
 import { cn } from "@/lib/utils";
 
-export function SchedulingMonthGrid() {
-  const { allocations, settings, selectedWeekStart, filters, moveAllocation } = useScheduling();
+export function SchedulingMonthGrid({
+  onAllocationSaved,
+}: {
+  onAllocationSaved?: (allocationDate: string) => void;
+} = {}) {
+  const { allocations, filters, moveAllocation } = useScheduling();
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
-  const { rows, monthDays, clearFilters } = useFilteredEmployeeRows({
+  const { rows, monthDays, monthAllocations, clearFilters } = useFilteredEmployeeRows({
     period: "month",
     applyOnlyWithAllocations: true,
   });
@@ -59,9 +61,6 @@ export function SchedulingMonthGrid() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
-
-  const monthStart = getMonthStart(selectedWeekStart);
-  const monthAllocations = filterAllocationsForMonth(allocations, monthStart, settings);
 
   const openAdd = (employeeId: string, date: string) => {
     if (!canEditAllocationFor(employeeId)) return;
@@ -290,6 +289,7 @@ export function SchedulingMonthGrid() {
         allocation={editingAllocation}
         defaultEmployeeId={defaultEmployeeId}
         defaultDate={defaultDate}
+        onSaved={onAllocationSaved}
       />
     </>
   );

@@ -21,7 +21,7 @@ import {
   projects as seedProjects,
 } from "@/data/mock-data";
 import { createQueueStatePersistence } from "@/lib/data/queue-repository";
-import { mergeById, type InclusiveDateRange } from "@/lib/data/list-all-rows";
+import { mergeById, mergeFetchedRows, overlayUnconfirmedRows, type InclusiveDateRange } from "@/lib/data/list-all-rows";
 import {
   defaultOperationalDateRange,
   nextOperationalExpand,
@@ -85,7 +85,11 @@ import {
   removeMentionTodosForNote,
   syncMentionTodos,
 } from "@/lib/todos/sync-mention-todos";
-import { getMonthStart, getWeekStart } from "@/lib/week";
+import {
+  employeeMatchesDepartmentFilter,
+  projectMatchesDepartmentFilter,
+} from "@/lib/departments";
+import { getEmployeeFullName, getMonthStart, getWeekStart } from "@/lib/week";
 import { useAuth } from "@/context/auth-context";
 import type {
   Allocation,
@@ -325,13 +329,19 @@ function buildAllocation(values: AllocationFormValues, id?: string): Allocation 
     employee_id: values.employee_id,
     project_id: values.project_id,
     allocation_category_id: values.allocation_category_id,
-    allocation_date: values.allocation_date,
+    allocation_date: values.allocation_date.slice(0, 10),
     hours: values.hours,
     is_billable: values.is_billable,
     phase: values.phase,
     task_name: values.task_name || undefined,
     notes: values.notes,
   };
+}
+
+function replaceAllocation(current: Allocation[], allocation: Allocation): Allocation[] {
+  const index = current.findIndex((row) => row.id === allocation.id);
+  if (index === -1) return [...current, allocation];
+  return current.map((row) => (row.id === allocation.id ? allocation : row));
 }
 
 function buildTimeEntry(values: TimeEntryFormValues, id?: string): TimeEntry {
@@ -359,6 +369,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
   /** Inclusive YYYY-MM-DD window currently held in allocations / timeEntries. */
   const loadedOperationalRangeRef = useRef<InclusiveDateRange | null>(null);
   const expandInFlightRef = useRef(false);
+  /** Bumps on every local allocation edit so an in-flight fetch cannot wipe newer rows. */
+  const allocationMutationEpochRef = useRef(0);
+  const allocationWriteGenerationRef = useRef(new Map<string, number>());
+  const allocationDeletedIdsRef = useRef(new Set<string>());
+  const unconfirmedAllocationIdsRef = useRef(new Set<string>());
+  const allocationSettledAtRef = useRef(new Map<string, number>());
+  const allocationSettleClockRef = useRef(0);
+  const scheduleReloadInFlightRef = useRef(false);
   /** Serialize estimate upserts per id so create-then-won does not lose the project link. */
   const estimateWriteChainRef = useRef(new Map<string, Promise<unknown>>());
   /** Monotonic generation per estimate; skips stale rollbacks after newer local edits. */
@@ -470,6 +488,42 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     onlyWithAllocations: false,
   });
 
+  const incorporateServerAllocations = useCallback(
+    (
+      current: Allocation[],
+      server: Allocation[],
+      epochAtFetch: number,
+      clockAtFetch: number,
+    ) => {
+      const epochUnchanged = allocationMutationEpochRef.current === epochAtFetch;
+      let merged = mergeFetchedRows(
+        current,
+        server,
+        epochUnchanged,
+        allocationDeletedIdsRef.current,
+      );
+      merged = merged.filter((row) => !allocationDeletedIdsRef.current.has(row.id));
+      const serverIds = new Set(server.map((row) => row.id));
+      for (const id of [...allocationDeletedIdsRef.current]) {
+        if (!serverIds.has(id)) allocationDeletedIdsRef.current.delete(id);
+      }
+      const { rows, confirmedIds } = overlayUnconfirmedRows(
+        merged,
+        current,
+        server,
+        unconfirmedAllocationIdsRef.current,
+        allocationSettledAtRef.current,
+        clockAtFetch,
+      );
+      for (const id of confirmedIds) {
+        unconfirmedAllocationIdsRef.current.delete(id);
+        allocationSettledAtRef.current.delete(id);
+      }
+      return rows;
+    },
+    [],
+  );
+
   const refreshData = useCallback(async () => {
     if (!useSupabase) return;
     setIsLoading(true);
@@ -479,6 +533,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       repoRef.current = createSupabaseRepository(supabase);
       const repo = repoRef.current;
       const operationalRange = defaultOperationalDateRange(new Date());
+      const allocationEpochAtFetch = allocationMutationEpochRef.current;
+      const allocationClockAtFetch = allocationSettleClockRef.current;
       const [emp, proj, notes, cats, alloc, times, sett] = await Promise.all([
         repo.listEmployees(),
         repo.listProjects(),
@@ -519,7 +575,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         ),
       );
       setCategories(cats.length > 0 ? cats : seedCategories);
-      setAllocations(alloc);
+      setAllocations((current) =>
+        incorporateServerAllocations(
+          current,
+          alloc,
+          allocationEpochAtFetch,
+          allocationClockAtFetch,
+        ),
+      );
       setTimeEntries(times);
       setSettings(sett);
       setSelectedWeekStart(getWeekStart(new Date(), sett));
@@ -607,7 +670,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [useSupabase]);
+  }, [useSupabase, incorporateServerAllocations]);
 
   const ensureOperationalDateCoverage = useCallback(
     async (anchor: Date) => {
@@ -625,11 +688,33 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
           const repo = repoRef.current;
           if (!repo) return;
 
+          const epochAtFetch = allocationMutationEpochRef.current;
+          const clockAtFetch = allocationSettleClockRef.current;
           const [allocChunk, timeChunk] = await Promise.all([
             repo.listAllocations(expand.fetch),
             repo.listTimeEntries(expand.fetch),
           ]);
-          setAllocations((prev) => mergeById(prev, allocChunk));
+          setAllocations((prev) => {
+            const epochUnchanged = allocationMutationEpochRef.current === epochAtFetch;
+            const merged = epochUnchanged
+              ? mergeById(prev, allocChunk).filter(
+                  (row) => !allocationDeletedIdsRef.current.has(row.id),
+                )
+              : mergeFetchedRows(prev, allocChunk, false, allocationDeletedIdsRef.current);
+            const { rows, confirmedIds } = overlayUnconfirmedRows(
+              merged,
+              prev,
+              allocChunk,
+              unconfirmedAllocationIdsRef.current,
+              allocationSettledAtRef.current,
+              clockAtFetch,
+            );
+            for (const id of confirmedIds) {
+              unconfirmedAllocationIdsRef.current.delete(id);
+              allocationSettledAtRef.current.delete(id);
+            }
+            return rows;
+          });
           setTimeEntries((prev) => mergeById(prev, timeChunk));
           loadedOperationalRangeRef.current = expand.nextLoaded;
         }
@@ -652,6 +737,50 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     if (!useSupabase || isLoading) return;
     void ensureOperationalDateCoverage(selectedWeekStart);
   }, [useSupabase, isLoading, selectedWeekStart, ensureOperationalDateCoverage]);
+
+  const reloadScheduleFromServer = useCallback(async () => {
+    if (!useSupabase || !repoRef.current || scheduleReloadInFlightRef.current) return;
+    const range = loadedOperationalRangeRef.current;
+    if (!range) return;
+
+    scheduleReloadInFlightRef.current = true;
+    const allocationEpochAtFetch = allocationMutationEpochRef.current;
+    const allocationClockAtFetch = allocationSettleClockRef.current;
+    try {
+      const repo = repoRef.current;
+      const [alloc, proj] = await Promise.all([
+        repo.listAllocations(range),
+        repo.listProjects(),
+      ]);
+      setAllocations((current) =>
+        incorporateServerAllocations(
+          current,
+          alloc,
+          allocationEpochAtFetch,
+          allocationClockAtFetch,
+        ),
+      );
+      setProjects((current) => {
+        const serverIds = new Set(proj.map((project) => project.id));
+        const localOnly = current.filter((project) => !serverIds.has(project.id));
+        return [...proj, ...localOnly];
+      });
+    } catch {
+      // Keep the schedule on screen; the next focus can retry.
+    } finally {
+      scheduleReloadInFlightRef.current = false;
+    }
+  }, [useSupabase, incorporateServerAllocations]);
+
+  useEffect(() => {
+    if (!useSupabase) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void reloadScheduleFromServer();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [useSupabase, reloadScheduleFromServer]);
 
   useEffect(() => {
     if (useSupabase) return;
@@ -893,108 +1022,226 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     [employees],
   );
 
+  const beginAllocationWrite = useCallback((id: string) => {
+    allocationMutationEpochRef.current += 1;
+    const generation = (allocationWriteGenerationRef.current.get(id) ?? 0) + 1;
+    allocationWriteGenerationRef.current.set(id, generation);
+    unconfirmedAllocationIdsRef.current.add(id);
+    allocationSettledAtRef.current.delete(id);
+    return generation;
+  }, []);
+
+  const isCurrentAllocationWrite = useCallback((id: string, generation: number) => {
+    return allocationWriteGenerationRef.current.get(id) === generation;
+  }, []);
+
+  const markAllocationWriteSettled = useCallback((id: string) => {
+    allocationSettleClockRef.current += 1;
+    allocationSettledAtRef.current.set(id, allocationSettleClockRef.current);
+  }, []);
+
+  const markAllocationWriteFailed = useCallback((id: string) => {
+    unconfirmedAllocationIdsRef.current.delete(id);
+    allocationSettledAtRef.current.delete(id);
+  }, []);
+
+  const relaxFiltersForAllocation = useCallback(
+    (allocation: Allocation) => {
+      const employee = employees.find((row) => row.id === allocation.employee_id);
+      const project = allocation.project_id
+        ? projects.find((row) => row.id === allocation.project_id)
+        : undefined;
+
+      setFiltersState((prev) => {
+        let next = prev;
+        const assign = (partial: Partial<SchedulingFilters>) => {
+          next = { ...next, ...partial };
+        };
+
+        if (prev.projectId && prev.projectId !== allocation.project_id) {
+          assign({ projectId: null });
+        }
+        if (prev.categoryId && prev.categoryId !== allocation.allocation_category_id) {
+          assign({ categoryId: null });
+        }
+        if (prev.department) {
+          const employeeVisible =
+            !employee || employeeMatchesDepartmentFilter(employee, prev.department);
+          const projectVisible =
+            !project || projectMatchesDepartmentFilter(project, prev.department);
+          if (!employeeVisible || !projectVisible) assign({ department: null });
+        }
+        if (prev.search.trim()) {
+          const query = prev.search.trim().toLowerCase();
+          const employeeMatches = employee
+            ? getEmployeeFullName(employee).toLowerCase().includes(query) ||
+              employee.role.toLowerCase().includes(query)
+            : false;
+          const projectMatches = project
+            ? project.project_name.toLowerCase().includes(query) ||
+              project.client_name.toLowerCase().includes(query)
+            : (allocation.task_name ?? "").toLowerCase().includes(query);
+          if (!employeeMatches && !projectMatches) assign({ search: "" });
+        }
+
+        return next;
+      });
+    },
+    [employees, projects],
+  );
+
   const addAllocation = useCallback(
     (values: AllocationFormValues): Allocation => {
       const allocation = buildAllocation(values);
-      setAllocations((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertAllocation(allocation),
-            () => setAllocations(snapshot),
-          ).then((saved) => {
-            if (saved) {
-              setAllocations((current) =>
-                current.map((a) => (a.id === allocation.id ? saved : a)),
-              );
-            }
-          });
-        }
-        return [...prev, allocation];
-      });
+      const generation = beginAllocationWrite(allocation.id);
+      setAllocations((prev) => [...prev, allocation]);
+      relaxFiltersForAllocation(allocation);
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.upsertAllocation(allocation),
+          () => {
+            if (!isCurrentAllocationWrite(allocation.id, generation)) return;
+            markAllocationWriteFailed(allocation.id);
+            setAllocations((current) => current.filter((row) => row.id !== allocation.id));
+          },
+        ).then((saved) => {
+          if (!saved || !isCurrentAllocationWrite(allocation.id, generation)) return;
+          markAllocationWriteSettled(allocation.id);
+          setAllocations((current) => replaceAllocation(current, saved));
+        });
+      }
       return allocation;
     },
-    [persistAsync],
+    [beginAllocationWrite, isCurrentAllocationWrite, markAllocationWriteFailed, markAllocationWriteSettled, persistAsync, relaxFiltersForAllocation],
   );
 
   const updateAllocation = useCallback(
     (id: string, values: AllocationFormValues) => {
       const updated = buildAllocation(values, id);
+      const generation = beginAllocationWrite(id);
+      let previous: Allocation | undefined;
       setAllocations((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertAllocation(updated),
-            () => setAllocations(snapshot),
-          );
-        }
-        return prev.map((a) => (a.id === id ? updated : a));
+        previous = prev.find((row) => row.id === id);
+        return replaceAllocation(prev, updated);
+      });
+      relaxFiltersForAllocation(updated);
+      const rollbackTo = previous;
+      if (!repoRef.current) return;
+      void persistAsync(
+        () => repoRef.current!.upsertAllocation(updated),
+        () => {
+          if (!rollbackTo || !isCurrentAllocationWrite(id, generation)) return;
+          markAllocationWriteFailed(id);
+          setAllocations((current) => replaceAllocation(current, rollbackTo));
+        },
+      ).then((saved) => {
+        if (!saved || !isCurrentAllocationWrite(id, generation)) return;
+        markAllocationWriteSettled(id);
+        setAllocations((current) => replaceAllocation(current, saved));
       });
     },
-    [persistAsync],
+    [beginAllocationWrite, isCurrentAllocationWrite, markAllocationWriteFailed, markAllocationWriteSettled, persistAsync, relaxFiltersForAllocation],
   );
 
   const moveAllocation = useCallback(
     (id: string, employeeId: string, allocationDate: string) => {
+      let previous: Allocation | undefined;
+      let moved: Allocation | undefined;
       setAllocations((prev) => {
-        const existing = prev.find((a) => a.id === id);
+        const existing = prev.find((row) => row.id === id);
         if (!existing) return prev;
         if (existing.employee_id === employeeId && existing.allocation_date === allocationDate) {
           return prev;
         }
-        const snapshot = prev;
-        const moved: Allocation = {
+        previous = existing;
+        moved = {
           ...existing,
           employee_id: employeeId,
-          allocation_date: allocationDate,
+          allocation_date: allocationDate.slice(0, 10),
         };
-        const next = prev.map((a) => (a.id === id ? moved : a));
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertAllocation(moved),
-            () => setAllocations(snapshot),
-          );
-        }
-        return next;
+        return replaceAllocation(prev, moved);
+      });
+      if (!moved || !previous) return;
+      const generation = beginAllocationWrite(id);
+      relaxFiltersForAllocation(moved);
+      const rollbackTo = previous;
+      const nextAllocation = moved;
+      if (!repoRef.current) return;
+      void persistAsync(
+        () => repoRef.current!.upsertAllocation(nextAllocation),
+        () => {
+          if (!isCurrentAllocationWrite(id, generation)) return;
+          markAllocationWriteFailed(id);
+          setAllocations((current) => replaceAllocation(current, rollbackTo));
+        },
+      ).then((saved) => {
+        if (!saved || !isCurrentAllocationWrite(id, generation)) return;
+        markAllocationWriteSettled(id);
+        setAllocations((current) => replaceAllocation(current, saved));
       });
     },
-    [persistAsync],
+    [beginAllocationWrite, isCurrentAllocationWrite, markAllocationWriteFailed, markAllocationWriteSettled, persistAsync, relaxFiltersForAllocation],
   );
 
   const deleteAllocation = useCallback(
     (id: string) => {
+      const generation = beginAllocationWrite(id);
+      unconfirmedAllocationIdsRef.current.delete(id);
+      allocationSettledAtRef.current.delete(id);
+      allocationDeletedIdsRef.current.add(id);
+      let removed: Allocation | undefined;
       setAllocations((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.deleteAllocation(id),
-            () => setAllocations(snapshot),
-          );
-        }
-        return prev.filter((a) => a.id !== id);
+        removed = prev.find((row) => row.id === id);
+        return prev.filter((row) => row.id !== id);
       });
+      if (!repoRef.current) return;
+      void persistAsync(
+        () => repoRef.current!.deleteAllocation(id),
+        () => {
+          if (!isCurrentAllocationWrite(id, generation)) return;
+          allocationDeletedIdsRef.current.delete(id);
+          if (!removed) return;
+          const restored = removed;
+          setAllocations((current) => replaceAllocation(current, restored));
+        },
+      );
     },
-    [persistAsync],
+    [beginAllocationWrite, isCurrentAllocationWrite, persistAsync],
   );
 
   const duplicateAllocation = useCallback(
     (id: string): Allocation => {
-      const source = allocations.find((a) => a.id === id);
+      const source = allocations.find((row) => row.id === id);
       if (!source) throw new Error("Allocation not found");
       const copy: Allocation = { ...source, id: generateId() };
-      setAllocations((prev) => {
-        const snapshot = prev;
-        if (repoRef.current) {
-          void persistAsync(
-            () => repoRef.current!.upsertAllocation(copy),
-            () => setAllocations(snapshot),
-          );
-        }
-        return [...prev, copy];
-      });
+      const generation = beginAllocationWrite(copy.id);
+      setAllocations((prev) => [...prev, copy]);
+      relaxFiltersForAllocation(copy);
+      if (repoRef.current) {
+        void persistAsync(
+          () => repoRef.current!.upsertAllocation(copy),
+          () => {
+            if (!isCurrentAllocationWrite(copy.id, generation)) return;
+            markAllocationWriteFailed(copy.id);
+            setAllocations((current) => current.filter((row) => row.id !== copy.id));
+          },
+        ).then((saved) => {
+          if (!saved || !isCurrentAllocationWrite(copy.id, generation)) return;
+          markAllocationWriteSettled(copy.id);
+          setAllocations((current) => replaceAllocation(current, saved));
+        });
+      }
       return copy;
     },
-    [allocations, persistAsync],
+    [
+      allocations,
+      beginAllocationWrite,
+      isCurrentAllocationWrite,
+      markAllocationWriteFailed,
+      markAllocationWriteSettled,
+      persistAsync,
+      relaxFiltersForAllocation,
+    ],
   );
 
   const addTimeEntry = useCallback(

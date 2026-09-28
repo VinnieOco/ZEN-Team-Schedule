@@ -46,6 +46,7 @@ interface AllocationFormDialogProps {
   defaultEmployeeId?: string;
   defaultProjectId?: string;
   defaultDate?: string;
+  onSaved?: (allocationDate: string) => void;
 }
 
 export function AllocationFormDialog({
@@ -55,6 +56,7 @@ export function AllocationFormDialog({
   defaultEmployeeId,
   defaultProjectId,
   defaultDate,
+  onSaved,
 }: AllocationFormDialogProps) {
   const {
     employees,
@@ -233,6 +235,7 @@ export function AllocationFormDialog({
     } else {
       addAllocation(payload);
     }
+    onSaved?.(payload.allocation_date);
     onOpenChange(false);
   });
 

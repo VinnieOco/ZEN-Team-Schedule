@@ -48,11 +48,13 @@ interface SchedulingGridProps {
   onAddAllocation?: () => void;
   /** Day columns period. Defaults to one week. */
   period?: Extract<FilteredRowsPeriod, "week" | "three_weeks">;
+  onAllocationSaved?: (allocationDate: string) => void;
 }
 
 export function SchedulingGrid({
   onAddAllocation,
   period = "week",
+  onAllocationSaved,
 }: SchedulingGridProps = {}) {
   const { allocations, filters, moveAllocation, settings } = useScheduling();
   const { canEditAllocationFor, canEditSchedule } = usePermissions();
@@ -330,6 +332,7 @@ export function SchedulingGrid({
         allocation={editingAllocation}
         defaultEmployeeId={defaultEmployeeId}
         defaultDate={defaultDate}
+        onSaved={onAllocationSaved}
       />
     </>
   );

@@ -624,7 +624,7 @@ export function mapAllocation(row: AllocationRow): Allocation {
     employee_id: row.employee_id,
     project_id: row.project_id,
     allocation_category_id: row.allocation_category_id,
-    allocation_date: row.allocation_date,
+    allocation_date: row.allocation_date.slice(0, 10),
     hours: Number(row.hours),
     is_billable: row.is_billable,
     phase: row.phase ?? undefined,

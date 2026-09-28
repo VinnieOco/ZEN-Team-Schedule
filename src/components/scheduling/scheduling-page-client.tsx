@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { parseISO } from "date-fns";
+
 import { AllocationFormDialog } from "@/components/scheduling/allocation-form-dialog";
 import { CapacityAlerts } from "@/components/scheduling/capacity-alerts";
 import { SchedulingFilters } from "@/components/scheduling/scheduling-filters";
@@ -21,15 +23,39 @@ import {
 import { SchedulingMonthGrid } from "@/components/scheduling/scheduling-month-grid";
 import { TeamSummaryBar } from "@/components/scheduling/team-summary-bar";
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
+import { schedulingViewSettings } from "@/lib/scheduling-view";
+import {
+  getMonthStart,
+  isDateInMonth,
+  isDateInThreeWeek,
+  isDateInWeek,
+} from "@/lib/week";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 
 export function SchedulingPageClient() {
-  const { isLoading } = useScheduling();
+  const { isLoading, selectedWeekStart, settings, filters, setWeek, setMonth } = useScheduling();
   const { canEditSchedule, linkedEmployeeId, permissions } = usePermissions();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [defaultEmployeeId, setDefaultEmployeeId] = useState<string>();
   const [showFilters, setShowFilters] = useState(true);
   const [calendarView, setCalendarView] = useState<ScheduleCalendarView>("three_weeks");
+
+  const revealAllocationDate = (allocationDate: string) => {
+    const key = allocationDate.slice(0, 10);
+    const date = parseISO(key);
+    const viewSettings = schedulingViewSettings(settings, filters);
+    if (calendarView === "month") {
+      if (!isDateInMonth(key, getMonthStart(selectedWeekStart), viewSettings)) {
+        setMonth(date);
+      }
+      return;
+    }
+    if (calendarView === "three_weeks") {
+      if (!isDateInThreeWeek(key, selectedWeekStart, viewSettings)) setWeek(date);
+      return;
+    }
+    if (!isDateInWeek(key, selectedWeekStart, viewSettings)) setWeek(date);
+  };
 
   return (
     <div className="app-page min-w-0 max-w-full space-y-4 overflow-x-hidden p-4 md:space-y-6 md:p-6">
@@ -75,11 +101,12 @@ export function SchedulingPageClient() {
           {isLoading ? (
             <SchedulingGridSkeleton />
           ) : calendarView === "month" ? (
-            <SchedulingMonthGrid />
+            <SchedulingMonthGrid onAllocationSaved={revealAllocationDate} />
           ) : (
             <SchedulingGrid
               period={calendarView === "three_weeks" ? "three_weeks" : "week"}
               onAddAllocation={() => setAddDialogOpen(true)}
+              onAllocationSaved={revealAllocationDate}
             />
           )}
         </TabsContent>
@@ -96,7 +123,10 @@ export function SchedulingPageClient() {
           {isLoading ? (
             <SchedulingGridSkeleton />
           ) : (
-            <ByProjectView calendarView={calendarView} />
+            <ByProjectView
+              calendarView={calendarView}
+              onAllocationSaved={revealAllocationDate}
+            />
           )}
         </TabsContent>
         <TabsContent value="utilization" className="mt-4 min-w-0 space-y-4">
@@ -108,6 +138,7 @@ export function SchedulingPageClient() {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         defaultEmployeeId={defaultEmployeeId}
+        onSaved={revealAllocationDate}
       />
     </div>
   );

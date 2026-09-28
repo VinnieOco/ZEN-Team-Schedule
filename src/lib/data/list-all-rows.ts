@@ -62,3 +62,59 @@ export function mergeById<T extends { id: string }>(previous: T[], incoming: T[]
   }
   return Array.from(map.values());
 }
+
+/**
+ * Apply a server list without dropping rows saved locally while the request was in flight.
+ * A clean fetch (no local edits since it started) replaces the list. Otherwise local rows win,
+ * server-only rows are added, and ids deleted locally stay gone.
+ */
+export function mergeFetchedRows<T extends { id: string }>(
+  current: T[],
+  server: T[],
+  epochUnchanged: boolean,
+  deletedIds: ReadonlySet<string>,
+): T[] {
+  if (epochUnchanged) return server;
+  const kept = current.filter((row) => !deletedIds.has(row.id));
+  const keptIds = new Set(kept.map((row) => row.id));
+  const extras = server.filter((row) => !keptIds.has(row.id) && !deletedIds.has(row.id));
+  return [...kept, ...extras];
+}
+
+function replaceRow<T extends { id: string }>(rows: T[], row: T): T[] {
+  const index = rows.findIndex((item) => item.id === row.id);
+  if (index === -1) return [...rows, row];
+  return rows.map((item) => (item.id === row.id ? row : item));
+}
+
+/**
+ * Keep local rows whose save has not yet been observed in a fetch that started
+ * after the save finished. Confirmed ids can be dropped from the in-flight set.
+ */
+export function overlayUnconfirmedRows<T extends { id: string }>(
+  next: T[],
+  current: T[],
+  server: T[],
+  unconfirmedIds: ReadonlySet<string>,
+  settledAt: ReadonlyMap<string, number>,
+  clockAtFetchStart: number,
+): { rows: T[]; confirmedIds: string[] } {
+  const serverById = new Map(server.map((row) => [row.id, row]));
+  const currentById = new Map(current.map((row) => [row.id, row]));
+  let rows = next;
+  const confirmedIds: string[] = [];
+
+  for (const id of unconfirmedIds) {
+    const serverRow = serverById.get(id);
+    const settled = settledAt.get(id);
+    if (serverRow && settled !== undefined && settled <= clockAtFetchStart) {
+      rows = replaceRow(rows, serverRow);
+      confirmedIds.push(id);
+      continue;
+    }
+    const local = currentById.get(id);
+    if (local) rows = replaceRow(rows, local);
+  }
+
+  return { rows, confirmedIds };
+}
