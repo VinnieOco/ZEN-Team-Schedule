@@ -216,17 +216,6 @@ export function CrewMobileTimesheet() {
 
   const defaultRowClassCode = resolveClassCodes(settings)[0] ?? "";
 
-  const addRow = () => {
-    const row = createEmptyTimesheetRow(weekDateKeys, {
-      allocation_category_id: "",
-      is_billable: true,
-      class_code: defaultRowClassCode,
-    });
-    setRows((prev) => [...prev, row]);
-    setExpandedRowKeys((prev) => new Set(prev).add(row.key));
-    setSaveMessage(null);
-  };
-
   const removeRow = (rowKey: string) => {
     const row = rows.find((r) => r.key === rowKey);
     if (!row || isRowLocked(row)) return;
@@ -255,8 +244,8 @@ export function CrewMobileTimesheet() {
     setSaveMessage(null);
   };
 
-  const handleSave = async () => {
-    if (!canEdit || !employeeId) return;
+  const handleSave = async (options?: { quietIfEmpty?: boolean }): Promise<boolean> => {
+    if (!canEdit || !employeeId) return false;
     setSaving(true);
     setSaveMessage(null);
 
@@ -274,24 +263,20 @@ export function CrewMobileTimesheet() {
         if (hasHours) {
           if (!row.project_id && !row.is_non_project) {
             setSaveMessage("Select a job for each line with hours.");
-            setSaving(false);
-            return;
+            return false;
           }
           if (row.is_non_project && !row.task_name.trim()) {
             setSaveMessage("Enter a task name for non-project rows with hours.");
-            setSaving(false);
-            return;
+            return false;
           }
           if (!row.allocation_category_id) {
             setSaveMessage("Select a category for each line with hours.");
-            setSaving(false);
-            return;
+            return false;
           }
           const configuredClasses = resolveClassCodes(settings);
           if (configuredClasses.length > 0 && !row.class_code?.trim()) {
             setSaveMessage("Select a class for each line with hours.");
-            setSaving(false);
-            return;
+            return false;
           }
         }
 
@@ -313,8 +298,8 @@ export function CrewMobileTimesheet() {
       }
 
       if (pending.length === 0) {
-        setSaveMessage("Nothing to save.");
-        return;
+        if (!options?.quietIfEmpty) setSaveMessage("Nothing to save.");
+        return true;
       }
 
       const results = await Promise.all(pending);
@@ -322,15 +307,17 @@ export function CrewMobileTimesheet() {
         setSaveMessage(
           "Could not save timesheet. Check the error banner at the top for details, then try again.",
         );
-        return;
+        return false;
       }
 
       setEditingRowKeys(new Set());
       setSaveMessage("Timesheet saved.");
+      return true;
     } catch {
       setSaveMessage(
         "Could not save timesheet. Check the error banner at the top for details, then try again.",
       );
+      return false;
     } finally {
       setSaving(false);
     }
@@ -341,6 +328,24 @@ export function CrewMobileTimesheet() {
     if (editingRowKeys.has(row.key)) return true;
     return weekDateKeys.some((d) => (row.hoursByDay[d] ?? 0) > 0);
   });
+
+  const addRow = async () => {
+    if (!canEdit || saving) return;
+
+    if (hasDraftToSave) {
+      const saved = await handleSave({ quietIfEmpty: true });
+      if (!saved) return;
+    }
+
+    const row = createEmptyTimesheetRow(weekDateKeys, {
+      allocation_category_id: "",
+      is_billable: true,
+      class_code: defaultRowClassCode,
+    });
+    setRows((prev) => [...prev, row]);
+    setExpandedRowKeys((prev) => new Set(prev).add(row.key));
+    setSaveMessage(null);
+  };
 
   const activeProjects = useMemo(
     () => projects.filter((p) => p.active).sort((a, b) => a.project_name.localeCompare(b.project_name)),
@@ -477,7 +482,7 @@ export function CrewMobileTimesheet() {
               <Button
                 type="button"
                 size="sm"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={saving || !hasDraftToSave}
               >
                 <Save className="mr-1.5 h-4 w-4" />
@@ -556,9 +561,15 @@ export function CrewMobileTimesheet() {
           </p>
         </div>
         {canEdit && (
-          <Button type="button" variant="outline" size="sm" onClick={addRow}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void addRow()}
+            disabled={saving}
+          >
             <Plus className="mr-1.5 h-4 w-4" />
-            Add
+            {saving ? "Saving…" : "Add"}
           </Button>
         )}
       </div>
@@ -570,9 +581,15 @@ export function CrewMobileTimesheet() {
             Tap Add to log hours for a job.
           </p>
           {canEdit && (
-            <Button type="button" className="mt-4" size="sm" onClick={addRow}>
+            <Button
+              type="button"
+              className="mt-4"
+              size="sm"
+              onClick={() => void addRow()}
+              disabled={saving}
+            >
               <Plus className="mr-1.5 h-4 w-4" />
-              Add line
+              {saving ? "Saving…" : "Add line"}
             </Button>
           )}
         </div>
@@ -908,14 +925,20 @@ export function CrewMobileTimesheet() {
       {canEdit && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden">
           <div className="mx-auto flex max-w-lg gap-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={addRow}>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => void addRow()}
+              disabled={saving}
+            >
               <Plus className="mr-1.5 h-4 w-4" />
-              Add line
+              {saving ? "Saving…" : "Add line"}
             </Button>
             <Button
               type="button"
               className="flex-1"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={saving || !hasDraftToSave}
             >
               <Save className="mr-1.5 h-4 w-4" />
