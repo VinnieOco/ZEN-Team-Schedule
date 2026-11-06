@@ -2,6 +2,10 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
 import {
   getEstimatePriorityOrder,
+  hydrateEstimatePriorityOrders,
+  initEstimatePriorityPersistence,
+  ordersFromPositionRows,
+  positionRowsFromOrders,
   setEstimatePriorityOrder,
 } from "@/lib/estimating/estimate-priority-order";
 import { sortEstimatePriorityItems } from "@/lib/estimating/metrics";
@@ -43,6 +47,8 @@ describe("estimate priority order", () => {
     };
     vi.stubGlobal("window", { localStorage });
     vi.stubGlobal("localStorage", localStorage);
+    initEstimatePriorityPersistence(null, { useRemote: false });
+    hydrateEstimatePriorityOrders({});
   });
 
   afterEach(() => {
@@ -52,6 +58,18 @@ describe("estimate priority order", () => {
   it("persists and restores estimator order", () => {
     setEstimatePriorityOrder("est-1", ["b", "a", "c"]);
     expect(getEstimatePriorityOrder("est-1")).toEqual(["b", "a", "c"]);
+  });
+
+  it("round-trips position rows", () => {
+    const map = ordersFromPositionRows([
+      { estimator_id: "est-1", estimate_id: "b", position: 0 },
+      { estimator_id: "est-1", estimate_id: "a", position: 1 },
+    ]);
+    expect(map["priority:est-1"]).toEqual(["b", "a"]);
+    expect(positionRowsFromOrders(map)).toEqual([
+      { estimator_id: "est-1", estimate_id: "b", position: 0 },
+      { estimator_id: "est-1", estimate_id: "a", position: 1 },
+    ]);
   });
 
   it("sortEstimatePriorityItems uses saved order instead of due date", () => {

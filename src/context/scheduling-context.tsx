@@ -20,6 +20,7 @@ import {
   initialTimeEntries,
   projects as seedProjects,
 } from "@/data/mock-data";
+import { createEstimatePriorityPersistence } from "@/lib/data/estimate-priority-repository";
 import { createQueueStatePersistence } from "@/lib/data/queue-repository";
 import { mergeById, mergeFetchedRows, overlayUnconfirmedRows, type InclusiveDateRange } from "@/lib/data/list-all-rows";
 import {
@@ -27,6 +28,14 @@ import {
   nextOperationalExpand,
 } from "@/lib/data/operational-date-window";
 import { createSupabaseRepository } from "@/lib/data/supabase-repository";
+import {
+  flushEstimatePriorityPersistQueue,
+  hydrateEstimatePriorityOrders,
+  initEstimatePriorityPersistence,
+  isEstimatePriorityOrdersEmpty,
+  loadLocalEstimatePriorityOrders,
+  migrateLocalEstimatePriorityToRemote,
+} from "@/lib/estimating/estimate-priority-order";
 import {
   flushPersistQueue,
   hydrateQueueState,
@@ -665,6 +674,24 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         loadLocalQueueSnapshot();
         setQueueRevision((n) => n + 1);
       }
+
+      try {
+        const estimatePriorityPersistence = createEstimatePriorityPersistence(supabase);
+        initEstimatePriorityPersistence(estimatePriorityPersistence, { useRemote: true });
+        await flushEstimatePriorityPersistQueue();
+        let estimatePriorityOrders = await estimatePriorityPersistence.listOrders();
+        if (isEstimatePriorityOrdersEmpty(estimatePriorityOrders)) {
+          await migrateLocalEstimatePriorityToRemote();
+          estimatePriorityOrders = await estimatePriorityPersistence.listOrders();
+        }
+        hydrateEstimatePriorityOrders(estimatePriorityOrders);
+        setQueueRevision((n) => n + 1);
+      } catch {
+        // Table may be missing until migration 20261106120000_estimate_priority_positions.sql.
+        initEstimatePriorityPersistence(null, { useRemote: false });
+        loadLocalEstimatePriorityOrders();
+        setQueueRevision((n) => n + 1);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     } finally {
@@ -786,6 +813,8 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
     if (useSupabase) return;
     initQueuePersistence(null, { useRemote: false });
     loadLocalQueueSnapshot();
+    initEstimatePriorityPersistence(null, { useRemote: false });
+    loadLocalEstimatePriorityOrders();
     setQueueRevision((n) => n + 1);
   }, [useSupabase]);
 

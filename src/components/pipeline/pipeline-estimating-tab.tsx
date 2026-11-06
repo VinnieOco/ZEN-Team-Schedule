@@ -493,7 +493,12 @@ export function PipelineEstimatingTab() {
   const canEdit = permissions.editQueue || permissions.editProjects;
   const isNarrow = useIsNarrowViewport();
   const priorityLayout = isNarrow ? "card" : "table";
-  const { revision: orderRevision, updateEstimatePriorityOrder } = useEstimatePriorityOrder();
+  const {
+    revision: orderRevision,
+    saving: prioritySaving,
+    saveMessage: prioritySaveMessage,
+    updateEstimatePriorityOrder,
+  } = useEstimatePriorityOrder();
 
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState(OPEN_ONLY);
@@ -691,7 +696,7 @@ export function PipelineEstimatingTab() {
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
     if (oldIndex === -1 || newIndex === -1) return;
-    updateEstimatePriorityOrder(
+    void updateEstimatePriorityOrder(
       estimatorId,
       arrayMoveIds(ids, oldIndex, newIndex),
     );
@@ -883,6 +888,22 @@ export function PipelineEstimatingTab() {
               ? ` · ${unassignedCount} unassigned hidden`
               : ""}
             {focus !== "all" ? ` · focus: ${pipelineFocusLabel(focus)}` : ""}
+            {canEdit && !prioritySaving && !prioritySaveMessage
+              ? " · Drag to reorder — saves automatically"
+              : ""}
+            {prioritySaving ? " · Saving priority…" : ""}
+            {prioritySaveMessage ? (
+              <span
+                className={
+                  prioritySaveMessage.startsWith("Could not")
+                    ? "text-red-600"
+                    : "text-emerald-700"
+                }
+              >
+                {" "}
+                · {prioritySaveMessage}
+              </span>
+            ) : null}
           </p>
 
           {priorityGroups.length === 0 ? (
