@@ -81,6 +81,8 @@ export interface Project {
   phone?: string;
   email?: string;
   notes?: string;
+  /** External URL to client meeting notes (shared drive / DMS). */
+  client_meeting_notes_url?: string;
   active: boolean;
   /** Parent project when this row is a change order. */
   parent_project_id?: string;

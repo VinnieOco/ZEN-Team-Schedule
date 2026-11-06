@@ -62,6 +62,22 @@ export function estimatingPriorityColWidths(includeActions: boolean): string[] {
   ];
 }
 
+/** Side-by-side estimator columns — slightly compressed, still readable. */
+export function estimatingPriorityColWidthsCompact(includeActions: boolean): string[] {
+  return [
+    "44px",
+    "26%",
+    "10%",
+    "10%",
+    "9%",
+    "9%",
+    "9%",
+    "11%",
+    "72px",
+    ...(includeActions ? ["40px"] : []),
+  ];
+}
+
 /** Construction: Priority | Project | Client | PM | Phase | Due | Contract $ | Health | Actions? */
 export function constructionPriorityColWidths(includeActions: boolean): string[] {
   return [
@@ -86,4 +102,12 @@ export function priorityHeadClass(extra?: string) {
 
 export function priorityCellClass(extra?: string) {
   return cn("px-3 py-3 align-middle", extra);
+}
+
+export function priorityHeadClassCompact(extra?: string) {
+  return cn("px-2 py-2 text-[11px] leading-tight", extra);
+}
+
+export function priorityCellClassCompact(extra?: string) {
+  return cn("px-2 py-2.5 align-middle text-xs", extra);
 }

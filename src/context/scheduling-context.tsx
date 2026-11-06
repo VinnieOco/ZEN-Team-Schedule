@@ -213,6 +213,8 @@ interface SchedulingContextValue {
   deleteTimeEntry: (id: string) => Promise<boolean>;
   addProject: (values: ProjectFormValues) => Project;
   updateProject: (id: string, values: ProjectFormValues) => void;
+  /** Set or clear the external client meeting notes document URL. */
+  updateProjectClientMeetingNotesUrl: (id: string, url: string | null) => void;
   /** Patch WIP schedule entry fields for a project + As-of month (YYYY-MM). */
   updateProjectWipFields: (
     id: string,
@@ -1575,6 +1577,36 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
         const existing = prev.find((p) => p.id === id);
         if (!existing) return prev;
         const merged = projectFromFormValues(values, existing);
+        const next = prev.map((p) => (p.id === id ? merged : p));
+        if (repoRef.current) {
+          void persistAsync(
+            () => repoRef.current!.updateProject(merged),
+            () => setProjects(snapshot),
+          ).then((saved) => {
+            if (saved) {
+              setProjects((current) =>
+                current.map((p) => (p.id === id ? saved : p)),
+              );
+            }
+          });
+        }
+        return next;
+      });
+    },
+    [persistAsync],
+  );
+
+  const updateProjectClientMeetingNotesUrl = useCallback(
+    (id: string, url: string | null) => {
+      setProjects((prev) => {
+        const snapshot = prev;
+        const existing = prev.find((p) => p.id === id);
+        if (!existing) return prev;
+        const trimmed = url?.trim() || undefined;
+        const merged: Project = {
+          ...existing,
+          client_meeting_notes_url: trimmed,
+        };
         const next = prev.map((p) => (p.id === id ? merged : p));
         if (repoRef.current) {
           void persistAsync(
@@ -3290,6 +3322,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateProjectClientMeetingNotesUrl,
       updateProjectWipFields,
       deleteChangeOrder,
       mergeProjects,
@@ -3386,6 +3419,7 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       deleteTimeEntry,
       addProject,
       updateProject,
+      updateProjectClientMeetingNotesUrl,
       updateProjectWipFields,
       deleteChangeOrder,
       mergeProjects,

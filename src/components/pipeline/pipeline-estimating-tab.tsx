@@ -33,9 +33,10 @@ import { EstimateWonDialog } from "@/components/pipeline/estimate-won-dialog";
 import { PipelineMetricCards } from "@/components/pipeline/pipeline-metric-cards";
 import {
   PriorityColGroup,
-  estimatingPriorityColWidths,
+  estimatingPriorityColWidthsCompact,
   priorityCellClass,
-  priorityHeadClass,
+  priorityCellClassCompact,
+  priorityHeadClassCompact,
 } from "@/components/pipeline/priority-table-layout";
 import { PipelinePeriodNavigator } from "@/components/pipeline/pipeline-period-navigator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -143,6 +144,16 @@ function formatShortDate(value?: string): string {
   }
 }
 
+/** Priority queue only: surname from client name (names are surname-first). */
+function clientLastName(name?: string): string {
+  const trimmed = name?.trim() ?? "";
+  if (!trimmed) return "—";
+  // "Smith, John" or "Smith Family" / "Smith John" — surname leads
+  const beforeComma = trimmed.split(",")[0]?.trim() ?? trimmed;
+  const parts = beforeComma.split(/\s+/).filter(Boolean);
+  return parts[0] ?? "—";
+}
+
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -189,6 +200,7 @@ function SortableEstimatePriorityRow({
   milestoneDate,
   canEdit,
   layout = "table",
+  compact = false,
   onOpen,
   onEdit,
   onDelete,
@@ -198,6 +210,7 @@ function SortableEstimatePriorityRow({
   milestoneDate?: string;
   canEdit: boolean;
   layout?: "table" | "card";
+  compact?: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -209,6 +222,7 @@ function SortableEstimatePriorityRow({
   const days = estimateDaysLeft(estimate);
   const awaitingSubmission = isEstimateAwaitingSubmission(estimate);
   const revision = estimateRevisionLabel(estimate);
+  const cell = compact ? priorityCellClassCompact : priorityCellClass;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -219,13 +233,16 @@ function SortableEstimatePriorityRow({
   const dragHandle = canEdit ? (
     <button
       type="button"
-      className="flex h-8 w-7 cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+      className={cn(
+        "flex cursor-grab touch-none items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing",
+        compact ? "h-7 w-6" : "h-8 w-7",
+      )}
       aria-label={`Drag ${estimateDisplayName(estimate)} to change priority`}
       onClick={(e) => e.stopPropagation()}
       {...attributes}
       {...listeners}
     >
-      <GripVertical className="h-4 w-4" />
+      <GripVertical className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
     </button>
   ) : null;
 
@@ -264,7 +281,9 @@ function SortableEstimatePriorityRow({
                     </Badge>
                   ) : null}
                 </div>
-                <p className="truncate text-xs text-muted-foreground">{estimate.client_name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {clientLastName(estimate.client_name)}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                 <span className="text-sm font-semibold tabular-nums text-slate-900">
@@ -328,21 +347,28 @@ function SortableEstimatePriorityRow({
       )}
       onClick={onOpen}
     >
-      <TableCell className={priorityCellClass("relative py-3 pl-2")}>
+      <TableCell className={cell(compact ? "relative py-2 pl-1" : "relative py-3 pl-2")}>
         <span
           className={cn(
             "absolute inset-y-2 left-0 w-1 rounded-r-full",
             estimateRowAccentClass(estimate),
           )}
         />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {dragHandle}
-          <span className="text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+          <span className="text-[10px] tabular-nums text-muted-foreground">{index + 1}</span>
         </div>
       </TableCell>
-      <TableCell className={priorityCellClass()}>
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium text-emerald-700 group-hover:underline">
+      <TableCell className={cell()}>
+        <div className="flex min-w-0 items-start gap-1">
+          <span
+            className={cn(
+              "font-medium text-emerald-700 group-hover:underline",
+              compact
+                ? "whitespace-normal break-words text-xs leading-snug"
+                : "truncate text-sm",
+            )}
+          >
             {estimateDisplayName(estimate)}
           </span>
           {revision ? (
@@ -352,25 +378,28 @@ function SortableEstimatePriorityRow({
           ) : null}
         </div>
       </TableCell>
-      <TableCell className={priorityCellClass("text-slate-700")}>{estimate.client_name}</TableCell>
-      <TableCell className={priorityCellClass()}>
+      <TableCell className={cell("truncate text-slate-700")}>
+        {clientLastName(estimate.client_name)}
+      </TableCell>
+      <TableCell className={cell()}>
         <span
           className={cn(
-            "inline-flex max-w-full truncate rounded-md px-2 py-0.5 text-xs font-medium",
+            "inline-flex max-w-full truncate rounded-md px-1.5 py-0.5 font-medium",
+            compact ? "text-[10px]" : "text-xs",
             estimateTypeBadgeClass(estimate.estimate_type),
           )}
         >
           {estimateTypeLabel(estimate.estimate_type)}
         </span>
       </TableCell>
-      <TableCell className={priorityCellClass("tabular-nums text-slate-600")}>
+      <TableCell className={cell("tabular-nums text-slate-600")}>
         {formatShortDate(estimate.received_date)}
       </TableCell>
-      <TableCell className={priorityCellClass("tabular-nums text-slate-700")}>
+      <TableCell className={cell("tabular-nums text-slate-700")}>
         {formatShortDate(milestoneDate)}
       </TableCell>
       <TableCell
-        className={priorityCellClass(
+        className={cell(
           cn(
             "tabular-nums",
             isEstimateDueOverdue(estimate) ? "font-semibold text-rose-600" : "text-slate-700",
@@ -379,22 +408,30 @@ function SortableEstimatePriorityRow({
       >
         {formatShortDate(estimate.due_date)}
       </TableCell>
-      <TableCell className={priorityCellClass()}>
+      <TableCell className={cell()}>
         <Badge
           variant="secondary"
           className={cn(
             "max-w-full truncate font-semibold",
+            compact ? "px-1.5 text-[10px]" : "",
             estimateStageBadgeClass(estimate.stage),
           )}
         >
           {estimateStageLabel(estimate.stage)}
         </Badge>
       </TableCell>
-      <TableCell className={priorityCellClass("text-right text-sm font-semibold tabular-nums text-slate-900")}>
+      <TableCell
+        className={cell(
+          cn(
+            "text-right font-semibold tabular-nums text-slate-900",
+            compact ? "text-xs" : "text-sm",
+          ),
+        )}
+      >
         {formatProjectAmount(estimate.amount)}
       </TableCell>
       {canEdit && (
-        <TableCell onClick={(e) => e.stopPropagation()} className={priorityCellClass("text-right")}>
+        <TableCell onClick={(e) => e.stopPropagation()} className={cell("text-right")}>
           <EstimateActionsMenu onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
         </TableCell>
       )}
@@ -492,7 +529,6 @@ export function PipelineEstimatingTab() {
   const { permissions } = usePermissions();
   const canEdit = permissions.editQueue || permissions.editProjects;
   const isNarrow = useIsNarrowViewport();
-  const priorityLayout = isNarrow ? "card" : "table";
   const {
     revision: orderRevision,
     saving: prioritySaving,
@@ -934,122 +970,152 @@ export function PipelineEstimatingTab() {
             </div>
           ) : (
             <div className="space-y-4">
-              {priorityGroups.map((group) => (
-                <div
-                  key={group.estimatorId}
-                  className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm"
-                >
-                  <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
-                          {initials(group.estimatorName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <h3 className="truncate text-sm font-semibold text-slate-900">
-                          {group.estimatorName}
-                        </h3>
-                        <p className="text-xs text-muted-foreground">
-                          Priority queue · highest first
-                        </p>
-                      </div>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
-                      {group.items.length}
-                    </span>
-                  </div>
-
-                  <DndContext
-                    sensors={prioritySensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={(event) => handlePriorityDragEnd(event, group.estimatorId)}
-                  >
-                    {isNarrow ? (
-                      <div className="divide-y divide-slate-100">
-                        <SortableContext
-                          items={group.items.map((estimate) => estimate.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          {group.items.map((estimate, index) => (
-                            <SortableEstimatePriorityRow
-                              key={estimate.id}
-                              estimate={estimate}
-                              index={index}
-                              milestoneDate={
-                                estimate.project_id
-                                  ? estimatingMilestoneDates.get(estimate.project_id)
-                                  : undefined
-                              }
-                              canEdit={canEdit}
-                              layout={priorityLayout}
-                              onOpen={() => setDetail(estimate)}
-                              onEdit={() => openEdit(estimate)}
-                              onDelete={() => {
-                                if (
-                                  window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
-                                ) {
-                                  deleteEstimate(estimate.id);
-                                }
-                              }}
-                            />
-                          ))}
-                        </SortableContext>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <Table className="min-w-[1100px] table-fixed">
-                          <PriorityColGroup widths={estimatingPriorityColWidths(canEdit)} />
-                          <TableHeader>
-                            <TableRow className="hover:bg-transparent">
-                              <TableHead className={priorityHeadClass()}>Priority</TableHead>
-                              <TableHead className={priorityHeadClass()}>Project</TableHead>
-                              <TableHead className={priorityHeadClass()}>Client</TableHead>
-                              <TableHead className={priorityHeadClass()}>Type</TableHead>
-                              <TableHead className={priorityHeadClass()}>Received</TableHead>
-                              <TableHead className={priorityHeadClass()}>Milestone</TableHead>
-                              <TableHead className={priorityHeadClass()}>Due Date</TableHead>
-                              <TableHead className={priorityHeadClass()}>Status</TableHead>
-                              <TableHead className={priorityHeadClass("text-right")}>Value</TableHead>
-                              {canEdit && <TableHead className={priorityHeadClass()} />}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            <SortableContext
-                              items={group.items.map((estimate) => estimate.id)}
-                              strategy={verticalListSortingStrategy}
-                            >
-                              {group.items.map((estimate, index) => (
-                                <SortableEstimatePriorityRow
-                                  key={estimate.id}
-                                  estimate={estimate}
-                                  index={index}
-                                  milestoneDate={
-                                    estimate.project_id
-                                      ? estimatingMilestoneDates.get(estimate.project_id)
-                                      : undefined
-                                  }
-                                  canEdit={canEdit}
-                                  layout={priorityLayout}
-                                  onOpen={() => setDetail(estimate)}
-                                  onEdit={() => openEdit(estimate)}
-                                  onDelete={() => {
-                                    if (
-                                      window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
-                                    ) {
-                                      deleteEstimate(estimate.id);
-                                    }
-                                  }}
-                                />
-                              ))}
-                            </SortableContext>
-                          </TableBody>
-                        </Table>
-                      </div>
+              <div
+                className={cn(
+                  isNarrow
+                    ? "space-y-4"
+                    : "flex items-start gap-4 overflow-x-auto pb-1",
+                )}
+              >
+                {priorityGroups.map((group) => (
+                  <div
+                    key={group.estimatorId}
+                    className={cn(
+                      "overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm",
+                      !isNarrow && "min-w-[42rem] flex-1 basis-[42rem]",
                     )}
-                  </DndContext>
-                </div>
-              ))}
+                  >
+                    <div className="flex items-center justify-between gap-3 border-b bg-slate-50/80 px-4 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-emerald-50 text-[11px] font-semibold text-emerald-800">
+                            {initials(group.estimatorName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold text-slate-900">
+                            {group.estimatorName}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            Priority queue · highest first
+                          </p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium tabular-nums text-slate-600">
+                        {group.items.length}
+                      </span>
+                    </div>
+
+                    <DndContext
+                      sensors={prioritySensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(event) => handlePriorityDragEnd(event, group.estimatorId)}
+                    >
+                      {isNarrow ? (
+                        <div className="divide-y divide-slate-100">
+                          <SortableContext
+                            items={group.items.map((estimate) => estimate.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {group.items.map((estimate, index) => (
+                              <SortableEstimatePriorityRow
+                                key={estimate.id}
+                                estimate={estimate}
+                                index={index}
+                                milestoneDate={
+                                  estimate.project_id
+                                    ? estimatingMilestoneDates.get(estimate.project_id)
+                                    : undefined
+                                }
+                                canEdit={canEdit}
+                                layout="card"
+                                onOpen={() => setDetail(estimate)}
+                                onEdit={() => openEdit(estimate)}
+                                onDelete={() => {
+                                  if (
+                                    window.confirm(`Delete “${estimateDisplayName(estimate)}”?`)
+                                  ) {
+                                    deleteEstimate(estimate.id);
+                                  }
+                                }}
+                              />
+                            ))}
+                          </SortableContext>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table className="min-w-[880px] w-full table-fixed text-xs">
+                            <PriorityColGroup
+                              widths={estimatingPriorityColWidthsCompact(canEdit)}
+                            />
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className={priorityHeadClassCompact()}>Pri</TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>
+                                  Project
+                                </TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>
+                                  Client
+                                </TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>Type</TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>
+                                  Received
+                                </TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>
+                                  Milestone
+                                </TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>Due</TableHead>
+                                <TableHead className={priorityHeadClassCompact()}>
+                                  Status
+                                </TableHead>
+                                <TableHead className={priorityHeadClassCompact("text-right")}>
+                                  Value
+                                </TableHead>
+                                {canEdit && (
+                                  <TableHead className={priorityHeadClassCompact()} />
+                                )}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <SortableContext
+                                items={group.items.map((estimate) => estimate.id)}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                {group.items.map((estimate, index) => (
+                                  <SortableEstimatePriorityRow
+                                    key={estimate.id}
+                                    estimate={estimate}
+                                    index={index}
+                                    milestoneDate={
+                                      estimate.project_id
+                                        ? estimatingMilestoneDates.get(estimate.project_id)
+                                        : undefined
+                                    }
+                                    canEdit={canEdit}
+                                    layout="table"
+                                    compact
+                                    onOpen={() => setDetail(estimate)}
+                                    onEdit={() => openEdit(estimate)}
+                                    onDelete={() => {
+                                      if (
+                                        window.confirm(
+                                          `Delete “${estimateDisplayName(estimate)}”?`,
+                                        )
+                                      ) {
+                                        deleteEstimate(estimate.id);
+                                      }
+                                    }}
+                                  />
+                                ))}
+                              </SortableContext>
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </DndContext>
+                  </div>
+                ))}
+              </div>
 
               {canEdit && (
                 <div className="overflow-hidden rounded-xl border border-dashed border-slate-200 bg-white">

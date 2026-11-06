@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink, FolderOpen, Pencil } from "lucide-react";
 
 import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
+import { ClientMeetingNotesSection } from "@/components/projects/client-meeting-notes-section";
 import { ContractsSection } from "@/components/projects/contracts-section";
 import { ProjectActualWorkSection } from "@/components/projects/project-actual-work-section";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
@@ -227,6 +228,8 @@ export function ProjectDetailPane({
             <ChangeOrdersSection project={project} canEdit={canEdit} />
           </>
         )}
+
+        <ClientMeetingNotesSection project={project} />
 
         <ProjectNotesSection project={project} />
 

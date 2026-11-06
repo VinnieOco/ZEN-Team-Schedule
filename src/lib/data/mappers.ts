@@ -70,6 +70,7 @@ type ProjectRow = {
   phone: string | null;
   email: string | null;
   notes: string | null;
+  client_meeting_notes_url?: string | null;
   active: boolean;
   parent_project_id: string | null;
   is_change_order: boolean;
@@ -209,6 +210,7 @@ export function mapProject(row: ProjectRow): Project {
     phone: row.phone ?? undefined,
     email: row.email ?? undefined,
     notes: row.notes ?? undefined,
+    client_meeting_notes_url: row.client_meeting_notes_url?.trim() || undefined,
     active: row.active,
     parent_project_id: row.parent_project_id ?? undefined,
     is_change_order: row.is_change_order,
@@ -713,6 +715,7 @@ export function projectToRow(project: Project) {
     phone: project.phone ?? null,
     email: project.email ?? null,
     notes: project.notes ?? null,
+    client_meeting_notes_url: project.client_meeting_notes_url?.trim() || null,
     active: project.active,
     parent_project_id: project.parent_project_id ?? null,
     is_change_order: project.is_change_order ?? false,

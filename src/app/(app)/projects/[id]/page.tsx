@@ -9,6 +9,7 @@ import { ClientCrmLink } from "@/components/crm/client-crm-link";
 import { AppPage } from "@/components/layout/app-page";
 import { ScrollableTabsList } from "@/components/layout/scrollable-tabs-list";
 import { ChangeOrdersSection } from "@/components/projects/change-orders-section";
+import { ClientMeetingNotesSection } from "@/components/projects/client-meeting-notes-section";
 import { ContractsSection } from "@/components/projects/contracts-section";
 import { ProjectActualWorkSection } from "@/components/projects/project-actual-work-section";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
@@ -239,6 +240,8 @@ export default function ProjectDetailPage() {
               <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
             </>
           )}
+
+          <ClientMeetingNotesSection project={project} />
 
           <ProjectNotesSection project={project} />
 
