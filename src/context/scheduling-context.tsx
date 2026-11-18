@@ -30,6 +30,7 @@ import {
 import { createSupabaseRepository } from "@/lib/data/supabase-repository";
 import {
   flushEstimatePriorityPersistQueue,
+  getEstimatePriorityMutationEpoch,
   hydrateEstimatePriorityOrders,
   initEstimatePriorityPersistence,
   isEstimatePriorityOrdersEmpty,
@@ -680,13 +681,14 @@ export function SchedulingProvider({ children }: { children: ReactNode }) {
       try {
         const estimatePriorityPersistence = createEstimatePriorityPersistence(supabase);
         initEstimatePriorityPersistence(estimatePriorityPersistence, { useRemote: true });
+        const priorityEpoch = getEstimatePriorityMutationEpoch();
         await flushEstimatePriorityPersistQueue();
         let estimatePriorityOrders = await estimatePriorityPersistence.listOrders();
         if (isEstimatePriorityOrdersEmpty(estimatePriorityOrders)) {
           await migrateLocalEstimatePriorityToRemote();
           estimatePriorityOrders = await estimatePriorityPersistence.listOrders();
         }
-        hydrateEstimatePriorityOrders(estimatePriorityOrders);
+        hydrateEstimatePriorityOrders(estimatePriorityOrders, priorityEpoch);
         setQueueRevision((n) => n + 1);
       } catch {
         // Table may be missing until migration 20261106120000_estimate_priority_positions.sql.

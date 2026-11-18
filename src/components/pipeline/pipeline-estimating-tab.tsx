@@ -717,16 +717,10 @@ export function PipelineEstimatingTab() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    // Use unsearched matching estimates so search doesn't scramble saved order.
-    const base = estimates.filter((estimate) => {
-      if (!estimate.estimator_id || estimate.estimator_id !== estimatorId) return false;
-      if (stageFilter === OPEN_ONLY && !isOpenEstimate(estimate)) return false;
-      if (stageFilter !== OPEN_ONLY && stageFilter !== ALL && estimate.stage !== stageFilter) {
-        return false;
-      }
-      if (typeFilter !== ALL && estimate.estimate_type !== typeFilter) return false;
-      return true;
-    });
+    // Save this estimator's whole queue. Search, stage, and type filters only
+    // change what is on screen — persisting that subset drops everyone else
+    // and the queue comes back in the wrong order.
+    const base = estimates.filter((estimate) => estimate.estimator_id === estimatorId);
     const ordered = sortEstimatePriorityItems(base, estimatorId);
     const ids = ordered.map((estimate) => estimate.id);
     const oldIndex = ids.indexOf(String(active.id));

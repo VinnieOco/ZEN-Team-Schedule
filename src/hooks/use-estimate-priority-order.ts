@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 
-import { setEstimatePriorityOrder } from "@/lib/estimating/estimate-priority-order";
+import {
+  getEstimatePriorityRevision,
+  setEstimatePriorityOrder,
+  subscribeEstimatePriorityOrders,
+} from "@/lib/estimating/estimate-priority-order";
 
 export function useEstimatePriorityOrder() {
-  const [revision, setRevision] = useState(0);
+  const revision = useSyncExternalStore(
+    subscribeEstimatePriorityOrders,
+    getEstimatePriorityRevision,
+    getEstimatePriorityRevision,
+  );
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-
-  const bump = useCallback(() => setRevision((n) => n + 1), []);
 
   const updateEstimatePriorityOrder = useCallback(
     async (estimatorId: string, estimateIds: string[]) => {
@@ -18,7 +24,6 @@ export function useEstimatePriorityOrder() {
       try {
         // Memory updates synchronously so the table reorders immediately.
         const persist = setEstimatePriorityOrder(estimatorId, estimateIds);
-        bump();
         await persist;
         setSaveMessage("Priority saved.");
       } catch {
@@ -27,7 +32,7 @@ export function useEstimatePriorityOrder() {
         setSaving(false);
       }
     },
-    [bump],
+    [],
   );
 
   return { revision, saving, saveMessage, updateEstimatePriorityOrder };

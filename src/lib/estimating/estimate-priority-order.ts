@@ -17,6 +17,35 @@ let orders: EstimatePriorityOrderMap = {};
 let persistence: EstimatePriorityPersistence | null = null;
 let useRemotePersistence = false;
 let persistChain: Promise<void> = Promise.resolve();
+/** Bumps on every local edit so a slower fetch cannot overwrite a newer queue. */
+let mutationEpoch = 0;
+/** False until the first hydrate or local load. Drags before that are display-only. */
+let loaded = false;
+/** Bumps whenever the in-memory order changes so open views can re-sort. */
+let revision = 0;
+const listeners = new Set<() => void>();
+
+export function subscribeEstimatePriorityOrders(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function getEstimatePriorityRevision(): number {
+  return revision;
+}
+
+export function getEstimatePriorityMutationEpoch(): number {
+  return mutationEpoch;
+}
+
+function publishOrders(next: EstimatePriorityOrderMap): void {
+  orders = next;
+  saveLocalOrders(orders);
+  revision += 1;
+  for (const listener of listeners) listener();
+}
 
 export function estimatePriorityStageKey(estimatorId: string): string {
   return `priority:${estimatorId}`;
@@ -51,13 +80,25 @@ export function isEstimatePriorityOrdersEmpty(map: EstimatePriorityOrderMap): bo
   return Object.values(map).every((ids) => !ids?.length);
 }
 
-export function hydrateEstimatePriorityOrders(map: EstimatePriorityOrderMap): void {
-  orders = { ...map };
-  saveLocalOrders(orders);
+/**
+ * Replace in-memory order with a fetched snapshot.
+ * Pass `epochAtFetch` from before the request; a drag that landed while it was
+ * in flight is kept instead of being overwritten by the stale snapshot.
+ */
+export function hydrateEstimatePriorityOrders(
+  map: EstimatePriorityOrderMap,
+  epochAtFetch?: number,
+): boolean {
+  // A drag before the first load is display-only, so the snapshot still wins.
+  if (loaded && epochAtFetch != null && epochAtFetch !== mutationEpoch) return false;
+  loaded = true;
+  publishOrders({ ...map });
+  return true;
 }
 
 export function loadLocalEstimatePriorityOrders(): EstimatePriorityOrderMap {
-  orders = loadLocalOrders();
+  loaded = true;
+  publishOrders(loadLocalOrders());
   return snapshotEstimatePriorityOrders();
 }
 
@@ -97,10 +138,16 @@ function enqueuePersist(task: () => Promise<void>): Promise<void> {
 
 export async function migrateLocalEstimatePriorityToRemote(): Promise<void> {
   if (!useRemotePersistence || !persistence) return;
+  const epoch = mutationEpoch;
   const local = loadLocalOrders();
   if (isEstimatePriorityOrdersEmpty(local)) return;
   await persistence.replaceAll(local);
-  orders = { ...local };
+  if (epoch !== mutationEpoch) {
+    // A drag landed while local data was uploading. Put that newer queue back.
+    await persistence.replaceAll(snapshotEstimatePriorityOrders());
+    return;
+  }
+  publishOrders({ ...local });
 }
 
 export function getEstimatePriorityOrder(estimatorId: string): string[] | undefined {
@@ -112,10 +159,19 @@ export function setEstimatePriorityOrder(
   estimatorId: string,
   estimateIds: string[],
 ): Promise<void> {
-  orders = {
+  mutationEpoch += 1;
+  const next = {
     ...orders,
     [estimatePriorityStageKey(estimatorId)]: estimateIds,
   };
+  if (!loaded) {
+    // Don't write over a queue that hasn't been read yet. The load will publish.
+    orders = next;
+    revision += 1;
+    for (const listener of listeners) listener();
+    return Promise.resolve();
+  }
+  publishOrders(next);
   return enqueuePersist(async () => {
     await persistence!.replaceOrder(estimatorId, estimateIds);
   });
@@ -134,7 +190,9 @@ export function ordersFromPositionRows(
   const map: EstimatePriorityOrderMap = {};
   for (const [estimatorId, list] of grouped) {
     map[estimatePriorityStageKey(estimatorId)] = list
-      .sort((a, b) => a.position - b.position)
+      .sort(
+        (a, b) => a.position - b.position || a.estimate_id.localeCompare(b.estimate_id),
+      )
       .map((row) => row.estimate_id);
   }
   return map;

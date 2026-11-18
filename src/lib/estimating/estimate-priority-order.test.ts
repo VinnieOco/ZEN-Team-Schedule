@@ -1,12 +1,15 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
 import {
+  getEstimatePriorityMutationEpoch,
   getEstimatePriorityOrder,
+  getEstimatePriorityRevision,
   hydrateEstimatePriorityOrders,
   initEstimatePriorityPersistence,
   ordersFromPositionRows,
   positionRowsFromOrders,
   setEstimatePriorityOrder,
+  subscribeEstimatePriorityOrders,
 } from "@/lib/estimating/estimate-priority-order";
 import { sortEstimatePriorityItems } from "@/lib/estimating/metrics";
 import type { Estimate } from "@/types";
@@ -85,6 +88,34 @@ describe("estimate priority order", () => {
       "a",
       "b",
     ]);
+  });
+
+  it("ignores a stale snapshot after a newer drag", () => {
+    const epoch = getEstimatePriorityMutationEpoch();
+    setEstimatePriorityOrder("est-1", ["a", "b"]);
+    expect(
+      hydrateEstimatePriorityOrders({ "priority:est-1": ["b", "a"] }, epoch),
+    ).toBe(false);
+    expect(getEstimatePriorityOrder("est-1")).toEqual(["a", "b"]);
+  });
+
+  it("notifies subscribers when the saved order changes", () => {
+    const seen: number[] = [];
+    const unsubscribe = subscribeEstimatePriorityOrders(() => {
+      seen.push(getEstimatePriorityRevision());
+    });
+    setEstimatePriorityOrder("est-1", ["c", "b", "a"]);
+    unsubscribe();
+    expect(seen.length).toBe(1);
+    expect(getEstimatePriorityOrder("est-1")).toEqual(["c", "b", "a"]);
+  });
+
+  it("breaks position ties by estimate id", () => {
+    const map = ordersFromPositionRows([
+      { estimator_id: "est-1", estimate_id: "b", position: 0 },
+      { estimator_id: "est-1", estimate_id: "a", position: 0 },
+    ]);
+    expect(map["priority:est-1"]).toEqual(["a", "b"]);
   });
 
   it("falls back to due date when no saved order exists", () => {
