@@ -151,6 +151,7 @@ type SettingsRow = {
   lead_stages?: unknown;
   lead_sources?: unknown;
   lead_follow_up_types?: unknown;
+  handoff_checklists?: unknown;
 };
 
 export function mapEmployee(row: EmployeeRow): Employee {
@@ -665,6 +666,7 @@ export function mapSettings(row: SettingsRow): CompanySettings {
     lead_stages: row.lead_stages as CompanySettings["lead_stages"],
     lead_sources: row.lead_sources as CompanySettings["lead_sources"],
     lead_follow_up_types: row.lead_follow_up_types as CompanySettings["lead_follow_up_types"],
+    handoff_checklists: row.handoff_checklists as CompanySettings["handoff_checklists"],
   });
 }
 
@@ -778,6 +780,7 @@ export function settingsToRow(settings: CompanySettings) {
     lead_stages: normalized.lead_stages,
     lead_sources: normalized.lead_sources,
     lead_follow_up_types: normalized.lead_follow_up_types,
+    handoff_checklists: normalized.handoff_checklists,
   };
 }
 

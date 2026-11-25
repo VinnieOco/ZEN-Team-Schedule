@@ -1,3 +1,5 @@
+import type { HandoffChecklistSettings } from "@/lib/handoff/checklist-settings";
+
 export type UtilizationStatus = "under" | "healthy" | "near" | "over";
 
 export type ProjectPhase =
@@ -432,6 +434,8 @@ export interface CompanySettings {
   lead_sources: LeadSourceOption[];
   /** Configurable follow-up types for lead contact follow-ups. */
   lead_follow_up_types: LeadFollowUpTypeOption[];
+  /** Checklist items for each handoff stage. */
+  handoff_checklists: HandoffChecklistSettings;
 }
 
 export interface EmployeeWeekStats {

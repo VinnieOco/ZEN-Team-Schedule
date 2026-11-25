@@ -1,5 +1,7 @@
 import { addDays, format } from "date-fns";
 
+import { resolveHandoffChecklists } from "@/lib/handoff/checklist-settings";
+import { builtinTemplates } from "@/lib/handoff/model";
 import { getWeekStart } from "@/lib/week";
 import type {
   Allocation,
@@ -29,6 +31,10 @@ export const companySettings: CompanySettings = {
   lead_stages: [...DEFAULT_LEAD_STAGES],
   lead_sources: [...DEFAULT_LEAD_SOURCES],
   lead_follow_up_types: [...DEFAULT_LEAD_FOLLOW_UP_TYPES],
+  handoff_checklists: resolveHandoffChecklists(null, {
+    project: builtinTemplates("project"),
+    change_order: builtinTemplates("change_order"),
+  }),
 };
 
 export const employees: Employee[] = [

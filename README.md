@@ -30,7 +30,9 @@ In the Vercel project → **Settings** → **Environment Variables**, add:
 | `NEXT_PUBLIC_SUPABASE_URL` | Same as local **Project URL** | Required for auth + live data |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same as local `anon public` key | Must be the real JWT (`eyJ...`) or `sb_publishable_...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project Settings → API → `service_role` | **Server only** — admin email invites |
-| `NEXT_PUBLIC_SITE_URL` | `https://zenteamschedule.com` (your production URL) | Used in invite email links; set on Vercel |
+| `RESEND_API_KEY` | [Resend](https://resend.com) → API Keys | **Server only** — handoff notices to the lead designer and estimator |
+| `RESEND_FROM_EMAIL` | `ZEN Team Schedule <handoff@zenteamschedule.com>` | Verified sending address in Resend |
+| `NEXT_PUBLIC_SITE_URL` | `https://zenteamschedule.com` (your production URL) | Used in invite and handoff email links; set on Vercel |
 | `NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP` | `false` (recommended) | Omit or set `true` to allow open sign-up on `/login` |
 
 You do **not** need `DATABASE_URL` on Vercel for the running site — it is only used by `npm run db:setup` and `npm run supabase:check` on your machine.

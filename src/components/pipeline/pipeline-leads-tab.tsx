@@ -525,7 +525,7 @@ export function PipelineLeadsTab() {
     isLoading,
   } = useScheduling();
   const { permissions } = usePermissions();
-  const canEdit = permissions.editQueue || permissions.editProjects;
+  const canEdit = permissions.editQueue;
   const isNarrow = useIsNarrowViewport();
   const { revision: orderRevision, updateLeadPriorityOrder } = useLeadOwnerPriorityOrder();
   const priorityLayout = isNarrow ? "card" : "table";

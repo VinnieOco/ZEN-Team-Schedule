@@ -17,7 +17,8 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const routeKey = params.key as string;
   const { projects, clients, clientNotes, leads, estimates, isLoading } = useScheduling();
-  const { permissions } = usePermissions();
+  const { isManagerOrAdmin, localMode } = usePermissions();
+  const canEditClients = isManagerOrAdmin || localMode;
   const [showInactive, setShowInactive] = useState(true);
   const [renameOpen, setRenameOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -62,7 +63,7 @@ export default function ClientDetailPage() {
       <div className="min-h-[min(70vh,720px)]">
         <ClientDetailPane
           client={client}
-          canEdit={permissions.editProjects}
+          canEdit={canEditClients}
           onRenamed={navigateToClient}
           onMerged={navigateToClient}
           renameOpen={renameOpen}

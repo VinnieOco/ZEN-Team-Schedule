@@ -14,6 +14,7 @@ import { ContractsSection } from "@/components/projects/contracts-section";
 import { ProjectActualWorkSection } from "@/components/projects/project-actual-work-section";
 import { ProjectDetailsCard } from "@/components/projects/project-details-card";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectHandoffTab } from "@/components/projects/project-handoff-tab";
 import { ProjectMergeDialog } from "@/components/projects/project-merge-dialog";
 import { ProjectNotesSection } from "@/components/projects/project-notes-section";
 import { ProjectScheduleSection } from "@/components/projects/project-schedule-section";
@@ -39,7 +40,9 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.id as string;
-  const initialTab = searchParams.get("tab") === "schedule" ? "schedule" : "overview";
+  const tabParam = searchParams.get("tab");
+  const initialTab =
+    tabParam === "schedule" || tabParam === "handoff" ? tabParam : "overview";
   const {
     projects,
     estimates,
@@ -145,6 +148,9 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="schedule" className="shrink-0 px-3">
             Schedule
           </TabsTrigger>
+          <TabsTrigger value="handoff" className="shrink-0 px-3">
+            Handoff
+          </TabsTrigger>
         </ScrollableTabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4 sm:mt-6 sm:space-y-6 print:hidden">
@@ -225,20 +231,28 @@ export default function ProjectDetailPage() {
             canEdit={permissions.editProjects}
             onEdit={() => setEditDialogOpen(true)}
             onMerge={
-              permissions.editProjects ? () => setMergeDialogOpen(true) : undefined
+              permissions.deleteProjects ? () => setMergeDialogOpen(true) : undefined
             }
             onDelete={
-              permissions.editProjects && isChangeOrder(project)
+              permissions.deleteProjects && isChangeOrder(project)
                 ? handleDeleteChangeOrder
                 : undefined
             }
           />
 
           {isParentProject(project) && (
-            <>
-              <ContractsSection project={project} canEdit={permissions.editProjects} />
-              <ChangeOrdersSection project={project} canEdit={permissions.editProjects} />
-            </>
+            <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+              <ContractsSection
+                project={project}
+                canEdit={permissions.editProjects}
+                dense
+              />
+              <ChangeOrdersSection
+                project={project}
+                canEdit={permissions.editProjects}
+                dense
+              />
+            </div>
           )}
 
           <ClientMeetingNotesSection project={project} />
@@ -259,6 +273,10 @@ export default function ProjectDetailPage() {
             canEdit={permissions.editProjects}
           />
         </TabsContent>
+
+        <TabsContent value="handoff" className="mt-4 sm:mt-6">
+          <ProjectHandoffTab project={project} projects={projects} estimates={estimates} />
+        </TabsContent>
       </Tabs>
 
       {permissions.editProjects && (
@@ -269,7 +287,7 @@ export default function ProjectDetailPage() {
         />
       )}
 
-      {permissions.editProjects && (
+      {permissions.deleteProjects && (
         <ProjectMergeDialog
           open={mergeDialogOpen}
           onOpenChange={setMergeDialogOpen}

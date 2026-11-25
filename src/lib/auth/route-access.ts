@@ -19,6 +19,7 @@ const ROUTE_CHECKS: { prefix: string; permission: RoutePermissionKey }[] = [
   { prefix: "/settings", permission: "viewSettings" },
   { prefix: "/crm", permission: "viewCrm" },
   { prefix: "/projects", permission: "viewProjects" },
+  { prefix: "/gantt", permission: "viewProjects" },
   { prefix: "/pipeline", permission: "viewQueue" },
   { prefix: "/queue", permission: "viewQueue" },
   { prefix: "/reports", permission: "viewReports" },

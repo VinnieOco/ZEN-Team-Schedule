@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useScheduling } from "@/context/scheduling-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   buildChangeOrderEstimateDefaults,
   formatChangeOrderPackageRollup,
@@ -49,6 +50,8 @@ import type { Estimate, Project } from "@/types";
 interface ChangeOrdersSectionProps {
   project: Project;
   canEdit: boolean;
+  /** Narrow column layout for the project page row. */
+  dense?: boolean;
 }
 
 const WON_PREVIEW_COUNT = 3;
@@ -71,16 +74,18 @@ function PackageRows({
   estimatorName,
   onOpen,
   onDelete,
+  dense = false,
 }: {
   packages: Estimate[];
   canEdit: boolean;
   estimatorName: (estimate: Estimate) => string | undefined;
   onOpen: (estimate: Estimate) => void;
   onDelete: (estimate: Estimate) => void;
+  dense?: boolean;
 }) {
   return (
     <>
-      <ul className="divide-y divide-slate-100 md:hidden">
+      <ul className={cn("divide-y divide-slate-100", !dense && "md:hidden")}>
         {packages.map((estimate) => (
           <li key={estimate.id} className="space-y-2 px-4 py-3">
             <div className="flex items-start justify-between gap-2">
@@ -124,6 +129,7 @@ function PackageRows({
           </li>
         ))}
       </ul>
+      {!dense ? (
       <div className="hidden overflow-x-auto md:block">
         <Table>
           <TableHeader>
@@ -176,11 +182,16 @@ function PackageRows({
           </TableBody>
         </Table>
       </div>
+      ) : null}
     </>
   );
 }
 
-export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionProps) {
+export function ChangeOrdersSection({
+  project,
+  canEdit,
+  dense = false,
+}: ChangeOrdersSectionProps) {
   const {
     projects,
     estimates,
@@ -189,6 +200,8 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
     deleteEstimate,
     deleteChangeOrder,
   } = useScheduling();
+  const { permissions } = usePermissions();
+  const canDeleteProject = permissions.deleteProjects;
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Estimate | null>(null);
   const [detail, setDetail] = useState<Estimate | null>(null);
@@ -308,33 +321,53 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
     }
   };
 
+  const denseWonDescription =
+    [packageRollup, legacyRollup].filter(Boolean).join(" · ") ||
+    "Included in Estimate amount.";
+
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+      <Card className={dense ? "order-3 flex h-full min-w-0 flex-col" : undefined}>
+        <CardHeader
+          className={
+            dense
+              ? "flex flex-row items-start justify-between gap-2 space-y-0 p-4 pb-2"
+              : "flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
+          }
+        >
           <div className="min-w-0">
-            <CardTitle className="text-base">Pending change orders</CardTitle>
-            <CardDescription className="mt-1">
-              Open change-order packages for this job — the same records as Pipeline → Estimating.
-              Lost packages are hidden. Amounts do not roll into Estimate amount until won.
+            <CardTitle className={dense ? "text-sm" : "text-base"}>Pending change orders</CardTitle>
+            <CardDescription className={dense ? "mt-1 text-xs leading-snug" : "mt-1"}>
+              {dense
+                ? "Open packages. Amounts stay out of Estimate amount until won."
+                : "Open change-order packages for this job — the same records as Pipeline → Estimating. Lost packages are hidden. Amounts do not roll into Estimate amount until won."}
             </CardDescription>
           </div>
           {canEdit && (
             <Button
               type="button"
               size="sm"
-              className="w-full shrink-0 sm:w-auto"
+              className={dense ? "h-8 shrink-0 px-2.5" : "w-full shrink-0 sm:w-auto"}
               onClick={openNew}
+              aria-label={dense ? "Add change order" : undefined}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add change order
+              <Plus className={dense ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4"} />
+              {dense ? "Add" : "Add change order"}
             </Button>
           )}
         </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <CardContent className={dense ? "flex-1 p-0 pb-2" : "p-0 sm:p-6 sm:pt-0"}>
           {pendingPackages.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0">
-              No open change orders. Add one here or in Estimating — both places stay in sync.
+            <p
+              className={
+                dense
+                  ? "px-4 pb-2 text-xs text-muted-foreground"
+                  : "px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0"
+              }
+            >
+              {dense
+                ? "No open change orders."
+                : "No open change orders. Add one here or in Estimating — both places stay in sync."}
             </p>
           ) : (
             <PackageRows
@@ -343,24 +376,35 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
               estimatorName={estimatorName}
               onOpen={setDetail}
               onDelete={handleDeletePackage}
+              dense={dense}
             />
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="space-y-0">
-          <CardTitle className="text-base">Won change orders</CardTitle>
-          <CardDescription className="mt-1">{wonDescription}</CardDescription>
+      <Card className={dense ? "order-2 flex h-full min-w-0 flex-col" : undefined}>
+        <CardHeader className={dense ? "space-y-0 p-4 pb-2" : "space-y-0"}>
+          <CardTitle className={dense ? "text-sm" : "text-base"}>Won change orders</CardTitle>
+          <CardDescription className={dense ? "mt-1 text-xs leading-snug" : "mt-1"}>
+            {dense ? denseWonDescription : wonDescription}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4 p-0 sm:p-6 sm:pt-0">
+        <CardContent className={dense ? "flex-1 space-y-2 p-0 pb-2" : "space-y-4 p-0 sm:p-6 sm:pt-0"}>
           {!hasWonContent ? (
-            <p className="px-4 text-sm text-muted-foreground sm:px-0">
-              No won change orders yet. Mark a pending package as won to move it here.
+            <p
+              className={
+                dense
+                  ? "px-4 text-xs text-muted-foreground"
+                  : "px-4 text-sm text-muted-foreground sm:px-0"
+              }
+            >
+              {dense
+                ? "No won change orders yet."
+                : "No won change orders yet. Mark a pending package as won to move it here."}
             </p>
           ) : (
             <>
-              <ul className="divide-y divide-slate-100 md:hidden">
+              <ul className={cn("divide-y divide-slate-100", !dense && "md:hidden")}>
                 {visibleWonRows.map((row) => {
                   if (row.kind === "package") {
                     const estimate = row.estimate;
@@ -435,7 +479,7 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                             <ExternalLink className="h-3 w-3 shrink-0 opacity-50" />
                           </span>
                         </Link>
-                        {canEdit ? (
+                        {canDeleteProject ? (
                           <Button
                             type="button"
                             variant="ghost"
@@ -461,6 +505,7 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                 })}
               </ul>
 
+              {!dense ? (
               <div className="hidden overflow-x-auto md:block">
                 <Table>
                   <TableHeader>
@@ -544,16 +589,18 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                           </TableCell>
                           {canEdit ? (
                             <TableCell className="text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                                onClick={() => handleDeleteLegacy(co)}
-                                aria-label={`Delete ${co.project_name}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {canDeleteProject ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                                  onClick={() => handleDeleteLegacy(co)}
+                                  aria-label={`Delete ${co.project_name}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              ) : null}
                             </TableCell>
                           ) : null}
                         </TableRow>
@@ -562,6 +609,7 @@ export function ChangeOrdersSection({ project, canEdit }: ChangeOrdersSectionPro
                   </TableBody>
                 </Table>
               </div>
+              ) : null}
 
               {hiddenWonCount > 0 ? (
                 <div className="px-4 sm:px-0">

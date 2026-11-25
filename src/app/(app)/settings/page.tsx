@@ -11,6 +11,7 @@ import { MemberPermissionsCard } from "@/components/settings/member-permissions-
 import { TeamAccessCard } from "@/components/settings/team-access-card";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
 import { CategoriesCard } from "@/components/settings/categories-card";
+import { HandoffChecklistsCard } from "@/components/settings/handoff-checklists-card";
 import { LeadFollowUpTypesCard } from "@/components/settings/lead-follow-up-types-card";
 import { LeadSourcesCard } from "@/components/settings/lead-sources-card";
 import { LeadStagesCard } from "@/components/settings/lead-stages-card";
@@ -21,6 +22,21 @@ import { useScheduling } from "@/context/scheduling-context";
 import { getAppRoleLabel } from "@/lib/auth/roles";
 import { usePermissions } from "@/hooks/use-permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+function SettingsSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      {children}
+    </section>
+  );
+}
 
 export default function SettingsPage() {
   const { settings, updateSettings } = useScheduling();
@@ -47,61 +63,75 @@ export default function SettingsPage() {
         {showMemberBanner && <MemberAccessBanner linkedEmployeeId={linkedEmployeeId} />}
       </div>
 
-      {permissions.manageAppAccess && <MemberPermissionsCard />}
-
-      {isSupabaseConfigured() && <AccountLinkCard />}
-
-      <TeamAccessCard />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Company Defaults</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Default daily capacity (hours)</Label>
-            <Input
-              type="number"
-              disabled={!permissions.editCompanySettings}
-              value={settings.default_daily_capacity}
-              onChange={(e) =>
-                updateSettings({ default_daily_capacity: Number(e.target.value) })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Default weekly capacity (hours)</Label>
-            <Input
-              type="number"
-              disabled={!permissions.editCompanySettings}
-              value={settings.default_weekly_capacity}
-              onChange={(e) =>
-                updateSettings({ default_weekly_capacity: Number(e.target.value) })
-              }
-            />
-          </div>
-          <div className="flex items-center gap-3 sm:col-span-2">
-            <Switch
-              id="weekends"
-              disabled={!permissions.editCompanySettings}
-              checked={settings.include_weekends}
-              onCheckedChange={(v) => updateSettings({ include_weekends: v })}
-            />
-            <Label htmlFor="weekends">Include weekends in schedule</Label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <CategoriesCard canEdit={permissions.editCompanySettings} />
-      {permissions.editCompanySettings && (
-        <TimeClassCodesCard canEdit={permissions.editCompanySettings} />
+      {permissions.manageAppAccess && (
+        <SettingsSection title="Access">
+          <MemberPermissionsCard />
+          {isSupabaseConfigured() && <AccountLinkCard />}
+          <TeamAccessCard />
+        </SettingsSection>
       )}
-      <LeadStagesCard canEdit={permissions.editCompanySettings} />
-      <LeadSourcesCard canEdit={permissions.editCompanySettings} />
-      <LeadFollowUpTypesCard canEdit={permissions.editCompanySettings} />
-      {permissions.manageTeamOptions && <TeamOptionsCard canEdit={permissions.manageTeamOptions} />}
-      {permissions.manageTeamMembers && (
-        <TeamMembersCard canEdit={permissions.manageTeamMembers} />
+
+      {!permissions.manageAppAccess && isSupabaseConfigured() && <AccountLinkCard />}
+
+      <SettingsSection title="Company">
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Defaults</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Default daily capacity (hours)</Label>
+              <Input
+                type="number"
+                disabled={!permissions.editCompanySettings}
+                value={settings.default_daily_capacity}
+                onChange={(e) =>
+                  updateSettings({ default_daily_capacity: Number(e.target.value) })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Default weekly capacity (hours)</Label>
+              <Input
+                type="number"
+                disabled={!permissions.editCompanySettings}
+                value={settings.default_weekly_capacity}
+                onChange={(e) =>
+                  updateSettings({ default_weekly_capacity: Number(e.target.value) })
+                }
+              />
+            </div>
+            <div className="flex items-center gap-3 sm:col-span-2">
+              <Switch
+                id="weekends"
+                disabled={!permissions.editCompanySettings}
+                checked={settings.include_weekends}
+                onCheckedChange={(v) => updateSettings({ include_weekends: v })}
+              />
+              <Label htmlFor="weekends">Include weekends in schedule</Label>
+            </div>
+          </CardContent>
+        </Card>
+        <HandoffChecklistsCard canEdit={permissions.editCompanySettings} />
+        <CategoriesCard canEdit={permissions.editCompanySettings} />
+        {permissions.editCompanySettings && (
+          <TimeClassCodesCard canEdit={permissions.editCompanySettings} />
+        )}
+      </SettingsSection>
+
+      <SettingsSection title="Pipeline">
+        <LeadStagesCard canEdit={permissions.editCompanySettings} />
+        <LeadSourcesCard canEdit={permissions.editCompanySettings} />
+        <LeadFollowUpTypesCard canEdit={permissions.editCompanySettings} />
+      </SettingsSection>
+
+      {(permissions.manageTeamOptions || permissions.manageTeamMembers) && (
+        <SettingsSection title="Team">
+          {permissions.manageTeamOptions && <TeamOptionsCard canEdit={permissions.manageTeamOptions} />}
+          {permissions.manageTeamMembers && (
+            <TeamMembersCard canEdit={permissions.manageTeamMembers} />
+          )}
+        </SettingsSection>
       )}
     </AppPage>
   );

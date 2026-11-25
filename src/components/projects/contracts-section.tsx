@@ -38,9 +38,11 @@ import type { Estimate, Project } from "@/types";
 interface ContractsSectionProps {
   project: Project;
   canEdit: boolean;
+  /** Narrow column layout for the project page row. */
+  dense?: boolean;
 }
 
-export function ContractsSection({ project, canEdit }: ContractsSectionProps) {
+export function ContractsSection({ project, canEdit, dense = false }: ContractsSectionProps) {
   const { estimates, getEmployeeById, deleteEstimate } = useScheduling();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Estimate | null>(null);
@@ -95,38 +97,60 @@ export function ContractsSection({ project, canEdit }: ContractsSectionProps) {
   };
 
   return (
-    <>
-      <Card>
-        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+    <Card className={dense ? "order-1 flex h-full min-w-0 flex-col" : undefined}>
+        <CardHeader
+          className={
+            dense
+              ? "flex flex-row items-start justify-between gap-2 space-y-0 p-4 pb-2"
+              : "flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
+          }
+        >
           <div className="min-w-0">
-            <CardTitle className="text-base">Contracts</CardTitle>
-            <CardDescription className="mt-1">
-              Contract packages from Estimating linked to this job. Amounts roll into Estimate
-              amount (lost packages excluded).
-              {rollupLabel ? ` ${rollupLabel}.` : ""}
+            <CardTitle className={dense ? "text-sm" : "text-base"}>Contracts</CardTitle>
+            <CardDescription className={dense ? "mt-1 text-xs leading-snug" : "mt-1"}>
+              {dense ? (
+                <>
+                  Rolls into Estimate amount.
+                  {rollupLabel ? ` ${rollupLabel}.` : ""}
+                </>
+              ) : (
+                <>
+                  Contract packages from Estimating linked to this job. Amounts roll into Estimate
+                  amount (lost packages excluded).
+                  {rollupLabel ? ` ${rollupLabel}.` : ""}
+                </>
+              )}
             </CardDescription>
           </div>
           {canEdit && (
             <Button
               type="button"
               size="sm"
-              className="w-full shrink-0 sm:w-auto"
+              className={dense ? "h-8 shrink-0 px-2.5" : "w-full shrink-0 sm:w-auto"}
               onClick={openNew}
+              aria-label={dense ? "Add contract" : undefined}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add contract
+              <Plus className={dense ? "mr-1 h-3.5 w-3.5" : "mr-2 h-4 w-4"} />
+              {dense ? "Add" : "Add contract"}
             </Button>
           )}
         </CardHeader>
-        <CardContent className="p-0 sm:p-6 sm:pt-0">
+        <CardContent className={dense ? "flex-1 p-0 pb-2" : "p-0 sm:p-6 sm:pt-0"}>
           {contracts.length === 0 ? (
-            <p className="px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0">
-              No contracts yet. Add one here or mark a Contract estimate as won and link it to this
-              project.
+            <p
+              className={
+                dense
+                  ? "px-4 pb-2 text-xs text-muted-foreground"
+                  : "px-4 pb-4 text-sm text-muted-foreground sm:px-0 sm:pb-0"
+              }
+            >
+              {dense
+                ? "No contracts yet."
+                : "No contracts yet. Add one here or mark a Contract estimate as won and link it to this project."}
             </p>
           ) : (
             <>
-              <ul className="divide-y divide-slate-100 md:hidden">
+              <ul className={cn("divide-y divide-slate-100", !dense && "md:hidden")}>
                 {contracts.map((estimate) => (
                   <li key={estimate.id} className="space-y-2 px-4 py-3">
                     <div className="flex items-start justify-between gap-2">
@@ -172,6 +196,7 @@ export function ContractsSection({ project, canEdit }: ContractsSectionProps) {
                   </li>
                 ))}
               </ul>
+              {!dense ? (
               <div className="hidden overflow-x-auto md:block">
                 <Table>
                   <TableHeader>
@@ -227,10 +252,10 @@ export function ContractsSection({ project, canEdit }: ContractsSectionProps) {
                   </TableBody>
                 </Table>
               </div>
+              ) : null}
             </>
           )}
         </CardContent>
-      </Card>
 
       <EstimateFormDialog
         open={formOpen}
@@ -261,6 +286,6 @@ export function ContractsSection({ project, canEdit }: ContractsSectionProps) {
           if (!open) setWonEstimateId(null);
         }}
       />
-    </>
+    </Card>
   );
 }

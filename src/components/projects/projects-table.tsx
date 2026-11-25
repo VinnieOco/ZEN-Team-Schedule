@@ -207,9 +207,11 @@ export function ProjectsTable() {
               getEmployeeById={getEmployeeById}
               canEdit={permissions.editProjects}
               onEdit={() => selectedProject && openEdit(selectedProject)}
-              onDeleteChangeOrder={handleDeleteChangeOrder}
+              onDeleteChangeOrder={
+                permissions.deleteProjects ? handleDeleteChangeOrder : undefined
+              }
               onMerge={
-                permissions.editProjects && selectedProject
+                permissions.deleteProjects && selectedProject
                   ? () => setMergeDialogOpen(true)
                   : undefined
               }
@@ -232,7 +234,7 @@ export function ProjectsTable() {
         />
       )}
 
-      {permissions.editProjects && selectedProject && (
+      {permissions.deleteProjects && selectedProject && (
         <ProjectMergeDialog
           open={mergeDialogOpen}
           onOpenChange={setMergeDialogOpen}

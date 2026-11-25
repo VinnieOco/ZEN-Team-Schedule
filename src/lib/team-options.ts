@@ -1,4 +1,6 @@
 import { listDepartmentsFromEmployees } from "@/lib/departments";
+import { resolveHandoffChecklists } from "@/lib/handoff/checklist-settings";
+import { builtinTemplates } from "@/lib/handoff/model";
 import { resolveLeadFollowUpTypes } from "@/lib/pipeline/lead-follow-up-types";
 import { resolveLeadSources } from "@/lib/pipeline/lead-sources";
 import { resolveLeadStages } from "@/lib/pipeline/lead-stages";
@@ -70,5 +72,9 @@ export function normalizeCompanySettings(settings: CompanySettings): CompanySett
     lead_stages: resolveLeadStages(settings),
     lead_sources: resolveLeadSources(settings),
     lead_follow_up_types: resolveLeadFollowUpTypes(settings),
+    handoff_checklists: resolveHandoffChecklists(settings.handoff_checklists, {
+      project: builtinTemplates("project"),
+      change_order: builtinTemplates("change_order"),
+    }),
   };
 }

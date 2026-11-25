@@ -527,7 +527,7 @@ export function PipelineEstimatingTab() {
   const { estimates, employees, projectMilestones, getEmployeeById, isLoading, setEstimateStage, deleteEstimate } =
     useScheduling();
   const { permissions } = usePermissions();
-  const canEdit = permissions.editQueue || permissions.editProjects;
+  const canEdit = permissions.editQueue;
   const isNarrow = useIsNarrowViewport();
   const {
     revision: orderRevision,

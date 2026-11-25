@@ -6,6 +6,8 @@ export interface AppPermissions {
   viewAllTodos: boolean;
   viewProjects: boolean;
   editProjects: boolean;
+  /** Remove a project. Office Team can edit without this. */
+  deleteProjects: boolean;
   viewScheduling: boolean;
   editScheduling: boolean;
   /** Edit allocations for any team member (admin only) */
@@ -64,7 +66,13 @@ export const PERMISSION_MATRIX: PermissionRow[] = [
     member: "View only",
     crew: "Hidden",
   },
-  { label: "Projects", admin: "View and edit", manager: "View and edit", member: "View only", crew: "Hidden" },
+  {
+    label: "Projects",
+    admin: "View, edit, and delete",
+    manager: "View, edit, and delete",
+    member: "View and edit; cannot delete",
+    crew: "Hidden",
+  },
   {
     label: "Time tracking",
     admin: "Log and edit for anyone",
@@ -124,6 +132,7 @@ function adminPermissions(): AppPermissions {
     viewAllTodos: true,
     viewProjects: true,
     editProjects: true,
+    deleteProjects: true,
     viewScheduling: true,
     editScheduling: true,
     editSchedulingForAnyone: true,
@@ -151,6 +160,7 @@ function managerPermissions(): AppPermissions {
     viewAllTodos: true,
     viewProjects: true,
     editProjects: true,
+    deleteProjects: true,
     viewScheduling: true,
     editScheduling: true,
     editSchedulingForAnyone: false,
@@ -177,7 +187,8 @@ function memberPermissions(): AppPermissions {
     viewTodos: true,
     viewAllTodos: false,
     viewProjects: true,
-    editProjects: false,
+    editProjects: true,
+    deleteProjects: false,
     viewScheduling: true,
     editScheduling: true,
     editSchedulingForAnyone: false,
@@ -205,6 +216,7 @@ function crewPermissions(): AppPermissions {
     viewAllTodos: false,
     viewProjects: false,
     editProjects: false,
+    deleteProjects: false,
     viewScheduling: true,
     editScheduling: false,
     editSchedulingForAnyone: false,

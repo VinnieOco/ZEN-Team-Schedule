@@ -316,6 +316,8 @@ export function createSupabaseRepository(
       await reassign("allocations", "project_id");
       await reassign("time_entries", "project_id");
       await reassign("project_notes", "project_id");
+      await reassign("handoff_workflows", "project_id");
+      await reassign("handoff_activity", "project_id");
       await reassign("estimates", "project_id");
       await reassign("todos", "source_project_id");
       await reassign("leads", "converted_project_id");

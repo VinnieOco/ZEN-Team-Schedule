@@ -33,7 +33,8 @@ export function ClientsTable() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { projects, clients, leads, estimates, isLoading } = useScheduling();
-  const { permissions } = usePermissions();
+  const { isManagerOrAdmin, localMode } = usePermissions();
+  const canEditClients = isManagerOrAdmin || localMode;
   const [filters, setFilters] = useState<ClientFilters>(defaultClientFilters);
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -136,7 +137,7 @@ export function ClientsTable() {
               Clear
             </Button>
           )}
-          {permissions.editProjects && (
+          {canEditClients && (
             <Button type="button" size="sm" onClick={() => setAddClientOpen(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add client
@@ -173,14 +174,14 @@ export function ClientsTable() {
               : "Try a different search or clear filters."
           }
           actionLabel={
-            totalCount === 0 && permissions.editProjects
+            totalCount === 0 && canEditClients
               ? "Add client"
               : hasActiveFilters
                 ? "Clear filters"
                 : undefined
           }
           onAction={
-            totalCount === 0 && permissions.editProjects
+            totalCount === 0 && canEditClients
               ? () => setAddClientOpen(true)
               : hasActiveFilters
                 ? () => setFilters(defaultClientFilters())
@@ -205,7 +206,7 @@ export function ClientsTable() {
           <div className="hidden h-full min-h-0 overflow-hidden lg:block">
             <ClientDetailPane
               client={selectedClient}
-              canEdit={permissions.editProjects}
+              canEdit={canEditClients}
               onRenamed={handleClientNavigated}
               onMerged={handleClientNavigated}
               renameOpen={renameOpen}
