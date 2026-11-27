@@ -4,6 +4,17 @@ const DOCX = new Set([
 ]);
 const TEXT = new Set(["text/plain", "text/markdown"]);
 
+/** Title stored for a file, keeping folder names when a directory was uploaded. */
+export function knowledgeDocumentTitle(name: string, relativePath?: string): string {
+  const source = (relativePath || name).replace(/\\/g, "/");
+  const withoutExtension = source.replace(/\.[^.\/]+$/, "");
+  const parts = withoutExtension
+    .split("/")
+    .map((part) => part.trim())
+    .filter((part) => part && part !== "." && part !== "..");
+  return parts.join(" / ").slice(0, 180) || "Untitled";
+}
+
 export function isSupportedKnowledgeFile(file: { name: string; type: string }): boolean {
   const name = file.name.toLowerCase();
   if (name.endsWith(".pdf") || PDF.has(file.type)) return true;

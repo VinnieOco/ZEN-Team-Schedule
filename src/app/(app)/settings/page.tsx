@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
+
 import { AppPage } from "@/components/layout/app-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,18 +26,64 @@ import { useScheduling } from "@/context/scheduling-context";
 import { getAppRoleLabel } from "@/lib/auth/roles";
 import { usePermissions } from "@/hooks/use-permissions";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { cn } from "@/lib/utils";
+
+const SECTION_STORAGE_KEY = "zen-settings-sections";
 
 function SettingsSection({
+  id,
   title,
   children,
 }: {
+  id: string;
   title: string;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SECTION_STORAGE_KEY) ?? "{}") as Record<
+        string,
+        boolean
+      >;
+      if (typeof saved[id] === "boolean") setOpen(saved[id]);
+    } catch {
+      // Ignore unreadable saved preferences.
+    }
+  }, [id]);
+
+  const toggle = () => {
+    setOpen((current) => {
+      const next = !current;
+      try {
+        const saved = JSON.parse(localStorage.getItem(SECTION_STORAGE_KEY) ?? "{}") as Record<
+          string,
+          boolean
+        >;
+        saved[id] = next;
+        localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(saved));
+      } catch {
+        // The section still toggles for this visit.
+      }
+      return next;
+    });
+  };
+
   return (
-    <section className="space-y-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
-      {children}
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        aria-expanded={open}
+        onClick={toggle}
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</span>
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      <div className={cn("space-y-4 border-t px-4 py-4", !open && "hidden")}>{children}</div>
     </section>
   );
 }
@@ -65,13 +114,13 @@ export default function SettingsPage() {
       </div>
 
       {permissions.manageAppAccess && isSupabaseConfigured() && (
-        <SettingsSection title="Help">
+        <SettingsSection id="help" title="Help">
           <KnowledgeLibraryCard />
         </SettingsSection>
       )}
 
       {permissions.manageAppAccess && (
-        <SettingsSection title="Access">
+        <SettingsSection id="access" title="Access">
           <MemberPermissionsCard />
           {isSupabaseConfigured() && <AccountLinkCard />}
           <TeamAccessCard />
@@ -80,7 +129,7 @@ export default function SettingsPage() {
 
       {!permissions.manageAppAccess && isSupabaseConfigured() && <AccountLinkCard />}
 
-      <SettingsSection title="Company">
+      <SettingsSection id="company" title="Company">
         <Card>
           <CardHeader>
             <CardTitle>Company Defaults</CardTitle>
@@ -126,14 +175,14 @@ export default function SettingsPage() {
         )}
       </SettingsSection>
 
-      <SettingsSection title="Pipeline">
+      <SettingsSection id="pipeline" title="Pipeline">
         <LeadStagesCard canEdit={permissions.editCompanySettings} />
         <LeadSourcesCard canEdit={permissions.editCompanySettings} />
         <LeadFollowUpTypesCard canEdit={permissions.editCompanySettings} />
       </SettingsSection>
 
       {(permissions.manageTeamOptions || permissions.manageTeamMembers) && (
-        <SettingsSection title="Team">
+        <SettingsSection id="team" title="Team">
           {permissions.manageTeamOptions && <TeamOptionsCard canEdit={permissions.manageTeamOptions} />}
           {permissions.manageTeamMembers && (
             <TeamMembersCard canEdit={permissions.manageTeamMembers} />

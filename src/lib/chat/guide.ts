@@ -11,7 +11,7 @@ The left sidebar is how you move around. What you see depends on your role:
 - Office Team: the team schedule (edit your own row), CRM, projects, and reports. You log only your own time. Settings is view-only.
 - Crew Team: the team schedule (view only) and your own time. CRM, projects, reports, and Settings are hidden.
 
-A chat button sits at the bottom left of the work area. Ask it how to do something, or ask about a process from the SOPs an admin uploaded in Settings.`;
+A chat button sits at the bottom right of the work area. Ask it how to do something, or ask about a process from the SOPs an admin uploaded in Settings. On any other question it reads the live records on every page this person can open.`;
 
 const PAGES: { prefix: string; guide: PageGuide }[] = [
   {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth/admin-api";
 import { chunkText } from "@/lib/chat/chunk";
-import { extractKnowledgeText, isSupportedKnowledgeFile } from "@/lib/chat/extract";
+import { extractKnowledgeText, isSupportedKnowledgeFile, knowledgeDocumentTitle } from "@/lib/chat/extract";
 import { embedPassages, toVectorLiteral } from "@/lib/chat/retrieve";
 
 export const runtime = "nodejs";
@@ -73,7 +73,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const title = file.name.replace(/\.[^.]+$/, "").trim() || "Untitled";
+  const requestedTitle = form.get("title");
+  const title = knowledgeDocumentTitle(
+    file.name,
+    typeof requestedTitle === "string" ? requestedTitle : undefined,
+  );
   const { data: document, error: insertError } = await auth.supabase
     .from("knowledge_documents")
     .insert({ title, status: "processing", created_by: auth.user.id })
