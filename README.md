@@ -53,7 +53,7 @@ For a custom domain, add the same patterns with your domain and set **Site URL**
 
 ### 4. Build
 
-The default **Build Command** is `next build` and **Install Command** is `npm install`. Node **20.9+** is declared in `package.json` `engines`.
+The default **Build Command** is `next build` and **Install Command** is `npm install`. Node **22+** is declared in `package.json` `engines`.
 
 Redeploy after changing environment variables.
 

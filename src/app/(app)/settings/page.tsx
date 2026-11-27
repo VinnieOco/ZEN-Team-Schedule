@@ -12,6 +12,7 @@ import { TeamAccessCard } from "@/components/settings/team-access-card";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
 import { CategoriesCard } from "@/components/settings/categories-card";
 import { HandoffChecklistsCard } from "@/components/settings/handoff-checklists-card";
+import { KnowledgeLibraryCard } from "@/components/settings/knowledge-library-card";
 import { LeadFollowUpTypesCard } from "@/components/settings/lead-follow-up-types-card";
 import { LeadSourcesCard } from "@/components/settings/lead-sources-card";
 import { LeadStagesCard } from "@/components/settings/lead-stages-card";
@@ -62,6 +63,12 @@ export default function SettingsPage() {
         </p>
         {showMemberBanner && <MemberAccessBanner linkedEmployeeId={linkedEmployeeId} />}
       </div>
+
+      {permissions.manageAppAccess && isSupabaseConfigured() && (
+        <SettingsSection title="Help">
+          <KnowledgeLibraryCard />
+        </SettingsSection>
+      )}
 
       {permissions.manageAppAccess && (
         <SettingsSection title="Access">

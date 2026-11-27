@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "next dev",
@@ -18,6 +18,8 @@
     "db:seed": "node scripts/db-setup.mjs --seed-only"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.125",
+    "@ai-sdk/react": "^4.0.188",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -34,16 +36,19 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
+    "ai": "^7.0.183",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.16.0",
+    "mammoth": "^1.13.0",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.75.0",
     "resend": "^6.39.0",
     "tailwind-merge": "^3.6.0",
+    "unpdf": "^2.2.3",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },

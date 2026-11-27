@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 
+import { ChatWidget } from "@/components/chat/chat-widget";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { ZenLogo } from "@/components/layout/zen-logo";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-x-hidden overflow-y-auto overscroll-x-none overscroll-y-contain">
           {children}
         </main>
+        <ChatWidget />
       </div>
     </div>
   );
