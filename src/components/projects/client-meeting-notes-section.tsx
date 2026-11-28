@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useScheduling } from "@/context/scheduling-context";
 import { isMeetingNotesFile } from "@/lib/chat/extract";
 import { usePermissions } from "@/hooks/use-permissions";
+import { createClient } from "@/lib/supabase/client";
 import type { Project } from "@/types";
 
 interface ClientMeetingNotesSectionProps {
@@ -24,6 +25,52 @@ interface MeetingDocument {
 }
 
 const FILE_ACCEPT = ".pdf,.doc,.docx";
+const MAX_BYTES = 25 * 1024 * 1024;
+
+function meetingNoteContentType(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (lower.endsWith(".doc")) return "application/msword";
+  return "application/octet-stream";
+}
+
+async function uploadMeetingNote(projectId: string, file: File): Promise<string | null> {
+  const preparedResponse = await fetch(`/api/projects/${projectId}/meeting-notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName: file.name, byteSize: file.size }),
+  });
+  const prepared = (await preparedResponse.json().catch(() => ({}))) as {
+    id?: string;
+    storagePath?: string;
+    error?: string;
+  };
+  if (!preparedResponse.ok || !prepared.id || !prepared.storagePath) {
+    return `${file.name}: ${prepared.error ?? "Could not upload."}`;
+  }
+
+  const stored = await createClient()
+    .storage.from("meeting-notes")
+    .upload(prepared.storagePath, file, {
+      contentType: meetingNoteContentType(file.name),
+      upsert: false,
+    });
+  if (stored.error) {
+    await fetch(`/api/projects/${projectId}/meeting-notes?file=${prepared.id}`, { method: "DELETE" });
+    const tooLarge = /size|exceeded|too large/i.test(stored.error.message);
+    return `${file.name}: ${tooLarge ? "Files need to be 25 MB or smaller." : stored.error.message}`;
+  }
+
+  const finished = await fetch(`/api/projects/${projectId}/meeting-notes?process=${prepared.id}`, {
+    method: "POST",
+  });
+  const body = (await finished.json().catch(() => ({}))) as { error?: string };
+  if (!finished.ok) return `${file.name}: ${body.error ?? "Could not upload."}`;
+  return null;
+}
 
 export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSectionProps) {
   const { updateProjectClientMeetingNotesUrl } = useScheduling();
@@ -75,15 +122,13 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
     const failures: string[] = [];
     for (let index = 0; index < supported.length; index += 1) {
       const file = supported[index];
+      if (file.size > MAX_BYTES) {
+        failures.push(`${file.name}: files need to be 25 MB or smaller.`);
+        continue;
+      }
       setProgress(`Uploading ${index + 1} of ${supported.length} — ${file.name}`);
-      const form = new FormData();
-      form.set("file", file);
-      const response = await fetch(`/api/projects/${project.id}/meeting-notes`, {
-        method: "POST",
-        body: form,
-      });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) failures.push(`${file.name}: ${body.error ?? "Could not upload."}`);
+      const failure = await uploadMeetingNote(project.id, file);
+      if (failure) failures.push(failure);
     }
     setProgress(null);
     await load();
@@ -115,8 +160,8 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
       <CardHeader>
         <CardTitle className="text-base">Client meeting notes</CardTitle>
         <CardDescription>
-          Upload the PDF or Word file from the client meeting. The chat can read it and answer
-          questions about this project.
+          Upload a PDF or Word file from the client meeting, up to 25 MB. The chat can read it and
+          answer questions about this project.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
