@@ -140,32 +140,8 @@ async function scheduleNote(
   return `${label} (${range}):\n${lines.join("\n")}`;
 }
 
-const PROJECT_COLUMNS = [
-  "id",
-  "project_name",
-  "client_name",
-  "project_number",
-  "status",
-  "phase",
-  "department",
-  "address",
-  "phone",
-  "email",
-  "scope_of_work",
-  "notes",
-  "client_meeting_notes_url",
-  "start_date",
-  "contract_date",
-  "target_completion_date",
-  "estimating_completion_date",
-  "budgeted_design_hours",
-  "estimated_construction_value",
-  "estimate_value",
-  "lead_employee_id",
-  "lead_estimator_id",
-  "active",
-  "is_change_order",
-].join(", ");
+const PROJECT_COLUMNS =
+  "id, project_name, client_name, project_number, status, phase, department, address, phone, email, scope_of_work, notes, client_meeting_notes_url, start_date, contract_date, target_completion_date, estimating_completion_date, budgeted_design_hours, estimated_construction_value, estimate_value, lead_employee_id, lead_estimator_id, active, is_change_order" as const;
 
 async function projectNote(supabase: Supabase, term: string | null): Promise<string> {
   let query = supabase.from("projects").select(PROJECT_COLUMNS).order("project_name").limit(term ? 8 : 20);
