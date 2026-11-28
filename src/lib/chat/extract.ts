@@ -15,6 +15,12 @@ export function knowledgeDocumentTitle(name: string, relativePath?: string): str
   return parts.join(" / ").slice(0, 180) || "Untitled";
 }
 
+/** PDF and Word files stored as a project's client meeting notes. */
+export function isMeetingNotesFile(file: { name: string; type: string }): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith(".pdf") || name.endsWith(".docx") || PDF.has(file.type) || DOCX.has(file.type);
+}
+
 export function isSupportedKnowledgeFile(file: { name: string; type: string }): boolean {
   const name = file.name.toLowerCase();
   if (name.endsWith(".pdf") || PDF.has(file.type)) return true;

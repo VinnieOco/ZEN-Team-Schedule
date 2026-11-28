@@ -34,17 +34,36 @@ export async function retrievePassages(supabase: Supabase, question: string): Pr
       model: embeddingModel(),
       value: question.slice(0, 4000),
     });
-    const { data, error } = await supabase.rpc("match_knowledge_chunks", {
-      query_embedding: toVectorLiteral(embedding),
-      match_count: 6,
-    });
-    if (error || !Array.isArray(data) || data.length === 0) return "";
+    const vector = toVectorLiteral(embedding);
+    const [documents, meetings] = await Promise.all([
+      supabase.rpc("match_knowledge_chunks", {
+        query_embedding: vector,
+        match_count: 6,
+      }),
+      supabase.rpc("match_project_meeting_chunks", {
+        query_embedding: vector,
+        match_count: 6,
+      }),
+    ]);
 
-    const blocks = data
-      .filter((row) => Number(row.similarity) >= 0.3 && typeof row.content === "string")
-      .map((row) => `Document: ${row.title}\n${row.content}`);
-    if (blocks.length === 0) return "";
-    return `Process documents:\n\n${blocks.join("\n\n")}`;
+    const sections: string[] = [];
+    if (!documents.error && Array.isArray(documents.data) && documents.data.length > 0) {
+      const blocks = documents.data
+        .filter((row) => Number(row.similarity) >= 0.3 && typeof row.content === "string")
+        .map((row) => `Document: ${row.title}\n${row.content}`);
+      if (blocks.length) sections.push(`Process documents:\n\n${blocks.join("\n\n")}`);
+    }
+    if (!meetings.error && Array.isArray(meetings.data) && meetings.data.length > 0) {
+      const blocks = meetings.data
+        .filter((row) => Number(row.similarity) >= 0.3 && typeof row.content === "string")
+        .map((row) => {
+          const project = typeof row.project_name === "string" ? row.project_name : "Project";
+          const title = typeof row.title === "string" ? row.title : "Meeting notes";
+          return `Document: ${project} — ${title}\n${row.content}`;
+        });
+      if (blocks.length) sections.push(`Client meeting notes:\n\n${blocks.join("\n\n")}`);
+    }
+    return sections.join("\n\n");
   } catch {
     return "";
   }

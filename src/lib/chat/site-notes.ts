@@ -196,10 +196,12 @@ async function projectNote(supabase: Supabase, term: string | null): Promise<str
   }
 
   const hourLines = await hourBudgetLines(supabase, data);
+  const meeting = await meetingNotesForProjects(supabase, data, Boolean(term));
   const blocks = data.map((project) =>
-    formatProjectRecord(project, names, Boolean(term), hourLines.get(project.id)),
+    formatProjectRecord(project, names, Boolean(term), hourLines.get(project.id), meeting.lines.get(project.id)),
   );
-  return `${term ? `Projects matching “${term}”` : "Active projects"}:\n${blocks.join("\n\n")}`;
+  const warning = meeting.warning ? `${meeting.warning}\n\n` : "";
+  return `${warning}${term ? `Projects matching “${term}”` : "Active projects"}:\n${blocks.join("\n\n")}`;
 }
 
 function formatProjectRecord(
@@ -231,6 +233,7 @@ function formatProjectRecord(
   names: Map<string, string>,
   detailed: boolean,
   hoursBudget?: string,
+  meetingNotes?: string,
 ): string {
   const header = [
     project.project_name,
@@ -267,11 +270,70 @@ function formatProjectRecord(
       ? `Scope: ${clipText(project.scope_of_work, detailed ? 700 : 220)}`
       : "",
     project.notes?.trim() ? `Notes: ${clipText(project.notes, detailed ? 700 : 220)}` : "",
-    project.client_meeting_notes_url?.trim()
-      ? `Client meeting notes: ${project.client_meeting_notes_url.trim()}`
-      : "",
+    meetingNotes ||
+      (project.client_meeting_notes_url?.trim()
+        ? `Client meeting notes link: ${project.client_meeting_notes_url.trim()}`
+        : "Client meeting notes: none on file"),
   ];
   return lines.filter(Boolean).join("\n");
+}
+
+async function meetingNotesForProjects(
+  supabase: Supabase,
+  projects: { id: string; client_meeting_notes_url?: string | null }[],
+  detailed: boolean,
+): Promise<{ lines: Map<string, string>; warning: string }> {
+  const ids = projects.map((project) => project.id);
+  if (!ids.length) return { lines: new Map(), warning: "" };
+
+  const { data, error } = await supabase
+    .from("project_meeting_documents")
+    .select("id, project_id, title, status")
+    .in("project_id", ids);
+  if (error) {
+    return { lines: new Map(), warning: `Client meeting notes could not be read (${error.message}).` };
+  }
+
+  const ready = (data ?? []).filter((document) => document.status === "ready");
+  const excerpts = new Map<string, string>();
+  if (detailed && ready.length) {
+    const { data: chunks } = await supabase
+      .from("project_meeting_chunks")
+      .select("document_id, content, ordinal")
+      .in(
+        "document_id",
+        ready.map((document) => document.id),
+      )
+      .order("ordinal")
+      .limit(80);
+    const byDocument = groupBy(chunks ?? [], (chunk) => chunk.document_id);
+    for (const document of ready) {
+      const text = (byDocument.get(document.id) ?? [])
+        .slice()
+        .sort((left, right) => left.ordinal - right.ordinal)
+        .map((chunk) => chunk.content)
+        .join("\n\n");
+      if (!text.trim()) continue;
+      const piece = `${document.title}:\n${clipText(text, 1600)}`;
+      const current = excerpts.get(document.project_id);
+      excerpts.set(document.project_id, current ? `${current}\n\n${piece}` : piece);
+    }
+  }
+
+  const lines = new Map<string, string>();
+  for (const project of projects) {
+    const titles = (data ?? [])
+      .filter((document) => document.project_id === project.id && document.status === "ready")
+      .map((document) => document.title);
+    const failed = (data ?? []).some(
+      (document) => document.project_id === project.id && document.status === "failed",
+    );
+    const excerpt = excerpts.get(project.id);
+    if (excerpt) lines.set(project.id, `Client meeting notes:\n${excerpt}`);
+    else if (titles.length) lines.set(project.id, `Client meeting notes: ${titles.join(", ")}`);
+    else if (failed) lines.set(project.id, "Client meeting notes: a file was uploaded but could not be read.");
+  }
+  return { lines, warning: "" };
 }
 
 async function timeNote(

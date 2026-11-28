@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { getPermissions } from "@/lib/auth/permissions";
+import { parseAppRole } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 
@@ -49,6 +51,31 @@ export async function requireManagerOrAdmin() {
   }
 
   return { supabase, user, profile };
+}
+
+/** Signed-in office user who can open Projects. Crew Team is refused. */
+export async function requireProjectAccess() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: NextResponse.json({ error: "Not signed in" }, { status: 401 }) };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("app_role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const permissions = getPermissions(parseAppRole(profile?.app_role));
+  if (!permissions.viewProjects) {
+    return { error: NextResponse.json({ error: "Project access required" }, { status: 403 }) };
+  }
+
+  return { supabase, user, canEdit: permissions.editProjects };
 }
 
 export function requireServiceRole() {

@@ -32,7 +32,7 @@ const PAGES: { prefix: string; guide: PageGuide }[] = [
     prefix: "/projects",
     guide: {
       title: "Projects",
-      body: "Projects holds each job: client, status, phase, lead designer, estimator, dates, notes, contracts, change orders, and handoff checklists. Open a project to see its detail. Office Team can view and edit but cannot delete a project. Crew Team does not see Projects.",
+      body: "Projects holds each job: client, status, phase, lead designer, estimator, dates, notes, contracts, change orders, and handoff checklists. Open a project to upload client meeting notes as a PDF or Word file. The chat can read those files. Office Team can view and edit but cannot delete a project. Crew Team does not see Projects.",
     },
   },
   {
