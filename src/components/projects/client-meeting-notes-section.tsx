@@ -23,7 +23,7 @@ interface MeetingDocument {
   created_at: string;
 }
 
-const FILE_ACCEPT = ".pdf,.docx";
+const FILE_ACCEPT = ".pdf,.doc,.docx";
 
 export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSectionProps) {
   const { updateProjectClientMeetingNotesUrl } = useScheduling();
@@ -67,7 +67,7 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
     }
     const supported = files.filter((file) => isMeetingNotesFile(file));
     if (supported.length === 0) {
-      setError("Upload a PDF or Word (.docx) file.");
+      setError("Upload a PDF or Word file (.doc or .docx).");
       return;
     }
 

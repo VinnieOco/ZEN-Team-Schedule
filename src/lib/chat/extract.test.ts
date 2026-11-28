@@ -20,7 +20,7 @@ describe("isMeetingNotesFile", () => {
   it("accepts pdf and word documents", () => {
     expect(isMeetingNotesFile({ name: "Kickoff.pdf", type: "" })).toBe(true);
     expect(isMeetingNotesFile({ name: "Site visit.docx", type: "" })).toBe(true);
+    expect(isMeetingNotesFile({ name: "scan.doc", type: "" })).toBe(true);
     expect(isMeetingNotesFile({ name: "notes.txt", type: "text/plain" })).toBe(false);
-    expect(isMeetingNotesFile({ name: "scan.doc", type: "" })).toBe(false);
   });
 });

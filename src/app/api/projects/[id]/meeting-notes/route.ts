@@ -17,6 +17,7 @@ function contentType(name: string): string {
   if (lower.endsWith(".docx")) {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   }
+  if (lower.endsWith(".doc")) return "application/msword";
   return "application/octet-stream";
 }
 
@@ -107,14 +108,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: "Files need to be 8 MB or smaller." }, { status: 400 });
   }
-  if (file.name.toLowerCase().endsWith(".doc")) {
-    return NextResponse.json(
-      { error: "Save that Word file as .docx, then upload it again." },
-      { status: 400 },
-    );
-  }
   if (!isMeetingNotesFile({ name: file.name, type: file.type })) {
-    return NextResponse.json({ error: "Upload a PDF or Word (.docx) file." }, { status: 400 });
+    return NextResponse.json({ error: "Upload a PDF or Word file (.doc or .docx)." }, { status: 400 });
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -122,18 +117,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     text = (await extractKnowledgeText({ name: file.name, type: file.type, bytes })).trim();
   } catch {
-    const word = file.name.toLowerCase().endsWith(".docx");
+    const word = file.name.toLowerCase().endsWith(".doc");
     return NextResponse.json(
       {
         error: word
-          ? "That Word file could not be read. Save it as .docx with the notes typed in the document, then try again."
+          ? "That Word file could not be read. It needs to be a .doc or .docx with the notes typed in the document."
           : "That file could not be read. Scanned PDFs need real text, not just a picture of the page.",
       },
       { status: 400 },
     );
   }
   if (text.length < 20) {
-    const word = file.name.toLowerCase().endsWith(".docx");
+    const word = file.name.toLowerCase().endsWith(".doc");
     return NextResponse.json(
       {
         error: word

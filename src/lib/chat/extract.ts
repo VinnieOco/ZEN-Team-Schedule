@@ -2,7 +2,13 @@ const PDF = new Set(["application/pdf"]);
 const DOCX = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
+const DOC = new Set(["application/msword"]);
 const TEXT = new Set(["text/plain", "text/markdown"]);
+
+function isLegacyWordName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith(".doc") && !lower.endsWith(".docx");
+}
 
 /** Title stored for a file, keeping folder names when a directory was uploaded. */
 export function knowledgeDocumentTitle(name: string, relativePath?: string): string {
@@ -15,10 +21,13 @@ export function knowledgeDocumentTitle(name: string, relativePath?: string): str
   return parts.join(" / ").slice(0, 180) || "Untitled";
 }
 
-/** PDF and Word files stored as a project's client meeting notes. */
+/** PDF and Word files (.doc and .docx) stored as a project's client meeting notes. */
 export function isMeetingNotesFile(file: { name: string; type: string }): boolean {
   const name = file.name.toLowerCase();
-  return name.endsWith(".pdf") || name.endsWith(".docx") || PDF.has(file.type) || DOCX.has(file.type);
+  if (name.endsWith(".pdf") || PDF.has(file.type)) return true;
+  if (name.endsWith(".docx") || DOCX.has(file.type)) return true;
+  if (isLegacyWordName(name) || DOC.has(file.type)) return true;
+  return false;
 }
 
 export function isSupportedKnowledgeFile(file: { name: string; type: string }): boolean {
@@ -45,6 +54,15 @@ export async function extractKnowledgeText(file: {
     const mammoth = await import("mammoth");
     const result = await mammoth.extractRawText({ buffer: Buffer.from(file.bytes) });
     return result.value;
+  }
+  if (isLegacyWordName(name) || DOC.has(file.type)) {
+    const imported = (await import("word-extractor")) as {
+      default?: new () => { extract: (source: Buffer) => Promise<{ getBody: () => string }> };
+    };
+    const WordExtractor = imported.default;
+    if (!WordExtractor) throw new Error("Could not read this Word file.");
+    const document = await new WordExtractor().extract(Buffer.from(file.bytes));
+    return document.getBody();
   }
   return new TextDecoder("utf-8", { fatal: false }).decode(file.bytes);
 }
