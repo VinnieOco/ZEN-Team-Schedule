@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ interface MeetingDocument {
   created_at: string;
 }
 
-const FILE_ACCEPT = ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const FILE_ACCEPT = ".pdf,.docx";
 
 export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSectionProps) {
   const { updateProjectClientMeetingNotesUrl } = useScheduling();
@@ -31,6 +31,7 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
   const canEdit = permissions.editProjects;
   const savedUrl = project.client_meeting_notes_url?.trim() || "";
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [documents, setDocuments] = useState<MeetingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +60,11 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const uploadMany = async (fileList: FileList | null) => {
-    const files = fileList ? Array.from(fileList) : [];
-    if (files.length === 0) return;
+  const uploadMany = async (files: File[]) => {
+    if (files.length === 0) {
+      setError("That file did not come through. Choose the PDF or Word file again.");
+      return;
+    }
     const supported = files.filter((file) => isMeetingNotesFile(file));
     if (supported.length === 0) {
       setError("Upload a PDF or Word (.docx) file.");
@@ -117,26 +120,32 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {error ? <p className="text-xs text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {progress ? <p className="text-sm text-slate-600">{progress}</p> : null}
         {canEdit ? (
-          <label className="inline-flex max-w-full cursor-pointer items-center">
+          <>
+            <Button
+              type="button"
+              size="sm"
+              disabled={progress !== null}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {progress ? "Uploading…" : "Upload files"}
+            </Button>
             <input
+              ref={fileInputRef}
               type="file"
               multiple
               accept={FILE_ACCEPT}
               className="hidden"
               disabled={progress !== null}
               onChange={(event) => {
-                const chosen = event.target.files;
+                const chosen = Array.from(event.target.files ?? []);
                 event.target.value = "";
                 void uploadMany(chosen);
               }}
             />
-            <span className="inline-flex h-9 items-center rounded-lg border border-primary bg-primary px-4 text-sm font-medium text-primary-foreground hover:border-emerald-700 hover:bg-emerald-700">
-              {progress ? "Uploading…" : "Upload files"}
-            </span>
-          </label>
+          </>
         ) : null}
 
         {loading ? (
