@@ -120,12 +120,12 @@ export function ClientMeetingNotesSection({ project }: ClientMeetingNotesSection
         {error ? <p className="text-xs text-red-600">{error}</p> : null}
         {progress ? <p className="text-sm text-slate-600">{progress}</p> : null}
         {canEdit ? (
-          <label className="inline-flex cursor-pointer items-center">
+          <label className="inline-flex max-w-full cursor-pointer items-center">
             <input
               type="file"
               multiple
               accept={FILE_ACCEPT}
-              className="sr-only"
+              className="hidden"
               disabled={progress !== null}
               onChange={(event) => {
                 const chosen = event.target.files;

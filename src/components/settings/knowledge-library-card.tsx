@@ -134,12 +134,12 @@ export function KnowledgeLibraryCard() {
         {notice && <p className="text-sm text-slate-600">{notice}</p>}
         {progress && <p className="text-sm text-slate-600">{progress}</p>}
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex cursor-pointer items-center">
+          <label className="inline-flex max-w-full cursor-pointer items-center">
             <input
               type="file"
               multiple
               accept={FILE_ACCEPT}
-              className="sr-only"
+              className="hidden"
               disabled={progress !== null}
               onChange={(event) => {
                 const chosen = event.target.files;
@@ -151,11 +151,11 @@ export function KnowledgeLibraryCard() {
               {progress ? "Uploading…" : "Upload files"}
             </span>
           </label>
-          <label className="inline-flex cursor-pointer items-center">
+          <label className="inline-flex max-w-full cursor-pointer items-center">
             <input
               type="file"
               multiple
-              className="sr-only"
+              className="hidden"
               disabled={progress !== null}
               ref={(node) => {
                 node?.setAttribute("webkitdirectory", "");
