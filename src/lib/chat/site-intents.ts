@@ -123,6 +123,17 @@ const STOP = new Set([
   "pipeline",
   "contact",
   "contacts",
+  "address",
+  "phone",
+  "email",
+  "number",
+  "numbers",
+  "details",
+  "detail",
+  "information",
+  "street",
+  "scope",
+  "location",
   "notes",
   "note",
   "handoff",
@@ -178,6 +189,60 @@ export function searchTerm(question: string): string | null {
   return words[0] ?? null;
 }
 
+export interface ProjectChoiceRow {
+  project_name: string;
+  client_name: string;
+}
+
+/** The person asked for every project, so a client with several jobs should be listed. */
+export function asksForEveryProject(question: string): boolean {
+  return /\b(all|every|each|both|list|how many|which projects|projects)\b/i.test(question);
+}
+
+/**
+ * When a client name matches several projects and the question does not name one,
+ * ask which project. When the question already names one, search that project.
+ */
+export function projectChoice(
+  question: string,
+  term: string | null,
+  projects: ProjectChoiceRow[],
+): { action: "ask"; client: string; names: string[] } | { action: "focus"; term: string } | null {
+  if (!term || asksForEveryProject(question)) return null;
+  const needle = term.toLowerCase();
+  const byClient = projects.filter((project) => project.client_name.toLowerCase().includes(needle));
+  if (byClient.length < 2) return null;
+
+  const questionText = question.toLowerCase();
+  const named = byClient.filter((project) => {
+    const name = project.project_name.toLowerCase().trim();
+    return name.length >= 4 && questionText.includes(name);
+  });
+  if (named.length === 1) {
+    return { action: "focus", term: focusSearchTerm(named[0].project_name, needle) };
+  }
+  if (named.length > 1) return null;
+
+  const names = [...new Set(byClient.map((project) => project.project_name.trim()).filter(Boolean))];
+  if (names.length < 2) return null;
+  const clients = [...new Set(byClient.map((project) => project.client_name.trim()))];
+  return {
+    action: "ask",
+    client: clients.length === 1 ? clients[0] : clients.join(", "),
+    names: clients.length === 1 ? names : byClient.map((project) => `${project.project_name} (${project.client_name})`),
+  };
+}
+
+function focusSearchTerm(projectName: string, clientTerm: string): string {
+  const words = projectName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 4 && word !== clientTerm);
+  words.sort((a, b) => b.length - a.length);
+  return words[0] ?? clientTerm;
+}
+
 /** 0 is the current work week. 1 is next week. */
 export function scheduleWeekOffsets(question: string): number[] {
   const next = /\bnext week\b/i.test(question);
@@ -191,6 +256,12 @@ export interface TimeWindow {
   start: Date;
   end: Date;
   label: string;
+  /** False means every logged entry, with no date cutoff. */
+  bounded: boolean;
+}
+
+function allTime(today: Date): TimeWindow {
+  return { start: new Date(2000, 0, 1), end: today, label: "all time", bounded: false };
 }
 
 export function timeWindow(question: string, today: Date): TimeWindow {
@@ -198,10 +269,10 @@ export function timeWindow(question: string, today: Date): TimeWindow {
   const days = lower.match(/\blast\s+(\d{1,3})\s+days?\b/);
   if (days) {
     const count = Math.min(366, Math.max(1, Number(days[1])));
-    return { start: addDays(today, -count), end: today, label: `the last ${count} days` };
+    return { start: addDays(today, -count), end: today, label: `the last ${count} days`, bounded: true };
   }
   if (/\bthis month\b/.test(lower)) {
-    return { start: startOfMonth(today), end: endOfMonth(today), label: format(today, "MMMM yyyy") };
+    return { start: startOfMonth(today), end: endOfMonth(today), label: format(today, "MMMM yyyy"), bounded: true };
   }
   if (/\blast month\b/.test(lower)) {
     const previous = subMonths(today, 1);
@@ -209,22 +280,20 @@ export function timeWindow(question: string, today: Date): TimeWindow {
       start: startOfMonth(previous),
       end: endOfMonth(previous),
       label: format(previous, "MMMM yyyy"),
+      bounded: true,
     };
   }
   if (/\bthis year\b/.test(lower)) {
-    return { start: startOfYear(today), end: today, label: String(today.getFullYear()) };
+    return { start: startOfYear(today), end: today, label: String(today.getFullYear()), bounded: true };
   }
   const month = MONTHS.findIndex((name) => new RegExp(`\\b${name}\\b`).test(lower));
   if (month >= 0) {
     const yearMatch = lower.match(/\b(20\d{2})\b/);
     const year = yearMatch ? Number(yearMatch[1]) : today.getFullYear();
     const start = new Date(year, month, 1);
-    return { start, end: endOfMonth(start), label: format(start, "MMMM yyyy") };
+    return { start, end: endOfMonth(start), label: format(start, "MMMM yyyy"), bounded: true };
   }
-  if (/\b(older|history|historical|previous timesheets?|past timesheets?)\b/.test(lower)) {
-    return { start: addDays(today, -90), end: today, label: "the last 90 days" };
-  }
-  return { start: addDays(today, -7), end: today, label: "the last 7 days" };
+  return allTime(today);
 }
 
 export function reportUsesMonth(question: string): boolean {
@@ -246,4 +315,30 @@ export function money(value: number | null | undefined): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(Number(value));
+}
+
+function roundHours(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function hourText(value: number): string {
+  const rounded = roundHours(value);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+/** Budgeted design hours against hours logged on timesheets. */
+export function describeHoursBudget(budgeted: number, actual: number): string {
+  const budget = roundHours(budgeted);
+  const used = roundHours(actual);
+  if (budget <= 0) {
+    return used > 0 ? `no hour budget, ${hourText(used)}h logged` : "no hour budget, 0h logged";
+  }
+  const remaining = roundHours(budget - used);
+  if (remaining < 0) {
+    return `${hourText(budget)}h budget, ${hourText(used)}h logged, ${hourText(Math.abs(remaining))}h over budget`;
+  }
+  if (remaining === 0) {
+    return `${hourText(budget)}h budget, ${hourText(used)}h logged, on budget`;
+  }
+  return `${hourText(budget)}h budget, ${hourText(used)}h logged, ${hourText(remaining)}h remaining, under budget`;
 }
